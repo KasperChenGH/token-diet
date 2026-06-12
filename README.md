@@ -2,19 +2,22 @@
 
 > Optimize the architecture before the artifacts.
 
-The full token-reduction workflow for agentic / multi-agent systems: **measure → diagnose → plan → act → verify**. Two parts:
+**An agent that puts your agents on a diet.** Install it, type `/token-diet`, and it measures your real token spend, diagnoses the structural waste, presents a reduction plan, executes the approved items, and verifies the result. Three layers:
 
-- **A CLI** that measures real Claude Code transcript usage, quantifies always-loaded overhead, generates an actionable reduction plan, and verifies the improvement — all deterministically: no LLM, no estimates, no vibes
-- **A skill** that teaches the agent the architecture-first restructuring methodology (measured ~85% per-round reduction on the originating project)
+- **An agent** (`/token-diet`) that drives the whole workflow on your project — with a hard approval gate before it touches any file
+- **A CLI** that does everything deterministic: transcript measurement, overhead quantification, plan generation, before/after verification — no LLM, no estimates, no vibes
+- **A skill** carrying the architecture-first methodology (measured ~85% per-round reduction on the originating project)
 
-The tool eats its own dogfood: *scripts compute, LLM judges* — measurement, diagnosis, and planning are code; the model only executes the plan's judgment calls.
+The product eats its own dogfood: *scripts compute, LLM judges* — the agent never estimates what the CLI can measure, and never recomputes what the plan already concluded.
 
 ## Install
 
 ```bash
 npm install -g github:KasperChenGH/token-diet
-token-diet init --global     # installs the companion skill into ~/.claude/skills/
+token-diet init --global     # deploys agent + command + skill into ~/.claude/
 ```
+
+Then in any project: **`/token-diet`** — or just tell Claude "put this project on a token diet."
 
 ## The workflow
 
