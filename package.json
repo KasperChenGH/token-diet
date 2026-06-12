@@ -1,0 +1,18 @@
+{
+  "name": "token-diet",
+  "version": "0.1.0",
+  "description": "Zero-dependency CLI for auditing Claude Code token usage from JSONL transcripts",
+  "bin": {
+    "token-diet": "./bin/token-diet.js"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/KasperChenGH/token-diet.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["claude", "tokens", "audit", "llm", "cost"],
+  "main": "./src/audit.js"
+}
