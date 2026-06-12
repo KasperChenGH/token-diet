@@ -1,7 +1,7 @@
 {
   "name": "token-diet",
-  "version": "0.1.0",
-  "description": "Zero-dependency CLI for auditing Claude Code token usage from JSONL transcripts",
+  "version": "0.2.0",
+  "description": "Measure, plan, and verify token-usage reduction for agentic workflows",
   "bin": {
     "token-diet": "./bin/token-diet.js"
   },
@@ -13,6 +13,6 @@
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["claude", "tokens", "audit", "llm", "cost"],
+  "keywords": ["claude", "tokens", "audit", "llm", "cost", "optimization"],
   "main": "./src/audit.js"
 }

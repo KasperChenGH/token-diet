@@ -2,37 +2,40 @@
 
 > Optimize the architecture before the artifacts.
 
-Measure, diagnose, and cut token waste in agentic / multi-agent workflows. Two parts:
+The full token-reduction workflow for agentic / multi-agent systems: **measure → diagnose → plan → act → verify**. Two parts:
 
-- **A CLI** that audits real Claude Code transcript usage and flags structural waste deterministically — no LLM, no estimates, no vibes
+- **A CLI** that measures real Claude Code transcript usage, quantifies always-loaded overhead, generates an actionable reduction plan, and verifies the improvement — all deterministically: no LLM, no estimates, no vibes
 - **A skill** that teaches the agent the architecture-first restructuring methodology (measured ~85% per-round reduction on the originating project)
 
-The tool eats its own dogfood: *scripts compute, LLM judges* — measurement and red-flag detection are code; only the restructuring judgment goes to the model.
+The tool eats its own dogfood: *scripts compute, LLM judges* — measurement, diagnosis, and planning are code; the model only executes the plan's judgment calls.
 
 ## Install
 
 ```bash
-# CLI (no registry needed):
 npm install -g github:KasperChenGH/token-diet
-
-# Companion skill for Claude Code:
-git clone https://github.com/KasperChenGH/token-diet ~/.claude/skills/token-diet
+token-diet init --global     # installs the companion skill into ~/.claude/skills/
 ```
 
-## CLI usage
+## The workflow
 
 ```bash
-token-diet audit                  # usage by session-kind × model: fresh-in / cache-write / cache-read / output
-token-diet audit --days 7 --project myapp --json
+# MEASURE — where do tokens actually go?
+token-diet audit   [--days 7] [--project myapp]   # usage by session-kind × model + heaviest sessions
+token-diet agents                                  # useful-work ratio per agent; flags READING NOT THINKING
 
-token-diet agents                 # per-session/agent useful-work ratio; flags "READING NOT THINKING" (< 0.15)
+# DIAGNOSE — what structural waste exists?
+token-diet diagnose                                # red flags mapped to levers (hot files, low-ratio agents,
+                                                   # turny sessions, idle babysitting, model mix)
+token-diet overhead [--dir .]                      # static always-loaded burden: CLAUDE.md, commands, skills —
+                                                   # what EVERY spawn pays, at N=1/5/10 agents
 
-token-diet diagnose               # red-flag findings mapped to the skill's levers:
-                                  #   HOT FILES        -> Lever 5 (knowledge tiers)
-                                  #   LOW-RATIO AGENTS -> Lever 1/7 (agent census / arbitrage)
-                                  #   TURNY SESSIONS   -> batching (reads = context x turns)
-                                  #   IDLE BABYSITTING -> Lever 3 (evict compute)
-                                  #   MODEL MIX        -> Lever 7 (arbitrage)
+# ACT — turn findings into work
+token-diet plan --out diet-plan.md                 # ordered checkbox plan per lever with evidence + est. savings;
+                                                   # hand it to your agent: "execute diet-plan.md"
+token-diet init [--global]                         # install the methodology skill the agent uses to execute it
+
+# VERIFY — did it work?
+token-diet compare --before-days 14 --after-days 7 # per-day deltas across windows; the re-measure bookend
 ```
 
 Sample (real project, 3 days):
