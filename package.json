@@ -1,7 +1,7 @@
 {
   "name": "token-diet",
-  "version": "0.2.0",
-  "description": "Measure, plan, and verify token-usage reduction for agentic workflows",
+  "version": "0.3.0",
+  "description": "Token-reduction agent for Claude Code workflows: measures, diagnoses, plans, executes, verifies",
   "bin": {
     "token-diet": "./bin/token-diet.js"
   },
@@ -13,6 +13,6 @@
   "engines": {
     "node": ">=18"
   },
-  "keywords": ["claude", "tokens", "audit", "llm", "cost", "optimization"],
+  "keywords": ["claude", "tokens", "audit", "llm", "cost", "optimization", "agent"],
   "main": "./src/audit.js"
 }

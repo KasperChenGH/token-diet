@@ -1,13 +1,15 @@
 'use strict';
 /**
- * init.js — make token-diet self-deploying as a Claude Code skill
+ * init.js — make token-diet self-deploying as a Claude Code skill, agent, and command
  *
- * Copies the package's own SKILL.md into:
- *   <cwd>/.claude/skills/token-diet/SKILL.md  (default, project-local)
- *   ~/.claude/skills/token-diet/SKILL.md       (--global)
+ * Installs three artifacts into ~/.claude/ (--global) or <cwd>/.claude/ (default):
  *
- * Source: the SKILL.md adjacent to this package (__dirname/../SKILL.md)
- * Idempotent — re-running is safe; prints what was written.
+ *   SKILL.md          → {base}/skills/token-diet/SKILL.md
+ *   agents/token-diet.md  → {base}/agents/token-diet.md
+ *   commands/token-diet.md → {base}/commands/token-diet.md
+ *
+ * Source files: package root (__dirname/..)
+ * Idempotent — re-running is safe; prints what was written / already up to date.
  *
  * Usage:
  *   token-diet init [--global]
@@ -18,55 +20,92 @@ const path = require('path');
 const os   = require('os');
 
 async function runInit(opts = {}) {
-  // Source: SKILL.md in the package root (one level up from src/)
-  const srcPath = path.join(__dirname, '..', 'SKILL.md');
+  const pkgRoot = path.join(__dirname, '..');
 
-  if (!fs.existsSync(srcPath)) {
-    console.error(`Source SKILL.md not found at: ${srcPath}`);
-    process.exit(1);
-  }
+  // ── Define the three artifacts ──────────────────────────────────────────────
+  // Each entry: { src: relative-to-pkgRoot, destRelative: relative-to-base }
+  const artifacts = [
+    {
+      src:         path.join(pkgRoot, 'SKILL.md'),
+      destRelative: path.join('skills', 'token-diet', 'SKILL.md'),
+      label:       'skill (SKILL.md)',
+    },
+    {
+      src:         path.join(pkgRoot, 'agents', 'token-diet.md'),
+      destRelative: path.join('agents', 'token-diet.md'),
+      label:       'agent (agents/token-diet.md)',
+    },
+    {
+      src:         path.join(pkgRoot, 'commands', 'token-diet.md'),
+      destRelative: path.join('commands', 'token-diet.md'),
+      label:       'command (commands/token-diet.md)',
+    },
+  ];
 
-  // Destination
-  const destBase = opts.global
-    ? path.join(os.homedir(), '.claude', 'skills', 'token-diet')
-    : path.join(process.cwd(), '.claude', 'skills', 'token-diet');
-  const destPath = path.join(destBase, 'SKILL.md');
+  // ── Resolve install base ─────────────────────────────────────────────────────
+  const base = opts.global
+    ? path.join(os.homedir(), '.claude')
+    : path.join(process.cwd(), '.claude');
 
-  // Idempotent: check if already up to date
-  let alreadyCurrent = false;
-  if (fs.existsSync(destPath)) {
+  const scope = opts.global ? 'global (~/.claude/)' : 'project (.claude/)';
+  console.log(`\ntoken-diet init — installing to ${scope}\n`);
+
+  let anyWritten = false;
+
+  for (const artifact of artifacts) {
+    // Source must exist
+    if (!fs.existsSync(artifact.src)) {
+      console.error(`  [ERROR] Source not found: ${artifact.src}`);
+      process.exit(1);
+    }
+
+    const destPath = path.join(base, artifact.destRelative);
+    const destDir  = path.dirname(destPath);
+
+    // Idempotent: check if already up to date
+    if (fs.existsSync(destPath)) {
+      try {
+        const srcContent  = fs.readFileSync(artifact.src,  'utf8');
+        const destContent = fs.readFileSync(destPath, 'utf8');
+        if (srcContent === destContent) {
+          console.log(`  [up to date] ${artifact.label}`);
+          console.log(`               ${destPath}`);
+          continue;
+        }
+      } catch { /* proceed with copy */ }
+    }
+
+    // Ensure destination directory exists
     try {
-      const src  = fs.readFileSync(srcPath,  'utf8');
-      const dest = fs.readFileSync(destPath, 'utf8');
-      if (src === dest) alreadyCurrent = true;
-    } catch { /* proceed with copy */ }
+      fs.mkdirSync(destDir, { recursive: true });
+    } catch (e) {
+      console.error(`  [ERROR] Could not create directory ${destDir}: ${e.message}`);
+      process.exit(1);
+    }
+
+    // Copy
+    try {
+      fs.copyFileSync(artifact.src, destPath);
+    } catch (e) {
+      console.error(`  [ERROR] Could not copy ${artifact.label} to ${destPath}: ${e.message}`);
+      process.exit(1);
+    }
+
+    console.log(`  [installed] ${artifact.label}`);
+    console.log(`              ${destPath}`);
+    anyWritten = true;
   }
 
-  if (alreadyCurrent) {
-    console.log(`\ntoken-diet SKILL.md is already up to date at:\n  ${destPath}\n`);
-    return;
+  console.log('');
+  if (anyWritten) {
+    console.log('Reload Claude Code to activate the skill, agent, and command.');
+    console.log('  Skill will appear in available-skills as "token-diet".');
+    console.log('  Agent will be usable as agent type "token-diet".');
+    console.log('  Command will be available as /token-diet.');
+  } else {
+    console.log('All token-diet artifacts are already up to date.');
   }
-
-  // Ensure destination directory exists
-  try {
-    fs.mkdirSync(destBase, { recursive: true });
-  } catch (e) {
-    console.error(`Could not create directory ${destBase}: ${e.message}`);
-    process.exit(1);
-  }
-
-  // Copy
-  try {
-    fs.copyFileSync(srcPath, destPath);
-  } catch (e) {
-    console.error(`Could not copy SKILL.md to ${destPath}: ${e.message}`);
-    process.exit(1);
-  }
-
-  const scope = opts.global ? 'global (~/.claude/skills/)' : 'project (.claude/skills/)';
-  console.log(`\ntoken-diet skill installed (${scope}):\n  ${destPath}\n`);
-  console.log('Reload Claude Code to activate the skill.');
-  console.log('The skill will appear in the available-skills list as "token-diet".\n');
+  console.log('');
 }
 
 module.exports = { runInit };
