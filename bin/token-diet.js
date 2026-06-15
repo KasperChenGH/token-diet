@@ -27,6 +27,7 @@ const { runPlan }     = require('../src/plan');
 const { runCompare }  = require('../src/compare');
 const { runInit }     = require('../src/init');
 const { runReview }   = require('../src/review');
+const { runEstimate } = require('../src/estimate');
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -40,6 +41,9 @@ function parseArgs(argv) {
     beforeDays: null,
     afterDays:  null,
     global:     false,
+    spawns:     null,
+    turns:      null,
+    toolout:    null,
   };
   const positional = [];
 
@@ -69,6 +73,18 @@ function parseArgs(argv) {
       opts.afterDays = parseInt(args[++i], 10);
     } else if (a.startsWith('--after-days=')) {
       opts.afterDays = parseInt(a.split('=')[1], 10);
+    } else if (a === '--spawns') {
+      opts.spawns = parseInt(args[++i], 10);
+    } else if (a.startsWith('--spawns=')) {
+      opts.spawns = parseInt(a.split('=')[1], 10);
+    } else if (a === '--turns') {
+      opts.turns = parseInt(args[++i], 10);
+    } else if (a.startsWith('--turns=')) {
+      opts.turns = parseInt(a.split('=')[1], 10);
+    } else if (a === '--toolout') {
+      opts.toolout = args[++i];
+    } else if (a.startsWith('--toolout=')) {
+      opts.toolout = a.split('=')[1];
     } else if (a === '--json') {
       opts.json = true;
     } else if (a === '--global') {
@@ -91,6 +107,9 @@ REVIEW (static, no history)
               Reads CLAUDE.md, commands, agents, skills, settings, knowledge/ dirs.
               Emits per-lever scorecard + findings + overall grade (A-F).
               No transcript history needed — run before your first session.
+  estimate    Forward token projection (no history): per-run bill (write/read/output,
+              raw + price-weighted), post-fix re-projection, per-lever savings ranking.
+              Inputs derived from structure; override with --spawns/--turns/--toolout.
 
 MEASURE
   audit       Token breakdown by session-kind × model-family + top sessions
@@ -117,7 +136,10 @@ OPTIONS
   --days N          Only include lines timestamped in the last N days (default varies by subcommand)
   --project <s>     Filter to project dirs whose name contains <s> (substring match)
   --json            Emit JSON instead of human-readable tables
-  --dir <path>      Directory to scan for overhead/review (default: cwd)
+  --dir <path>      Directory to scan for overhead/review/estimate (default: cwd)
+  --spawns N        estimate: assumed subagent spawns per run (default: derived)
+  --turns N         estimate: assumed turns per agent (default: derived)
+  --toolout W       estimate: tool-output weight low|med|high (default: derived)
   --out <file>      Output file for plan (default: diet-plan.md)
   --before-days A   Compare: start of "before" window (days ago)
   --after-days B    Compare: boundary between before/after (days ago); "after" = last B days
@@ -178,6 +200,9 @@ async function main() {
       break;
     case 'review':
       await runReview(opts);
+      break;
+    case 'estimate':
+      await runEstimate(opts);
       break;
     default:
       console.error(`Unknown subcommand: ${subcommand}`);
