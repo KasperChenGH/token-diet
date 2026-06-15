@@ -24,6 +24,17 @@ function padL(s, w) { return String(s).padEnd(w); }
 function padR(s, w) { return String(s).padStart(w); }
 function hline(ws) { return ws.map(w => '-'.repeat(w)).join('-+-'); }
 
+function resendProjection(amplified, cacheRead) {
+  const multiplier = cacheRead > 0 ? amplified / cacheRead : 0;
+  const absolute = Math.round(amplified);
+  return {
+    multiplier: +multiplier.toFixed(1),
+    absolute,
+    cacheRead,
+    label: `≈${multiplier.toFixed(1)}× re-send projection (+${absolute.toLocaleString('en-US')} tokens vs cache_read baseline)`,
+  };
+}
+
 // ── Lever 8 helper ────────────────────────────────────────────────────────────
 // Derive a human-readable source key from a tool_use record.
 //   Bash   → first token of input.command (the program name, path-stripped)
@@ -223,9 +234,7 @@ async function runDiagnose(opts = {}) {
       lever8_tool_output: {
         total_amplified_tokens:      Math.round(totalAmpli),
         total_cache_read_tokens:     totalCacheRead,
-        amplified_pct_of_cache_read: totalCacheRead > 0
-          ? +(totalAmpli / totalCacheRead * 100).toFixed(1)
-          : 0,
+        resend_multiplier:           resendProjection(totalAmpli, totalCacheRead).multiplier,
         top_sources: lever8Rows.map(([key, b]) => ({
           source_key:       key,
           occurrences:      b.count,
@@ -357,10 +366,7 @@ async function runDiagnose(opts = {}) {
     }
     console.log('');
 
-    const ampliPct = totalCacheRead > 0
-      ? (totalAmpli / totalCacheRead * 100).toFixed(1)
-      : '0.0';
-    console.log(`  Total amplified tool-output tokens: ${fmt(totalAmpli)} (${ampliPct}% of window cache_read)\n`);
+    console.log(`  Tool-output ${resendProjection(totalAmpli, totalCacheRead).label}\n`);
 
     // Recommendations — top Bash programs and repeated-read files
     const bashOffenders = lever8Rows
@@ -398,4 +404,4 @@ async function runDiagnose(opts = {}) {
   console.log('\n  Estimates are illustrative. Actual savings depend on workflow and data volume.\n');
 }
 
-module.exports = { runDiagnose };
+module.exports = { runDiagnose, resendProjection };
