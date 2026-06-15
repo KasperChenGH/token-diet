@@ -2,11 +2,13 @@
 /**
  * init.js — make token-diet self-deploying as a Claude Code skill, agent, and command
  *
- * Installs three artifacts into ~/.claude/ (--global) or <cwd>/.claude/ (default):
+ * Installs four artifacts into ~/.claude/ (--global) or <cwd>/.claude/ (default):
  *
- *   SKILL.md          → {base}/skills/token-diet/SKILL.md
+ *   SKILL.md              → {base}/skills/token-diet/SKILL.md
  *   agents/token-diet.md  → {base}/agents/token-diet.md
  *   commands/token-diet.md → {base}/commands/token-diet.md
+ *   references/levers/    → {base}/skills/token-diet/references/levers/*.md
+ *                            (per-lever rubric files used by Sonnet sub-reviewers in Phase 2)
  *
  * Source files: package root (__dirname/..)
  * Idempotent — re-running is safe; prints what was written / already up to date.
@@ -19,11 +21,32 @@ const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 
+/**
+ * Recursively collect all files under srcDir, returning
+ * { src: absolutePath, destRelative: path-relative-to-base } objects.
+ * destPrefix is the path under base/ where the tree lands.
+ */
+function collectDirArtifacts(srcDir, destPrefix) {
+  const results = [];
+  if (!fs.existsSync(srcDir)) return results;
+  const entries = fs.readdirSync(srcDir, { withFileTypes: true });
+  for (const entry of entries) {
+    const srcPath = path.join(srcDir, entry.name);
+    const relDest = path.join(destPrefix, entry.name);
+    if (entry.isDirectory()) {
+      results.push(...collectDirArtifacts(srcPath, relDest));
+    } else {
+      results.push({ src: srcPath, destRelative: relDest, label: `lever rubric (${entry.name})` });
+    }
+  }
+  return results;
+}
+
 async function runInit(opts = {}) {
   const pkgRoot = path.join(__dirname, '..');
 
-  // ── Define the three artifacts ──────────────────────────────────────────────
-  // Each entry: { src: relative-to-pkgRoot, destRelative: relative-to-base }
+  // ── Define the core artifacts ────────────────────────────────────────────────
+  // Each entry: { src: absolute-path, destRelative: relative-to-base }
   const artifacts = [
     {
       src:         path.join(pkgRoot, 'SKILL.md'),
@@ -40,6 +63,11 @@ async function runInit(opts = {}) {
       destRelative: path.join('commands', 'token-diet.md'),
       label:       'command (commands/token-diet.md)',
     },
+    // Per-lever rubric files — read by Sonnet sub-reviewers during Phase 2
+    ...collectDirArtifacts(
+      path.join(pkgRoot, 'references', 'levers'),
+      path.join('skills', 'token-diet', 'references', 'levers')
+    ),
   ];
 
   // ── Resolve install base ─────────────────────────────────────────────────────

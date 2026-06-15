@@ -71,6 +71,8 @@ MODEL MIX: 100% top-tier output while subagents exist -> arbitrage available
 
 Usage is deduplicated per API request (`requestId`) — Claude Code writes 2–3 transcript lines per call with repeated usage; naive summing inflates totals ~2–3×. This tool counts each call once.
 
+The review phase uses per-lever specialist reviewers: for each lever with ≥ 2 findings, a parallel Sonnet sub-reviewer reads only its dedicated rubric (`references/levers/lever-N-*.md`) and the flagged files, returning per-item KEEP / MOVE / DISPOSE-CANDIDATE verdicts. Clean levers (0–1 findings) are judged inline — no subagent spawned.
+
 ## The methodology (the skill)
 
 Seven levers, in leverage order — each shrinks the next:

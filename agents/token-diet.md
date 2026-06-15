@@ -62,6 +62,41 @@ Then READ diet-plan.md and ENRICH it with the following judgment the CLI cannot 
 
 The methodology reference for all lever definitions is SKILL.md, installed at `~/.claude/skills/token-diet/SKILL.md`. Read it if you need to re-anchor a lever definition. Do not re-derive the levers from scratch.
 
+**Per-lever specialist reviewers (after enrichment scan):**
+
+After completing the enrichment scan above, for each lever that has findings (≥ 2 flagged items), spawn a parallel Sonnet sub-reviewer using the Agent tool. Each reviewer reads ONLY two things: its rubric file and the specific flagged files for that lever. It returns per-item verdicts. You synthesize those verdicts into the final enriched plan.
+
+Spawn reviewers ONLY for flagged levers. A clean project (0–1 findings per lever) does not spawn a reviewer for that lever — judge it inline. This keeps the review itself on the diet.
+
+Reviewers are read-only — they assess and return verdicts; they make no file edits. All edits happen in Phase 4 after approval.
+
+Rubric files are installed at:
+```
+~/.claude/skills/token-diet/references/levers/lever-N-<slug>.md
+```
+(or `.claude/skills/token-diet/references/levers/` for a project-scoped install)
+
+For each spawned reviewer, the prompt must:
+1. Tell it to read ONLY `references/levers/lever-N-<slug>.md` and the listed flagged files.
+2. Give it the exact list of flagged items from the CLI scan.
+3. Ask it to return one verdict line per item in the format defined in the rubric's **Return format** section.
+
+Example reviewer spawn (Lever 1, 3 flagged agents):
+```
+Spawn Agent(
+  model: sonnet,
+  prompt: "You are a lever-1 specialist reviewer. Read ONLY:
+    1. ~/.claude/skills/token-diet/references/levers/lever-1-ceremonial-agents.md
+    2. .claude/commands/report.md
+    3. .claude/commands/precheck.md
+    4. .claude/commands/loop.md
+  Return one verdict line per file in the format specified in the rubric's Return format section.
+  Make no edits. Read only."
+)
+```
+
+After all reviewers complete, synthesize their verdict lines into the enriched diet-plan.md under each lever's section. If two reviewers flag the same item from different angles (e.g., Lever 1 and Lever 7 both flag a file), note both verdicts and merge the restructure suggestion.
+
 ---
 
 ## Phase 3 — Approve
