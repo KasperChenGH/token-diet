@@ -2,6 +2,9 @@
 *review_out.json
 *.tmp.json
 
+# dev-only reading / design docs — never ship in the published repo
 HANDOVER.md
 CLAUDE.md
 WORKFLOW.md
+spec.md
+subagents.md
