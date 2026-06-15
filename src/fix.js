@@ -103,4 +103,42 @@ function runFix(opts = {}) {
   return results;
 }
 
-module.exports = { applyMove, applyWrite, applyScaffold, applyCommentMarker, runFix };
+function parseFrontmatter(content) {
+  if (!content.startsWith('---')) return { ok: true };
+  const end = content.indexOf('\n---', 3);
+  if (end < 0) return { ok: false, error: 'unterminated frontmatter' };
+  return { ok: true };
+}
+function checkPointers(content, root) {
+  const errs = [];
+  for (const m of content.matchAll(/Uses:\s*\[\[shared\/([a-z0-9-]+)\]\]/gi)) {
+    if (!fs.existsSync(path.join(root, 'skills', 'shared', m[1] + '.md')))
+      errs.push(`missing shared skill: ${m[1]}`);
+  }
+  for (const m of content.matchAll(/Tools:\s*(\S+\.js)/gi)) {
+    if (!fs.existsSync(path.join(root, m[1]))) errs.push(`missing tool script: ${m[1]}`);
+  }
+  return errs;
+}
+function runVerify(opts = {}) {
+  const root = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const csPath = path.resolve(opts.changeset || path.join(root, 'diet-changeset.json'));
+  const cs = JSON.parse(fs.readFileSync(csPath, 'utf8'));
+  const targets = new Set();
+  for (const it of cs.items) for (const k of ['to', 'from', 'file']) if (it[k]) targets.add(path.join(root, it[k]));
+  const problems = [];
+  for (const t of targets) {
+    if (!fs.existsSync(t) || !t.endsWith('.md')) continue;
+    const content = fs.readFileSync(t, 'utf8');
+    const fm = parseFrontmatter(content);
+    if (!fm.ok) problems.push(`${t}: ${fm.error}`);
+    for (const e of checkPointers(content, root)) problems.push(`${t}: ${e}`);
+  }
+  if (!opts._silent) {
+    if (problems.length) { console.error('fix --verify FAILED:'); problems.forEach(p => console.error('  ' + p)); }
+    else console.log('fix --verify OK');
+  }
+  return problems;
+}
+
+module.exports = { applyMove, applyWrite, applyScaffold, applyCommentMarker, runFix, runVerify };

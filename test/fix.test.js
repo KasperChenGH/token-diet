@@ -94,3 +94,27 @@ test('runFix: applies all, --only filters, --dry-run writes nothing', () => {
   assert.equal(fs.existsSync(path.join(dir, 'out1.md')), false);
   rm(dir);
 });
+
+test('runVerify: flags dangling Uses: pointer; passes when resolved', () => {
+  const dir = tmpDir();
+  writeFile(dir, '.claude/agents/x.md', '---\nname: x\n---\nUses: [[shared/contract]]');
+  changeset(dir, [{ id: 1, op: 'write', to: '.claude/agents/x.md', content: 'x' }]);
+  const cs = path.join(dir, 'diet-changeset.json');
+
+  const bad = F.runVerify({ dir, changeset: cs, _silent: true });
+  assert.ok(bad.some(p => /shared\/contract/.test(p)));      // missing shared skill
+
+  writeFile(dir, 'skills/shared/contract.md', '# contract');
+  const good = F.runVerify({ dir, changeset: cs, _silent: true });
+  assert.equal(good.length, 0);
+  rm(dir);
+});
+
+test('runVerify: flags unterminated frontmatter', () => {
+  const dir = tmpDir();
+  writeFile(dir, '.claude/agents/y.md', '---\nname: y\nbody-without-close');
+  changeset(dir, [{ id: 1, op: 'write', to: '.claude/agents/y.md', content: 'y' }]);
+  const probs = F.runVerify({ dir, changeset: path.join(dir, 'diet-changeset.json'), _silent: true });
+  assert.ok(probs.some(p => /frontmatter/.test(p)));
+  rm(dir);
+});
