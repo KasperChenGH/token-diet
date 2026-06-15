@@ -24,4 +24,14 @@ function applyMove(item, root) {
   return { id: item.id, op: 'move', status: 'moved' };
 }
 
-module.exports = { applyMove };
+function applyWrite(item, root) {
+  const to = path.join(root, item.to);
+  if (fs.existsSync(to) && !item.overwrite) {
+    return { id: item.id, op: 'write', status: 'skipped (exists, no overwrite)' };
+  }
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  fs.writeFileSync(to, item.content);
+  return { id: item.id, op: 'write', status: 'wrote' };
+}
+
+module.exports = { applyMove, applyWrite };

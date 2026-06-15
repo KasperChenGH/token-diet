@@ -31,3 +31,14 @@ test('applyMove: idempotent (pointer already present -> skip)', () => {
   assert.match(res2.status, /skipped/);
   rm(dir);
 });
+
+test('applyWrite: writes new file; refuses clobber unless overwrite', () => {
+  const dir = tmpDir();
+  const item = { id: 2, op: 'write', to: 'knowledge/d.md', content: 'DIGEST' };
+  assert.equal(F.applyWrite(item, dir).status, 'wrote');
+  assert.equal(fs.readFileSync(path.join(dir, 'knowledge/d.md'), 'utf8'), 'DIGEST');
+  assert.match(F.applyWrite(item, dir).status, /skipped/);              // exists, no overwrite
+  assert.equal(F.applyWrite({ ...item, overwrite: true, content: 'NEW' }, dir).status, 'wrote');
+  assert.equal(fs.readFileSync(path.join(dir, 'knowledge/d.md'), 'utf8'), 'NEW');
+  rm(dir);
+});
