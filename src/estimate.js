@@ -76,4 +76,56 @@ function weight(bill) {
   return { write, read, output, total: write + read + output };
 }
 
-module.exports = { TOOLOUT, OUTPUT_PER_TURN, PRICE, deriveInputs, computeBill, weight };
+// Each lever returns a NEW inputs object with its adjustment applied.
+const LEVER_FIX = {
+  1: (inp) => ({ ...inp, spawnsPerRun: Math.max(1, inp.spawnsPerRun - 1) }),
+  4: (inp) => ({ ...inp, _outputFactor: 0.5 }),
+  5: (inp, o) => ({ ...inp, perSpawnOverhead: Math.round(inp.perSpawnOverhead * (o.tierTrim ?? 0.7)) }),
+  6: (inp, o) => ({ ...inp, perSpawnOverhead: Math.round(inp.perSpawnOverhead * (o.perSpawnTrim ?? 0.4)) }),
+  8: (inp) => ({ ...inp, toolOutputTokens: TOOLOUT.low, toolOutputWeight: 'low' }),
+};
+// Fixed order so overlapping levers (5,6 both touch perSpawnOverhead) don't double-count.
+const FIX_ORDER = [1, 6, 5, 4, 8];
+
+function applyFixes(inp, levers, opts = {}) {
+  let cur = { ...inp };
+  for (const lever of FIX_ORDER) {
+    if (levers.includes(lever) && LEVER_FIX[lever]) cur = LEVER_FIX[lever](cur, opts);
+  }
+  return cur;
+}
+
+// computeBill honoring an optional _outputFactor (L4)
+function billOf(inp) {
+  const b = computeBill(inp);
+  if (inp._outputFactor != null) {
+    b.output = Math.round(b.output * inp._outputFactor);
+    b.total  = b.write + b.read + b.output;
+  }
+  return b;
+}
+
+function savings(inp, levers, opts = {}) {
+  const baseline         = billOf(inp);
+  const baselineWeighted = weight(baseline);
+  const fixedAll         = billOf(applyFixes(inp, levers, opts));
+  const postfixWeighted  = weight(fixedAll);
+
+  const savers = levers.map(lever => {
+    const one = billOf(applyFixes(inp, [lever], opts));
+    const w   = weight(one);
+    return {
+      lever,
+      rawSaved:      baseline.total - one.total,
+      weightedSaved: Math.round(baselineWeighted.total - w.total),
+    };
+  }).sort((a, b) => b.weightedSaved - a.weightedSaved);
+
+  return {
+    baseline, baselineWeighted, postfix: fixedAll, postfixWeighted, savers,
+    note: 'Per-lever savings are marginal attribution; the "if all fixed" total is recomputed once, not summed.',
+  };
+}
+
+module.exports = { TOOLOUT, OUTPUT_PER_TURN, PRICE,
+  deriveInputs, computeBill, weight, applyFixes, savings };

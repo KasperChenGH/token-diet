@@ -59,3 +59,24 @@ test('weight: applies price multipliers', () => {
   assert.equal(w.output, 14000);       // 14000*1.0
   assert.equal(w.total, 39025);
 });
+
+test('applyFixes: L6 trims perSpawnOverhead, L8 drops toolout', () => {
+  const inp = { perSpawnOverhead: 1000, perSessionOverhead: 0,
+                spawnsPerRun: 5, turnsPerAgent: 8, toolOutputTokens: 18000,
+                toolOutputWeight: 'high' };
+  const out = E.applyFixes(inp, [6, 8], { perSpawnTrim: 0.5 });
+  assert.equal(out.perSpawnOverhead, 500);      // L6: halved
+  assert.equal(out.toolOutputTokens, 1500);     // L8: -> low
+});
+
+test('savings: ranks levers by weighted saving, no additive double-count', () => {
+  const inp = { perSpawnOverhead: 1000, perSessionOverhead: 0,
+                spawnsPerRun: 5, turnsPerAgent: 8, toolOutputTokens: 18000,
+                toolOutputWeight: 'high' };
+  const r = E.savings(inp, [6, 8]);
+  assert.ok(r.postfixWeighted.total < r.baselineWeighted.total);
+  assert.ok(r.savers.length >= 1);
+  for (let i = 1; i < r.savers.length; i++)
+    assert.ok(r.savers[i - 1].weightedSaved >= r.savers[i].weightedSaved);
+  assert.equal(typeof r.note, 'string');
+});
