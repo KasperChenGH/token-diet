@@ -28,6 +28,7 @@ const { runCompare }  = require('../src/compare');
 const { runInit }     = require('../src/init');
 const { runReview }   = require('../src/review');
 const { runEstimate } = require('../src/estimate');
+const { runFix, runVerify } = require('../src/fix');
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -44,6 +45,10 @@ function parseArgs(argv) {
     spawns:     null,
     turns:      null,
     toolout:    null,
+    changeset:  null,
+    only:       null,
+    dryRun:     false,
+    verify:     false,
   };
   const positional = [];
 
@@ -85,6 +90,18 @@ function parseArgs(argv) {
       opts.toolout = args[++i];
     } else if (a.startsWith('--toolout=')) {
       opts.toolout = a.split('=')[1];
+    } else if (a === '--changeset') {
+      opts.changeset = args[++i];
+    } else if (a.startsWith('--changeset=')) {
+      opts.changeset = a.split('=')[1];
+    } else if (a === '--only') {
+      opts.only = args[++i];
+    } else if (a.startsWith('--only=')) {
+      opts.only = a.split('=')[1];
+    } else if (a === '--dry-run') {
+      opts.dryRun = true;
+    } else if (a === '--verify') {
+      opts.verify = true;
     } else if (a === '--json') {
       opts.json = true;
     } else if (a === '--global') {
@@ -124,6 +141,8 @@ DIAGNOSE
 ACT
   plan        Turn diagnosis into an actionable ordered plan (markdown checklist)
               Ordered by lever priority with evidence + rough savings per item
+  fix         Apply an approved diet-changeset.json (move/write/scaffold/comment-marker).
+              --changeset <file> --only 1,3 --dry-run   |   --verify checks edited files
   init        Install token-diet's SKILL.md as a Claude Code skill
               Default: <cwd>/.claude/skills/token-diet/SKILL.md
               --global: ~/.claude/skills/token-diet/SKILL.md
@@ -203,6 +222,14 @@ async function main() {
       break;
     case 'estimate':
       await runEstimate(opts);
+      break;
+    case 'fix':
+      if (opts.verify) {
+        const problems = runVerify(opts);
+        if (problems.length) process.exit(1);
+      } else {
+        await runFix(opts);
+      }
       break;
     default:
       console.error(`Unknown subcommand: ${subcommand}`);

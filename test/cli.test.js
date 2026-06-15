@@ -25,3 +25,27 @@ test('help lists estimate', () => {
   const out = execFileSync('node', [BIN, '--help'], { encoding: 'utf8' });
   assert.match(out, /estimate/);
 });
+
+const fs2 = require('fs');
+test('fix applies a write op, then --verify passes', () => {
+  const dir = tmpDir();
+  const home = tmpDir();
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  writeFile(dir, 'diet-changeset.json', JSON.stringify({ items: [
+    { id: 1, op: 'write', to: 'knowledge/d.md', content: 'DIGEST' } ] }));
+  const cs = path.join(dir, 'diet-changeset.json');
+  execFileSync('node', [BIN, 'fix', '--dir', dir, '--changeset', cs], { encoding: 'utf8', env });
+  assert.equal(fs2.readFileSync(path.join(dir, 'knowledge/d.md'), 'utf8'), 'DIGEST');
+  execFileSync('node', [BIN, 'fix', '--dir', dir, '--changeset', cs, '--verify'], { encoding: 'utf8', env });
+  rm(dir); rm(home);
+});
+
+test('fix --verify exits non-zero on a dangling pointer', () => {
+  const dir = tmpDir();
+  writeFile(dir, '.claude/agents/x.md', '---\nname: x\n---\nUses: [[shared/missing]]');
+  writeFile(dir, 'diet-changeset.json', JSON.stringify({ items: [
+    { id: 1, op: 'write', to: '.claude/agents/x.md', content: 'x' } ] }));
+  const cs = path.join(dir, 'diet-changeset.json');
+  assert.throws(() => execFileSync('node', [BIN, 'fix', '--dir', dir, '--changeset', cs, '--verify'], { stdio: 'pipe' }));
+  rm(dir);
+});
