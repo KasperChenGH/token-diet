@@ -93,6 +93,15 @@ Full methodology with red flags and common mistakes: [SKILL.md](SKILL.md).
 
 23-round autonomous research loop (Claude Code, Opus + Sonnet): ~1.1M tokens/round → ~100–180k/round, subagent useful-work ratio ~9% → ~40%, two recorded LLM-judgment errors eliminated by the script kernel. The domain contributed nothing — the architecture did.
 
+## Complementary tools
+
+token-diet works at the architecture layer — it measures real usage and restructures the workflow. Two tools operate at lower layers and compose cleanly with it; token-diet's review will point you to them when its diagnosis shows that layer is your bottleneck:
+
+- **[rtk](https://github.com/rtk-ai/rtk)** — compresses verbose tool-call *output* (test/build/git stdout) via a Bash hook before it re-enters context. Targets the cache-read pool token-diet's Lever 8 flags.
+- **caveman**-style output brevity — compresses model *prose output*. Smallest pool in agentic loops, but token-diet adopts its safe compression ruleset (preserve code/paths/commands verbatim) for digesting and trimming.
+
+token-diet measures with real transcript usage (not chars/4 estimates) and never trims information irrecoverably — the fidelity guard both layer-tools leave to you.
+
 ## License
 
 MIT

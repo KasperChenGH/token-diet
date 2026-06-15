@@ -31,6 +31,9 @@ Mechanics you're optimizing:
 | 5 | **Tier the knowledge** | Are agents re-reading static reference material every run (style guides, domain docs, API references, runbooks)? Three tiers: a **living doc** (<100 lines, always loaded: rules, current state, open items — replace, don't append), **digests** (~2k distillations per pack, each section carrying a `Source:` pointer), **archive** (full files, pulled only when a specific claim needs depth). | 50–80k per agent per run |
 | 6 | **Trim the always-loaded** | What loads into EVERY agent (project instructions file, entry-point commands, tool surface)? Cut to essentials; depth goes to on-demand reference files. Each autonomous entry point gets a **self-contained contract** — prose mode-overrides layered on shared instructions WILL eventually be misread by an autonomous agent. | 2–5k × every spawn |
 | 7 | **Model arbitrage** | Reserve the big model for where judgment lives (strategy, synthesis, ambiguous calls). Route mechanical work — focused reviews, extraction, bulk edits, data crunching — to a small model. Also: delegate a big-context agent's mechanical multi-turn work to ONE small-model agent instead of burning big-context turns. | 3–5× on the delegated share |
+| 8 | **Filter tool output** | Are verbose command outputs (test suites, build logs, git status, large file reads) dumped whole into context, then re-sent every turn as cache reads? Filter at the source: a PostToolUse hook that compresses stdout (failures-only for tests, single-line confirms for git, signatures-only for big file reads, dedup repeated log lines). | often the largest cache-read source |
+
+Ready-made: the `rtk` CLI (github.com/rtk-ai/rtk) installs exactly this as a Bash PostToolUse hook. token-diet measures whether you need it; rtk is one way to apply it.
 
 ## Step N — Re-measure and review
 After one cycle on the new architecture, compare actuals to estimates. Then run an **adversarial consistency review** with an independent agent: every architectural change leaves stale instruction copies in files it didn't touch — hunt contradictions across all entry points before trusting the system unattended.
@@ -43,6 +46,7 @@ After one cycle on the new architecture, compare actuals to estimates. Then run 
 - Reference packs are re-read verbatim every cycle ("it might need the detail")
 - State carries across cycles via conversation history or summaries instead of files
 - You "saved tokens" without measuring before AND after
+- Test/build/log output dumped whole into context instead of filtered to the relevant lines
 
 ## Common mistakes
 | Mistake | Fix |
