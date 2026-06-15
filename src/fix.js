@@ -34,4 +34,29 @@ function applyWrite(item, root) {
   return { id: item.id, op: 'write', status: 'wrote' };
 }
 
-module.exports = { applyMove, applyWrite };
+const TEMPLATES = {
+  'toolout-filter':
+    '#!/usr/bin/env bash\n# token-diet tool-output filter (PostToolUse) — DISABLED by default.\n' +
+    '# Full output -> .claude/toolout/<ts>.log ; emit a compressed view.\n' +
+    '# Wire into .claude/settings.json PostToolUse, then smoke-test before enabling.\n',
+  'driver-script':
+    '#!/usr/bin/env bash\n# token-diet driver skeleton — run long compute OUTSIDE the session.\n' +
+    '# skeleton — fill in your actual command\n',
+};
+
+function applyScaffold(item, root) {
+  if (!(item.template in TEMPLATES)) {
+    return { id: item.id, op: 'scaffold', status: `ERROR unknown template: ${item.template}` };
+  }
+  const to = path.join(root, item.to);
+  if (fs.existsSync(to)) return { id: item.id, op: 'scaffold', status: 'skipped (exists)' };
+  let body = TEMPLATES[item.template];
+  if (item.disabled) {
+    body = body.split('\n').map(l => (l && !l.startsWith('#')) ? '# ' + l : l).join('\n');
+  }
+  fs.mkdirSync(path.dirname(to), { recursive: true });
+  fs.writeFileSync(to, body);
+  return { id: item.id, op: 'scaffold', status: item.disabled ? 'scaffolded (disabled)' : 'scaffolded' };
+}
+
+module.exports = { applyMove, applyWrite, applyScaffold };

@@ -42,3 +42,20 @@ test('applyWrite: writes new file; refuses clobber unless overwrite', () => {
   assert.equal(fs.readFileSync(path.join(dir, 'knowledge/d.md'), 'utf8'), 'NEW');
   rm(dir);
 });
+
+test('applyScaffold: writes a named template, skips if exists', () => {
+  const dir = tmpDir();
+  const item = { id: 3, op: 'scaffold', template: 'toolout-filter', to: 'scripts/f.sh', disabled: true };
+  const res = F.applyScaffold(item, dir);
+  assert.match(res.status, /scaffolded/);
+  assert.ok(fs.existsSync(path.join(dir, 'scripts/f.sh')));
+  assert.match(F.applyScaffold(item, dir).status, /skipped/);
+  rm(dir);
+});
+
+test('applyScaffold: unknown template is an error, not a silent empty file', () => {
+  const dir = tmpDir();
+  const res = F.applyScaffold({ id: 9, op: 'scaffold', template: 'nope', to: 'x.sh' }, dir);
+  assert.match(res.status, /ERROR/);
+  rm(dir);
+});
