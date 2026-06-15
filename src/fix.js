@@ -113,7 +113,7 @@ function checkPointers(content, root) {
   const errs = [];
   for (const m of content.matchAll(/Uses:\s*\[\[shared\/([a-z0-9-]+)\]\]/gi)) {
     if (!fs.existsSync(path.join(root, 'skills', 'shared', m[1] + '.md')))
-      errs.push(`missing shared skill: ${m[1]}`);
+      errs.push(`missing shared skill: shared/${m[1]}`);
   }
   for (const m of content.matchAll(/Tools:\s*(\S+\.js)/gi)) {
     if (!fs.existsSync(path.join(root, m[1]))) errs.push(`missing tool script: ${m[1]}`);
