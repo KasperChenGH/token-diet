@@ -31,6 +31,16 @@ function pct(before, after) {
   return `${sign}${d.toFixed(1)}%`;
 }
 
+function perCallMetrics(total, numCalls) {
+  const n = numCalls || 1;
+  return { fresh_in: total.fresh_in / n, cache_write: total.cache_write / n,
+           cache_read: total.cache_read / n, output: total.output / n };
+}
+function volumeChangedPct(beforeCalls, afterCalls) {
+  if (beforeCalls === 0) return afterCalls === 0 ? 0 : 100;
+  return Math.abs(afterCalls - beforeCalls) / beforeCalls * 100;
+}
+
 /** Scan records for a specific time window [fromMs, toMs) */
 async function scanWindow(fromMs, toMs, projectFilter) {
   const dirs  = resolveProjectDirs(projectFilter);
@@ -225,6 +235,18 @@ async function runCompare(opts = {}) {
   }
   console.log(hline(colW));
 
+  // ── per-call normalization (F6) ───────────────────────────────────────────
+  const bpc = perCallMetrics(before.total, before.numCalls);
+  const apc = perCallMetrics(after.total,  after.numCalls);
+  console.log('\n  Per-call (normalizes for volume):');
+  for (const m of ['cache_read', 'output']) {
+    console.log(`    ${padL(m, 12)} ${padR(fmt(Math.round(bpc[m])), 10)} -> ${padR(fmt(Math.round(apc[m])), 10)}  (${pct(bpc[m], apc[m])})`);
+  }
+  const vol = volumeChangedPct(before.numCalls, after.numCalls);
+  if (vol > 25) {
+    console.log(`\n  CAVEAT: call volume changed ${vol.toFixed(0)}% — per-day deltas are partly volume, not efficiency. Trust the per-call line.`);
+  }
+
   // Verdict line
   const outDelta = deltaData['output'];
   const callDelta = deltaData['calls'];
@@ -251,4 +273,4 @@ async function runCompare(opts = {}) {
   console.log('');
 }
 
-module.exports = { runCompare };
+module.exports = { runCompare, perCallMetrics, volumeChangedPct };
