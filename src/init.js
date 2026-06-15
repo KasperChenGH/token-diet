@@ -2,13 +2,17 @@
 /**
  * init.js — make token-diet self-deploying as a Claude Code skill, agent, and command
  *
- * Installs four artifacts into ~/.claude/ (--global) or <cwd>/.claude/ (default):
+ * Installs into ~/.claude/ (--global) or <cwd>/.claude/ (default):
  *
  *   skills/SKILL.md        → {base}/skills/token-diet/SKILL.md
- *   agents/token-diet.md  → {base}/agents/token-diet.md
+ *   agents/token-diet.md   → {base}/agents/token-diet.md
+ *   agents/subagent-*.md   → {base}/agents/subagent-*.md
+ *                            (tier-2 analyst + tier-3 lever specialists, spawned in Phase 2)
  *   commands/token-diet.md → {base}/commands/token-diet.md
- *   references/levers/    → {base}/skills/token-diet/references/levers/*.md
- *                            (per-lever rubric files used by Sonnet sub-reviewers in Phase 2)
+ *   references/levers/     → {base}/skills/token-diet/references/levers/*.md
+ *                            (per-lever rubric files — the specialist judgment bodies)
+ *   skills/shared/         → {base}/skills/token-diet/shared/*.md
+ *                            (shared specialist contract referenced via Uses: [[shared/...]])
  *
  * Source files: package root (__dirname/..)
  * Idempotent — re-running is safe; prints what was written / already up to date.
@@ -70,6 +74,22 @@ async function runInit(opts = {}) {
     ),
   ];
 
+  // Named subagents (tier-2 analyst + tier-3 lever specialists) → {base}/agents/
+  // Without these, the main agent's Phase-2 delegation has no agent type to spawn.
+  const agentsDir = path.join(pkgRoot, 'agents');
+  for (const f of fs.readdirSync(agentsDir).filter(n => n.startsWith('subagent-') && n.endsWith('.md'))) {
+    artifacts.push({ src: path.join(agentsDir, f), destRelative: path.join('agents', f), label: `subagent (${f})` });
+  }
+
+  // Shared specialist knowledge referenced by subagents via `Uses: [[shared/...]]`
+  // → {base}/skills/token-diet/shared/ (alongside the rubrics the specialists read).
+  const sharedDir = path.join(pkgRoot, 'skills', 'shared');
+  if (fs.existsSync(sharedDir)) {
+    for (const f of fs.readdirSync(sharedDir).filter(n => n.endsWith('.md'))) {
+      artifacts.push({ src: path.join(sharedDir, f), destRelative: path.join('skills', 'token-diet', 'shared', f), label: `shared knowledge (${f})` });
+    }
+  }
+
   // ── Resolve install base ─────────────────────────────────────────────────────
   const base = opts.global
     ? path.join(os.homedir(), '.claude')
@@ -126,9 +146,9 @@ async function runInit(opts = {}) {
 
   console.log('');
   if (anyWritten) {
-    console.log('Reload Claude Code to activate the skill, agent, and command.');
+    console.log('Reload Claude Code to activate the skill, agents, and command.');
     console.log('  Skill will appear in available-skills as "token-diet".');
-    console.log('  Agent will be usable as agent type "token-diet".');
+    console.log('  Agents: "token-diet" (main) + "subagent-*" (analyst + lever specialists).');
     console.log('  Command will be available as /token-diet.');
   } else {
     console.log('All token-diet artifacts are already up to date.');
