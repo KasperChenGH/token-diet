@@ -9,8 +9,9 @@ context, then re-sent every turn as cache reads?
 
 ## Disposal rubric (per candidate)
 - **KEEP** — output is already small or filtered; a hook exists.
-- **MOVE** — verbose output should go to a sidecar log (`.claude/toolout/<ts>.log`) with a
-  compressed view in context. The fix is a `scaffold` op (a disabled PostToolUse filter).
+- **MOVE** — verbose output goes to a sidecar log (`.claude/toolout/<ts>.log`) with a compressed
+  view in context. token-diet ships this as a built-in engine — `token-diet filter --install`
+  (disabled), `--self-test`, then `--enable`. The `scaffold` op points the user at those commands.
 - **DISPOSE-CANDIDATE** — n/a for tool output (never discard; always move to sidecar).
 
 ## Return format

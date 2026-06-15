@@ -36,9 +36,10 @@ function applyWrite(item, root) {
 
 const TEMPLATES = {
   'toolout-filter':
-    '#!/usr/bin/env bash\n# token-diet tool-output filter (PostToolUse) — DISABLED by default.\n' +
-    '# Full output -> .claude/toolout/<ts>.log ; emit a compressed view.\n' +
-    '# Wire into .claude/settings.json PostToolUse, then smoke-test before enabling.\n',
+    '#!/usr/bin/env bash\n# token-diet Lever 8 output filter is now a BUILT-IN engine.\n' +
+    '# Install (disabled), verify on samples, then enable:\n' +
+    '#   token-diet filter --install\n#   token-diet filter --self-test\n#   token-diet filter --enable\n' +
+    '# Full output -> .claude/toolout/<ts>.log; compressed view -> context; fail-safe on error.\n',
   'driver-script':
     '#!/usr/bin/env bash\n# token-diet driver skeleton — run long compute OUTSIDE the session.\n' +
     '# skeleton — fill in your actual command\n',

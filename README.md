@@ -108,8 +108,10 @@ Full methodology with red flags and common mistakes: [SKILL.md](skills/SKILL.md)
 
 ```
 token-diet/
-├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit ·
-│                                  agents · diagnose · overhead · plan · fix · compare · init
+├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit · agents ·
+│                                  diagnose · overhead · plan · fix · filter · compare · init
+├── src/filter.js                  Lever 8 output-compression engine (PostToolUse hook):
+│                                  compresses verbose tool output → context, full output → sidecar
 ├── src/*.js                       the deterministic engine (zero deps, no LLM): scan,
 │                                  collectors, review, estimate, diagnose, plan,
 │                                  changeset, fix, compare, history, …

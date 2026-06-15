@@ -13,6 +13,7 @@
  *   token-diet overhead  [--dir <path>=cwd] [--json]
  *   token-diet plan      [--days N=7] [--project <slug>] [--out diet-plan.md]
  *   token-diet fix       --changeset <file> [--only 1,3] [--dry-run | --verify]
+ *   token-diet filter    --install | --self-test | --enable | --disable | --uninstall
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
  *   token-diet init      [--global] [--dir <path>]
  *
@@ -32,6 +33,7 @@ const { runInit }     = require('../src/init');
 const { runReview }   = require('../src/review');
 const { runEstimate } = require('../src/estimate');
 const { runFix, runVerify } = require('../src/fix');
+const filter          = require('../src/filter');
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -52,6 +54,11 @@ function parseArgs(argv) {
     only:       null,
     dryRun:     false,
     verify:     false,
+    selfTest:   false,
+    install:    false,
+    uninstall:  false,
+    enable:     false,
+    disable:    false,
   };
   const positional = [];
 
@@ -105,6 +112,16 @@ function parseArgs(argv) {
       opts.dryRun = true;
     } else if (a === '--verify') {
       opts.verify = true;
+    } else if (a === '--self-test') {
+      opts.selfTest = true;
+    } else if (a === '--install') {
+      opts.install = true;
+    } else if (a === '--uninstall') {
+      opts.uninstall = true;
+    } else if (a === '--enable') {
+      opts.enable = true;
+    } else if (a === '--disable') {
+      opts.disable = true;
     } else if (a === '--json') {
       opts.json = true;
     } else if (a === '--global') {
@@ -146,6 +163,9 @@ ACT
               Ordered by lever priority with evidence + rough savings per item
   fix         Apply an approved diet-changeset.json (move/write/scaffold/comment-marker).
               --changeset <file> --only 1,3 --dry-run   |   --verify checks edited files
+  filter      Lever 8 output-compression engine (PostToolUse hook). Compresses verbose tool
+              output before it re-enters context; full output saved to .claude/toolout/.
+              Disabled by default: --install [--global] · --self-test · --enable · --disable · --uninstall
   init        Install token-diet as a Claude Code skill + agent + command + lever rubrics
               Default: <cwd>/.claude/  |  --global: ~/.claude/
 
@@ -232,6 +252,14 @@ async function main() {
       } else {
         await runFix(opts);
       }
+      break;
+    case 'filter':
+      if (opts.selfTest)       filter.runSelfTest();
+      else if (opts.install)   filter.runInstall(opts);
+      else if (opts.uninstall) filter.runUninstall(opts);
+      else if (opts.enable)    filter.setEnabled(opts, true);
+      else if (opts.disable)   filter.setEnabled(opts, false);
+      else                     filter.runFilter(opts);   // hook mode — reads stdin
       break;
     default:
       console.error(`Unknown subcommand: ${subcommand}`);
