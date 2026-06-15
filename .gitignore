@@ -7,6 +7,9 @@ diet-changeset.json
 diet-history.json
 diet-plan.md
 
+# local dogfood install produced by `token-diet init` run inside this repo
+.claude/
+
 # dev-only reading / design docs — never ship in the published repo
 dev_only/
 CLAUDE.md
