@@ -40,7 +40,7 @@ function deriveToolout(cmdFiles) {
   let hits = 0;
   for (const { content } of cmdFiles) {
     if (!content) continue;
-    hits += (content.match(new RegExp(C.COMPUTE_RE.source, 'gi')) || []).length;
+    hits += (content.match(new RegExp(C.TOOLOUT_RE.source, 'gi')) || []).length;
   }
   if (hits >= 4) return 'high';
   if (hits >= 1) return 'med';

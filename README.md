@@ -25,7 +25,7 @@ Then in any project: **`/token-diet`** — or just tell Claude "put this project
 token-diet review --dir .
 ```
 
-Reviews your project's `.claude/` design — CLAUDE.md, commands, agents, skills — and grades it (A–F) against all 7 levers, telling you how to cut token usage **before you've spent a token**. Works on a brand-new project. Global infrastructure is reported separately so your project is graded on what it owns.
+Reviews your project's `.claude/` design — CLAUDE.md, commands, agents, skills — and grades it (A–F) against all 8 levers, telling you how to cut token usage **before you've spent a token**. Works on a brand-new project. Global infrastructure is reported separately so your project is graded on what it owns.
 
 Sample (a heavy real project):
 ```
@@ -75,7 +75,7 @@ The review phase uses per-lever specialist reviewers: for each lever with ≥ 2 
 
 ## The methodology (the skill)
 
-Seven levers, in leverage order — each shrinks the next:
+Eight levers, in leverage order — each shrinks the next:
 
 1. **Delete agents** — every spawn must buy parallelism, isolation, or model-arbitrage worth more than its ~20–40k establishment tax
 2. **Merge sessions** — one per cycle; state in files, never conversations
@@ -84,6 +84,7 @@ Seven levers, in leverage order — each shrinks the next:
 5. **Tier the knowledge** — living doc → digests → archive
 6. **Trim the always-loaded** — every spawn pays for it
 7. **Model arbitrage** — big model only where judgment lives
+8. **Filter tool output** — verbose test/build/log stdout compressed at the source, never re-sent every turn
 
 Bookends: measure first (this CLI), re-measure + adversarial consistency review after.
 
@@ -93,14 +94,9 @@ Full methodology with red flags and common mistakes: [SKILL.md](SKILL.md).
 
 23-round autonomous research loop (Claude Code, Opus + Sonnet): ~1.1M tokens/round → ~100–180k/round, subagent useful-work ratio ~9% → ~40%, two recorded LLM-judgment errors eliminated by the script kernel. The domain contributed nothing — the architecture did.
 
-## Complementary tools
+## Fidelity guarantee
 
-token-diet works at the architecture layer — it measures real usage and restructures the workflow. Two tools operate at lower layers and compose cleanly with it; token-diet's review will point you to them when its diagnosis shows that layer is your bottleneck:
-
-- **[rtk](https://github.com/rtk-ai/rtk)** — compresses verbose tool-call *output* (test/build/git stdout) via a Bash hook before it re-enters context. Targets the cache-read pool token-diet's Lever 8 flags.
-- **caveman**-style output brevity — compresses model *prose output*. Smallest pool in agentic loops, but token-diet adopts its safe compression ruleset (preserve code/paths/commands verbatim) for digesting and trimming.
-
-token-diet measures with real transcript usage (not chars/4 estimates) and never trims information irrecoverably — the fidelity guard both layer-tools leave to you.
+token-diet works at the architecture layer — it measures real transcript usage (not chars/4 estimates) and never trims information irrecoverably. Every trim is a *move*, not a delete: content goes to an on-demand reference file with a pointer left behind, so nothing is lost.
 
 ## License
 

@@ -120,7 +120,7 @@ token-diet — Static project review + Measure, plan, and verify token-usage red
   (zero dependencies, reads ~/.claude/projects/**/*.jsonl)
 
 REVIEW (static, no history)
-  review      Score a project's Claude Code design artifacts against all 7 levers.
+  review      Score a project's Claude Code design artifacts against all 8 levers.
               Reads CLAUDE.md, commands, agents, skills, settings, knowledge/ dirs.
               Emits per-lever scorecard + findings + overall grade (A-F).
               No transcript history needed — run before your first session.
@@ -143,9 +143,8 @@ ACT
               Ordered by lever priority with evidence + rough savings per item
   fix         Apply an approved diet-changeset.json (move/write/scaffold/comment-marker).
               --changeset <file> --only 1,3 --dry-run   |   --verify checks edited files
-  init        Install token-diet's SKILL.md as a Claude Code skill
-              Default: <cwd>/.claude/skills/token-diet/SKILL.md
-              --global: ~/.claude/skills/token-diet/SKILL.md
+  init        Install token-diet as a Claude Code skill + agent + command + lever rubrics
+              Default: <cwd>/.claude/  |  --global: ~/.claude/
 
 VERIFY
   compare     Before vs after: per-day averages, delta %, verdict line

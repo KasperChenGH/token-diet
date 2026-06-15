@@ -33,7 +33,7 @@ Mechanics you're optimizing:
 | 7 | **Model arbitrage** | Reserve the big model for where judgment lives (strategy, synthesis, ambiguous calls). Route mechanical work — focused reviews, extraction, bulk edits, data crunching — to a small model. Also: delegate a big-context agent's mechanical multi-turn work to ONE small-model agent instead of burning big-context turns. | 3–5× on the delegated share |
 | 8 | **Filter tool output** | Are verbose command outputs (test suites, build logs, git status, large file reads) dumped whole into context, then re-sent every turn as cache reads? Filter at the source: a PostToolUse hook that compresses stdout (failures-only for tests, single-line confirms for git, signatures-only for big file reads, dedup repeated log lines). | often the largest cache-read source |
 
-Ready-made: the `rtk` CLI (github.com/rtk-ai/rtk) installs exactly this as a Bash PostToolUse hook. token-diet measures whether you need it; rtk is one way to apply it.
+The `fix` command can scaffold exactly this as a disabled Bash PostToolUse hook; you enable and smoke-test it. token-diet measures whether you need it before you wire it in.
 
 ## Step N — Re-measure and review
 After one cycle on the new architecture, compare actuals to estimates. Then run an **adversarial consistency review** with an independent agent: every architectural change leaves stale instruction copies in files it didn't touch — hunt contradictions across all entry points before trusting the system unattended.

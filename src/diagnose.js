@@ -377,7 +377,7 @@ async function runDiagnose(opts = {}) {
       .slice(0, 3);
 
     for (const [key] of bashOffenders) {
-      console.log(`  Rec: filter ${key} output (failures-only / single-line / dedup) — e.g. via a PostToolUse hook or the rtk CLI`);
+      console.log(`  Rec: filter ${key} output (failures-only / single-line / dedup) — e.g. via a PostToolUse output-filter hook`);
     }
     for (const [key, b] of readOffenders) {
       const file = key.replace(/^Read:/, '');
@@ -394,7 +394,7 @@ async function runDiagnose(opts = {}) {
     { lever: 'Lever 3    Idle babysitting',   pct: idleSessions.length > 0   ? '10-25%' : '~0%',  note: 'run long tasks unattended, reduce polling' },
     { lever: 'Lever 5    Hot files',          pct: hotFiles.length > 0       ? '20-40%' : '~0%',  note: 'consolidate or cache frequently read files' },
     { lever: 'Lever 7    Model mix',          pct: topTierPct > 80           ? '10-30%' : '<5%',  note: 'sonnet for subagents, opus for synthesis only' },
-    { lever: 'Lever 8    Tool output bloat',  pct: totalAmpli > 50_000       ? '10-25%' : '~0%',  note: 'filter bash/read output; PostToolUse hook or rtk CLI' },
+    { lever: 'Lever 8    Tool output bloat',  pct: totalAmpli > 50_000       ? '10-25%' : '~0%',  note: 'filter bash/read output via a PostToolUse hook' },
     { lever: 'Cache-mech Turny sessions',     pct: turnySessions.length > 0  ? '5-15%'  : '~0%',  note: '/clear every N turns to reset cache window' },
   ];
 

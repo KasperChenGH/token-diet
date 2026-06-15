@@ -27,7 +27,7 @@ compact summary. The main agent never holds the raw file reads.
 ## Phase 3 — Approval gate (HARD STOP)
 Present the prepared changeset (already-drafted edits) with the `estimate` projection as
 justification, each item tagged with its saving. **Zero edits to user config before explicit
-approval.** Resolve any per-item choice HERE (e.g. the Lever 8 item's rtk-vs-scaffold pick).
+approval.** Resolve any per-item choice HERE (e.g. whether to scaffold the Lever 8 output filter).
 Acceptable replies: "approve all", "approve 1,3", "none".
 
 ## Phase 4 — Execute (main, deterministic)

@@ -28,5 +28,5 @@ test('collectCommandFiles returns command/agent/skill files with content', () =>
 test('regexes match expected signals', () => {
   assert.match('spawn 3 subagents', new RegExp(C.SPAWN_RE.source, 'i'));
   assert.match('## Step 4: do', new RegExp(C.STEP_RE.source, 'im'));
-  assert.match('run the test suite', new RegExp(C.COMPUTE_RE.source, 'i'));
+  assert.match('run the test suite', new RegExp(C.TOOLOUT_RE.source, 'i'));
 });

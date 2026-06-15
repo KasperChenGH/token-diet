@@ -10,14 +10,13 @@ context, then re-sent every turn as cache reads?
 ## Disposal rubric (per candidate)
 - **KEEP** — output is already small or filtered; a hook exists.
 - **MOVE** — verbose output should go to a sidecar log (`.claude/toolout/<ts>.log`) with a
-  compressed view in context. The fix is a `scaffold` op (a disabled PostToolUse filter), OR
-  recommend the ready-made `rtk` CLI.
+  compressed view in context. The fix is a `scaffold` op (a disabled PostToolUse filter).
 - **DISPOSE-CANDIDATE** — n/a for tool output (never discard; always move to sidecar).
 
 ## Return format
 Per the shared specialist contract. For a MOVE, draft a `scaffold` op:
 `{ op: "scaffold", template: "toolout-filter", to: "scripts/toolout-filter.sh", disabled: true }`
-The rtk-vs-scaffold choice is the USER's at the gate — recommend, don't decide.
+Whether to apply the scaffold is the USER's call at the gate — recommend, don't decide.
 
 ## Blast radius
 A PostToolUse hook changes EVERY tool call. Always write it disabled/commented; the user enables

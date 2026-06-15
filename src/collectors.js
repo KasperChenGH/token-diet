@@ -8,7 +8,9 @@ const path = require('path');
 
 const SPAWN_RE   = /subagent|spawn|agent tool|parallel agents|\bN subagents\b|fan[- ]out|\bSubagent \d/gi;
 const STEP_RE    = /^#+\s*Step [1-9]/gim;
-const COMPUTE_RE = /\b(build|compile|test suite|test|train|backtest|sweep|npm install|docker|webpack|log)\b/gi;
+// Verbose tool-output signals — drives estimate's tool-output weighting (Lever 8).
+// Distinct from review.js's COMPUTE_RE, which detects in-session compute duration (Lever 3).
+const TOOLOUT_RE = /\b(build|compile|test suite|test|train|backtest|sweep|npm install|docker|webpack|log)\b/gi;
 
 function estTokens(filePath) {
   try { return Math.round(fs.statSync(filePath).size / 4); } catch { return 0; }
@@ -68,7 +70,7 @@ function collectCommandFiles(targetDir, home) {
 }
 
 module.exports = {
-  SPAWN_RE, STEP_RE, COMPUTE_RE,
+  SPAWN_RE, STEP_RE, TOOLOUT_RE,
   estTokens, readText, globMdFiles, globSkillFiles,
   collectOverhead, collectCommandFiles,
 };

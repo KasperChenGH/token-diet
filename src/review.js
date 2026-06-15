@@ -1,6 +1,6 @@
 'use strict';
 /**
- * review.js — STATIC project/spec review: score token-efficiency against the 7 levers
+ * review.js — STATIC project/spec review: score token-efficiency against the 8 levers
  *
  * Reads Claude Code design artifacts (CLAUDE.md, commands, agents, skills,
  * settings, knowledge/) and emits per-lever findings + an overall grade.
@@ -14,6 +14,7 @@
  *  5  Tier knowledge (digest/index missing for large reference dirs)
  *  6  Always-loaded overhead (CLAUDE.md + commands + skills size)
  *  7  Model arbitrage (no pin = top-tier by default; all pins too expensive)
+ *  8  Filter tool output (verbose test/build/log stdout re-sent every turn)
  */
 
 const fs   = require('fs');
@@ -499,9 +500,8 @@ const LEVER_NAMES = {
 };
 
 function computeGrade(findings) {
-  // Max possible: 7 levers × 1 high finding × 3 = 21 (one high per lever)
-  // We cap per-lever contribution so a single file with 10 high findings
-  // doesn't dominate unfairly.
+  // Cap each lever's contribution at 6 (≈2 high findings) so a single file
+  // with 10 high findings doesn't dominate. Max possible: 8 levers × 6 = 48.
   const byLever = {};
   for (const f of findings) {
     if (!byLever[f.lever]) byLever[f.lever] = 0;
@@ -551,7 +551,7 @@ function checkLever8(targetDir, home, allCommandFiles, findings) {
   if (hits.length >= 1) {
     findings.push(finding(8, 'med', hits[0].file,
       `${hits.length} file(s) mention test/build/log with no PostToolUse output-filter hook (likely re-send risk)`,
-      'Add a PostToolUse output filter (rtk or a scaffold) so verbose stdout is not re-sent every turn'));
+      'Add a PostToolUse output filter (scaffold a hook) so verbose stdout is not re-sent every turn'));
   }
 }
 
