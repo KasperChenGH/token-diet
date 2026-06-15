@@ -1,0 +1,33 @@
+'use strict';
+const { test } = require('node:test');
+const assert   = require('node:assert/strict');
+const fs       = require('fs');
+const path     = require('path');
+const { tmpDir, writeFile, rm } = require('./helpers');
+const F = require('../src/fix');
+
+test('applyMove: content lands in dest BEFORE source loses it; source gets pointer', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'line1\nline2\nline3\nline4\nline5');
+  const item = { id: 1, op: 'move', from: 'CLAUDE.md',
+                 region: { fromLine: 2, toLine: 3 }, to: 'ref.md', pointer: 'POINTER' };
+  const res = F.applyMove(item, dir);
+  assert.equal(res.status, 'moved');
+  const dest = fs.readFileSync(path.join(dir, 'ref.md'), 'utf8');
+  assert.match(dest, /line2/); assert.match(dest, /line3/);     // moved content preserved
+  const src = fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8');
+  assert.equal(src, 'line1\nPOINTER\nline4\nline5');            // region replaced by pointer
+  assert.doesNotMatch(src, /line2/);
+  rm(dir);
+});
+
+test('applyMove: idempotent (pointer already present -> skip)', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'line1\nline2\nline3\nline4\nline5');
+  const item = { id: 1, op: 'move', from: 'CLAUDE.md',
+                 region: { fromLine: 2, toLine: 3 }, to: 'ref.md', pointer: 'POINTER' };
+  F.applyMove(item, dir);
+  const res2 = F.applyMove(item, dir);
+  assert.match(res2.status, /skipped/);
+  rm(dir);
+});
