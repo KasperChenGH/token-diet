@@ -63,3 +63,24 @@ test('fable is no longer a detected family or a top tier', () => {
   assert.equal(R.modelTier('claude-fable-5'), 'other');   // not 'top'
   assert.equal(R.modelTier('claude-opus-4-8'), 'top');    // opus stays top
 });
+
+// The Lever 6 size finding (carries "tokens)" in its evidence), distinct from the verbose flag.
+const sizeFinding = a => a.findings.find(f => f.lever === 6 && /tokens\)/.test(f.evidence));
+
+test('Lever 6 size threshold boundary: 100 lines not flagged, 101 flagged', () => {
+  const d100 = tmpDir(); writeFile(d100, 'CLAUDE.md', bigClaude(100));
+  assert.ok(!sizeFinding(R.analyze(d100, NO_HOME(d100))), '100 lines must not trip the size finding');
+  rm(d100);
+  const d101 = tmpDir(); writeFile(d101, 'CLAUDE.md', bigClaude(101));
+  assert.ok(sizeFinding(R.analyze(d101, NO_HOME(d101))), '101 lines must trip it');
+  rm(d101);
+});
+
+test('Lever 6 severity boundary: 250 lines → med, 251 → high', () => {
+  const d250 = tmpDir(); writeFile(d250, 'CLAUDE.md', bigClaude(250));
+  assert.equal(sizeFinding(R.analyze(d250, NO_HOME(d250))).severity, 'med');
+  rm(d250);
+  const d251 = tmpDir(); writeFile(d251, 'CLAUDE.md', bigClaude(251));
+  assert.equal(sizeFinding(R.analyze(d251, NO_HOME(d251))).severity, 'high');
+  rm(d251);
+});

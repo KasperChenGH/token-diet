@@ -280,4 +280,4 @@ async function runCompare(opts = {}) {
   console.log('');
 }
 
-module.exports = { runCompare, perCallMetrics, volumeChangedPct };
+module.exports = { runCompare, perCallMetrics, volumeChangedPct, pct, pctNum, aggregate };
