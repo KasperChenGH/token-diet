@@ -25,6 +25,19 @@ test('all 8 lever rubrics exist', () => {
   }
 });
 
+test('references/subagents knowledge files map to a real agent, stay <= 2k tokens, resolve shared pointers', () => {
+  const dir = path.join(ROOT, 'references', 'subagents');
+  for (const f of listMd(dir)) {
+    const agentPath = path.join(ROOT, 'agents', path.basename(f));
+    assert.ok(fs.existsSync(agentPath), `${path.basename(f)} has no matching agents/${path.basename(f)} — orphan private-knowledge file`);
+    assert.ok(tokensForFile(f) <= 2000, `${path.basename(f)} exceeds 2k tokens (${tokensForFile(f)})`);
+    const c = fs.readFileSync(f, 'utf8');
+    for (const m of c.matchAll(/Uses:\s*\[\[shared\/([a-z0-9-]+)\]\]/gi)) {
+      assert.ok(fs.existsSync(path.join(ROOT, 'skills', 'shared', m[1] + '.md')), `${path.basename(f)}: dangling Uses ${m[1]}`);
+    }
+  }
+});
+
 test('agent + subagent files: valid frontmatter and resolvable shared pointers', () => {
   const files = listMd(path.join(ROOT, 'agents'));
   for (const f of files) {

@@ -11,14 +11,21 @@
  *   commands/token-diet.md → {base}/commands/token-diet.md
  *   references/levers/     → {base}/skills/token-diet/references/levers/*.md
  *                            (per-lever rubric files — the specialist judgment bodies)
+ *   references/subagents/  → {base}/skills/token-diet/references/subagents/*.md
+ *                            (per-subagent private knowledge, named subagent-<role>.md;
+ *                             also INLINED into the matching deployed agent)
  *   skills/shared/         → {base}/skills/token-diet/shared/*.md
- *                            (shared specialist contract referenced via Uses: [[shared/...]])
+ *                            (shared contract — also INLINED into each deployed subagent,
+ *                             since spawned subagents can't bundle/resolve companion files)
+ *
+ * Subagent files are deployed self-contained: each one's rubric + shared contract are
+ * appended to its body at install time (see composeSubagentBody).
  *
  * Source files: package root (__dirname/..)
  * Idempotent — re-running is safe; prints what was written / already up to date.
  *
  * Usage:
- *   token-diet init [--global]
+ *   token-diet init [--global] [--dir <path>]   (precedence: --global > --dir > cwd)
  */
 
 const fs   = require('fs');
@@ -30,7 +37,7 @@ const os   = require('os');
  * { src: absolutePath, destRelative: path-relative-to-base } objects.
  * destPrefix is the path under base/ where the tree lands.
  */
-function collectDirArtifacts(srcDir, destPrefix) {
+function collectDirArtifacts(srcDir, destPrefix, kind = 'lever rubric') {
   const results = [];
   if (!fs.existsSync(srcDir)) return results;
   const entries = fs.readdirSync(srcDir, { withFileTypes: true });
@@ -38,12 +45,49 @@ function collectDirArtifacts(srcDir, destPrefix) {
     const srcPath = path.join(srcDir, entry.name);
     const relDest = path.join(destPrefix, entry.name);
     if (entry.isDirectory()) {
-      results.push(...collectDirArtifacts(srcPath, relDest));
+      results.push(...collectDirArtifacts(srcPath, relDest, kind));
     } else {
-      results.push({ src: srcPath, destRelative: relDest, label: `lever rubric (${entry.name})` });
+      results.push({ src: srcPath, destRelative: relDest, label: `${kind} (${entry.name})` });
     }
   }
   return results;
+}
+
+/**
+ * Inline a subagent's referenced rubric + shared contract into its body so the
+ * DEPLOYED agent is self-contained. Spawned subagents run with the user's project
+ * (not ~/.claude) as their working directory and cannot bundle companion files, so
+ * a bare `references/levers/...` path would not resolve at runtime. We append the
+ * referenced content directly into the system prompt instead.
+ */
+function composeSubagentBody(srcPath, pkgRoot) {
+  let body = fs.readFileSync(srcPath, 'utf8').trimEnd();
+  const seen = new Set();
+  for (const m of body.matchAll(/references\/levers\/(lever-\d+-[a-z0-9-]+\.md)/gi)) {
+    if (seen.has(m[1])) continue; seen.add(m[1]);
+    const rp = path.join(pkgRoot, 'references', 'levers', m[1]);
+    if (fs.existsSync(rp))
+      body += `\n\n---\n\n## Rubric (inlined at install — use this; do NOT read a file for it)\n\n` +
+              fs.readFileSync(rp, 'utf8').trimEnd();
+  }
+  // Per-subagent private knowledge: references/subagents/<this agent's filename>.md.
+  // Skip unfilled stubs (they carry the `_Stub —` marker) so empty placeholders never
+  // pollute a deployed agent — a Private-knowledge section appears only once authored.
+  const ownPath = path.join(pkgRoot, 'references', 'subagents', path.basename(srcPath));
+  if (fs.existsSync(ownPath)) {
+    const own = fs.readFileSync(ownPath, 'utf8');
+    if (!/^_Stub —/m.test(own))
+      body += `\n\n---\n\n## Private knowledge (inlined at install)\n\n` + own.trimEnd();
+  }
+  for (const m of body.matchAll(/\[\[shared\/([a-z0-9-]+)\]\]/gi)) {
+    const key = 'shared/' + m[1];
+    if (seen.has(key)) continue; seen.add(key);
+    const sp = path.join(pkgRoot, 'skills', 'shared', m[1] + '.md');
+    if (fs.existsSync(sp))
+      body += `\n\n---\n\n## Shared: ${m[1]} (inlined at install)\n\n` +
+              fs.readFileSync(sp, 'utf8').trimEnd();
+  }
+  return body + '\n';
 }
 
 async function runInit(opts = {}) {
@@ -72,17 +116,25 @@ async function runInit(opts = {}) {
       path.join(pkgRoot, 'references', 'levers'),
       path.join('skills', 'token-diet', 'references', 'levers')
     ),
+    // Per-subagent private knowledge — also inlined into each agent (belt-and-suspenders)
+    ...collectDirArtifacts(
+      path.join(pkgRoot, 'references', 'subagents'),
+      path.join('skills', 'token-diet', 'references', 'subagents'),
+      'subagent knowledge'
+    ),
   ];
 
   // Named subagents (tier-2 analyst + tier-3 lever specialists) → {base}/agents/
   // Without these, the main agent's Phase-2 delegation has no agent type to spawn.
   const agentsDir = path.join(pkgRoot, 'agents');
   for (const f of fs.readdirSync(agentsDir).filter(n => n.startsWith('subagent-') && n.endsWith('.md'))) {
-    artifacts.push({ src: path.join(agentsDir, f), destRelative: path.join('agents', f), label: `subagent (${f})` });
+    // Deploy with the rubric + shared contract inlined so the agent is self-contained.
+    artifacts.push({ content: composeSubagentBody(path.join(agentsDir, f), pkgRoot), destRelative: path.join('agents', f), label: `subagent (${f})` });
   }
 
-  // Shared specialist knowledge referenced by subagents via `Uses: [[shared/...]]`
-  // → {base}/skills/token-diet/shared/ (alongside the rubrics the specialists read).
+  // Shared specialist knowledge referenced by subagents via `Uses: [[shared/...]]`.
+  // Also deployed as standalone files (alongside the rubrics) for human reference;
+  // the running subagents use the inlined copy above, so this is belt-and-suspenders.
   const sharedDir = path.join(pkgRoot, 'skills', 'shared');
   if (fs.existsSync(sharedDir)) {
     for (const f of fs.readdirSync(sharedDir).filter(n => n.endsWith('.md'))) {
@@ -90,19 +142,21 @@ async function runInit(opts = {}) {
     }
   }
 
-  // ── Resolve install base ─────────────────────────────────────────────────────
-  const base = opts.global
-    ? path.join(os.homedir(), '.claude')
-    : path.join(process.cwd(), '.claude');
-
-  const scope = opts.global ? 'global (~/.claude/)' : 'project (.claude/)';
+  // ── Resolve install base (precedence: --global > --dir > cwd) ─────────────────
+  const installRoot = opts.global ? os.homedir()
+                    : (opts.dir ? path.resolve(opts.dir) : process.cwd());
+  const base  = path.join(installRoot, '.claude');
+  const scope = opts.global ? `global (${base})` : `project (${base})`;
   console.log(`\ntoken-diet init — installing to ${scope}\n`);
 
   let anyWritten = false;
 
   for (const artifact of artifacts) {
-    // Source must exist
-    if (!fs.existsSync(artifact.src)) {
+    // Resolve content to write: precomposed (subagents) or a plain file read.
+    let data;
+    try {
+      data = artifact.content != null ? artifact.content : fs.readFileSync(artifact.src, 'utf8');
+    } catch {
       console.error(`  [ERROR] Source not found: ${artifact.src}`);
       process.exit(1);
     }
@@ -110,32 +164,22 @@ async function runInit(opts = {}) {
     const destPath = path.join(base, artifact.destRelative);
     const destDir  = path.dirname(destPath);
 
-    // Idempotent: check if already up to date
+    // Idempotent: skip if the destination already matches exactly
     if (fs.existsSync(destPath)) {
       try {
-        const srcContent  = fs.readFileSync(artifact.src,  'utf8');
-        const destContent = fs.readFileSync(destPath, 'utf8');
-        if (srcContent === destContent) {
+        if (fs.readFileSync(destPath, 'utf8') === data) {
           console.log(`  [up to date] ${artifact.label}`);
           console.log(`               ${destPath}`);
           continue;
         }
-      } catch { /* proceed with copy */ }
+      } catch { /* proceed with write */ }
     }
 
-    // Ensure destination directory exists
     try {
       fs.mkdirSync(destDir, { recursive: true });
+      fs.writeFileSync(destPath, data);
     } catch (e) {
-      console.error(`  [ERROR] Could not create directory ${destDir}: ${e.message}`);
-      process.exit(1);
-    }
-
-    // Copy
-    try {
-      fs.copyFileSync(artifact.src, destPath);
-    } catch (e) {
-      console.error(`  [ERROR] Could not copy ${artifact.label} to ${destPath}: ${e.message}`);
+      console.error(`  [ERROR] Could not write ${artifact.label} to ${destPath}: ${e.message}`);
       process.exit(1);
     }
 
