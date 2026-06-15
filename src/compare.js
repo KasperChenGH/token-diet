@@ -30,6 +30,12 @@ function pct(before, after) {
   const sign = d >= 0 ? '+' : '';
   return `${sign}${d.toFixed(1)}%`;
 }
+// Numeric counterpart of pct() — used for the verdict so it never round-trips a
+// non-numeric label like "+∞%" through parseFloat (which would yield NaN).
+function pctNum(before, after) {
+  if (before === 0) return after === 0 ? 0 : Infinity;
+  return (after - before) / before * 100;
+}
 
 function perCallMetrics(total, numCalls) {
   const n = numCalls || 1;
@@ -76,7 +82,7 @@ async function scanWindow(fromMs, toMs, projectFilter) {
           if (tsRaw) {
             const ms = Date.parse(tsRaw);
             if (!isNaN(ms) && (ms < fromMs || ms >= toMs)) {
-              pending.set(callId, null);
+              if (callId !== null) pending.set(callId, null);
               return;
             }
           }
@@ -132,7 +138,10 @@ function aggregate(records) {
     days[day].sessions.add(r.file);
   }
 
-  const numDays = Math.max(Object.keys(days).filter(d => d !== 'unknown').length, 1);
+  // Count all day buckets (incl. an 'unknown' bucket for undated records) so the
+  // per-day numerator (totals over all buckets) and denominator (numDays) stay
+  // consistent — otherwise undated records inflate every per-day average.
+  const numDays = Math.max(Object.keys(days).length, 1);
   const totals  = { fresh_in: 0, cache_write: 0, cache_read: 0, output: 0, calls: 0, sessions: 0 };
   for (const d of Object.values(days)) {
     totals.fresh_in    += d.fresh_in;
@@ -229,7 +238,7 @@ async function runCompare(opts = {}) {
     const b = before.perDay[m] || 0;
     const a = after.perDay[m]  || 0;
     const d = pct(b, a);
-    deltaData[m] = { before: b, after: a, delta: d };
+    deltaData[m] = { before: b, after: a, delta: d, deltaNum: pctNum(b, a) };
     const cols = [m, fmt(Math.round(b)), fmt(Math.round(a)), d];
     console.log(cols.map((c, i) => i === 0 ? padL(c, colW[i]) : padR(c, colW[i])).join(' | '));
   }
@@ -252,19 +261,17 @@ async function runCompare(opts = {}) {
   const callDelta = deltaData['calls'];
   const crDelta   = deltaData['cache_read'];
 
-  const verdictParts = [];
-  if (outDelta) {
-    const sign = parseFloat(outDelta.delta) < 0 ? 'down' : 'up';
-    verdictParts.push(`output/day ${sign} ${Math.abs(parseFloat(outDelta.delta)).toFixed(1)}%`);
-  }
-  if (callDelta) {
-    const sign = parseFloat(callDelta.delta) < 0 ? 'down' : 'up';
-    verdictParts.push(`calls/day ${sign} ${Math.abs(parseFloat(callDelta.delta)).toFixed(1)}%`);
-  }
-  if (crDelta) {
-    const sign = parseFloat(crDelta.delta) < 0 ? 'down' : 'up';
-    verdictParts.push(`cache_read/day ${sign} ${Math.abs(parseFloat(crDelta.delta)).toFixed(1)}%`);
-  }
+  const verdictPart = (label, dd) => {
+    if (!dd) return null;
+    const d = dd.deltaNum;
+    if (!isFinite(d)) return `${label} up (from zero)`;
+    return `${label} ${d < 0 ? 'down' : 'up'} ${Math.abs(d).toFixed(1)}%`;
+  };
+  const verdictParts = [
+    verdictPart('output/day',     outDelta),
+    verdictPart('calls/day',      callDelta),
+    verdictPart('cache_read/day', crDelta),
+  ].filter(Boolean);
 
   console.log('\n  Verdict: ' + (verdictParts.length > 0 ? verdictParts.join(', ') : 'no data'));
   if (lowConfidence.length > 0) {

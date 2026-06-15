@@ -207,8 +207,9 @@ function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
         if (cutoffMs && tsRaw) {
           const ms = Date.parse(tsRaw);
           if (!isNaN(ms) && ms < cutoffMs) {
-            // Mark as time-filtered so duplicate lines are also skipped
-            pendingRecords.set(callId, null);
+            // Mark as time-filtered so duplicate lines are also skipped. Skip for a
+            // null callId — it has no stable key and would poison later null lines.
+            if (callId !== null) pendingRecords.set(callId, null);
             return;
           }
         }
