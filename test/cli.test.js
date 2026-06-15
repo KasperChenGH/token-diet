@@ -49,3 +49,14 @@ test('fix --verify exits non-zero on a dangling pointer', () => {
   assert.throws(() => execFileSync('node', [BIN, 'fix', '--dir', dir, '--changeset', cs, '--verify'], { stdio: 'pipe' }));
   rm(dir);
 });
+
+test('plan emits diet-changeset.json even with no history', () => {
+  const dir = tmpDir();
+  const home = tmpDir();                          // empty home -> scanAll finds no records
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  writeFile(dir, 'CLAUDE.md', Array.from({ length: 300 }, (_, i) => `line ${i}`).join('\n'));
+  execFileSync('node', [BIN, 'plan', '--dir', dir], { encoding: 'utf8', env });
+  const cs = JSON.parse(require('fs').readFileSync(path.join(dir, 'diet-changeset.json'), 'utf8'));
+  assert.ok(cs.items.some(i => i.op === 'move'));
+  rm(dir); rm(home);
+});

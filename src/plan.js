@@ -17,6 +17,8 @@ const path = require('path');
 const os   = require('os');
 const { scanAll }     = require('./scan');
 const { runOverhead } = require('./overhead');
+const { buildChangeset } = require('./changeset');
+const { appendRun }      = require('./history');
 
 // ── shared helpers ────────────────────────────────────────────────────────────
 
@@ -216,6 +218,14 @@ async function runPlan(opts = {}) {
   const days      = opts.days != null ? +opts.days : 7;
   const outFile   = opts.out  || 'diet-plan.md';
   const projectDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
+
+  // Always emit the changeset skeleton — works with NO history (review+estimate are static).
+  const csHome = os.homedir();
+  const changeset = buildChangeset(projectDir, csHome);
+  const csPath = path.join(projectDir, 'diet-changeset.json');
+  fs.writeFileSync(csPath, JSON.stringify(changeset, null, 2), 'utf8');
+  appendRun(projectDir, { ts: new Date().toISOString(), items: changeset.items.map(i => i.id), n: changeset.items.length });
+  console.log(`Changeset skeleton: ${csPath} (${changeset.items.length} items)`);
 
   const { records } = await scanAll({ ...opts, days });
 
