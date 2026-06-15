@@ -3,7 +3,9 @@
  * estimate.js — no-history forward token projection.
  * Reuses src/collectors.js. Constants below are MAINTAINER-ONLY (never user flags).
  */
-const C = require('./collectors');
+const C    = require('./collectors');
+const os   = require('os');
+const path = require('path');
 
 // ── maintainer-only modeling constants (tune here as real audit data accrues) ──
 const TOOLOUT         = { low: 1500, med: 6000, high: 18000 }; // tokens retained per agent
@@ -127,5 +129,54 @@ function savings(inp, levers, opts = {}) {
   };
 }
 
+const DEFAULT_FLAGGED = [1, 4, 5, 6, 8]; // Plan A: review-driven flagging arrives in Plan C
+const fmt = n => Math.round(n).toLocaleString('en-US');
+
+function runEstimate(opts = {}) {
+  const targetDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const home      = opts._home || os.homedir();
+  const inp  = deriveInputs(targetDir, home, opts);
+  const s    = savings(inp, DEFAULT_FLAGGED, {});
+
+  if (opts.json) {
+    console.log(JSON.stringify({
+      dir: targetDir,
+      label: 'ESTIMATE — model, not measurement',
+      assumptions: {
+        perSpawnOverhead: inp.perSpawnOverhead, perSessionOverhead: inp.perSessionOverhead,
+        spawnsPerRun: inp.spawnsPerRun, turnsPerAgent: inp.turnsPerAgent,
+        toolOutputWeight: inp.toolOutputWeight, evidence: inp.evidence,
+      },
+      bill:    { raw: s.baseline, weighted: s.baselineWeighted },
+      postfix: { raw: s.postfix,  weighted: s.postfixWeighted },
+      savers:  s.savers,
+      note: s.note,
+    }, null, 2));
+    return;
+  }
+
+  const pct = s.baselineWeighted.total > 0
+    ? Math.round(100 * (s.baselineWeighted.total - s.postfixWeighted.total) / s.baselineWeighted.total)
+    : 0;
+
+  console.log('\n=== token-diet estimate (ESTIMATE — model, not measurement) ===\n');
+  console.log(`Directory: ${targetDir}\n`);
+  console.log('Assumptions (override with flags):');
+  console.log(`  spawns/run  = ${inp.spawnsPerRun}   (${inp.evidence.spawns})`);
+  console.log(`  turns/agent = ${inp.turnsPerAgent}   (${inp.evidence.turns})`);
+  console.log(`  toolout     = ${inp.toolOutputWeight}   (${inp.evidence.toolout})\n`);
+  console.log('Projected per run (raw tokens):');
+  console.log(`  cache write  ${fmt(s.baseline.write).padStart(12)}`);
+  console.log(`  cache read   ${fmt(s.baseline.read).padStart(12)}`);
+  console.log(`  output       ${fmt(s.baseline.output).padStart(12)}`);
+  console.log(`  TOTAL        ${fmt(s.baseline.total).padStart(12)}`);
+  console.log(`  weighted $   ${fmt(s.baselineWeighted.total).padStart(12)}\n`);
+  console.log(`If flagged levers fixed:  ${fmt(s.postfix.total)} raw · ${fmt(s.postfixWeighted.total)} weighted  (-${pct}%)`);
+  const top = s.savers.slice(0, 4).map(x => `L${x.lever} -${fmt(x.weightedSaved)}`).join(' · ');
+  console.log(`Top savers (weighted): ${top}\n`);
+  console.log(s.note);
+  console.log('Numbers are a model. Run `audit`/`diagnose` after real sessions for actuals.\n');
+}
+
 module.exports = { TOOLOUT, OUTPUT_PER_TURN, PRICE,
-  deriveInputs, computeBill, weight, applyFixes, savings };
+  deriveInputs, computeBill, weight, applyFixes, savings, runEstimate };

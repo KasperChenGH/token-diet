@@ -80,3 +80,32 @@ test('savings: ranks levers by weighted saving, no additive double-count', () =>
     assert.ok(r.savers[i - 1].weightedSaved >= r.savers[i].weightedSaved);
   assert.equal(typeof r.note, 'string');
 });
+
+function capture(fn) {
+  const orig = console.log; let out = '';
+  console.log = (...a) => { out += a.join(' ') + '\n'; };
+  try { fn(); } finally { console.log = orig; }
+  return out;
+}
+
+test('runEstimate --json emits assumptions + bill.raw + bill.weighted + savers', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'x'.repeat(400));
+  const out = capture(() => E.runEstimate({ dir, json: true, _home: NO_HOME(dir) }));
+  const j = JSON.parse(out);
+  assert.ok(j.assumptions.spawnsPerRun);
+  assert.ok(j.bill.raw.total > 0);
+  assert.ok(j.bill.weighted.total > 0);
+  assert.ok(Array.isArray(j.savers));
+  rm(dir);
+});
+
+test('runEstimate human output carries the ESTIMATE label + assumptions', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'x'.repeat(400));
+  const out = capture(() => E.runEstimate({ dir, _home: NO_HOME(dir) }));
+  assert.match(out, /ESTIMATE — model, not measurement/);
+  assert.match(out, /Assumptions/);
+  assert.match(out, /Run `audit`/);
+  rm(dir);
+});
