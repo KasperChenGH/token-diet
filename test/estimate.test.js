@@ -109,3 +109,15 @@ test('runEstimate human output carries the ESTIMATE label + assumptions', () => 
   assert.match(out, /Run `audit`/);
   rm(dir);
 });
+
+test('runEstimate flags levers from review findings (not a fixed list)', () => {
+  const dir = tmpDir();
+  // 300-line CLAUDE.md -> Lever 6 flagged; no tool signals -> Lever 8 NOT flagged
+  writeFile(dir, 'CLAUDE.md', Array.from({ length: 300 }, (_, i) => `line ${i}`).join('\n'));
+  const out = capture(() => E.runEstimate({ dir, json: true, _home: NO_HOME(dir) }));
+  const j = JSON.parse(out);
+  const levers = j.savers.map(s => s.lever);
+  assert.ok(levers.includes(6));
+  assert.ok(!levers.includes(8));
+  rm(dir);
+});

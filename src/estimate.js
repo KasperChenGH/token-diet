@@ -3,9 +3,10 @@
  * estimate.js — no-history forward token projection.
  * Reuses src/collectors.js. Constants below are MAINTAINER-ONLY (never user flags).
  */
-const C    = require('./collectors');
-const os   = require('os');
-const path = require('path');
+const C      = require('./collectors');
+const review = require('./review');
+const os     = require('os');
+const path   = require('path');
 
 // ── maintainer-only modeling constants (tune here as real audit data accrues) ──
 const TOOLOUT         = { low: 1500, med: 6000, high: 18000 }; // tokens retained per agent
@@ -129,14 +130,27 @@ function savings(inp, levers, opts = {}) {
   };
 }
 
-const DEFAULT_FLAGGED = [1, 4, 5, 6, 8]; // Plan A: review-driven flagging arrives in Plan C
 const fmt = n => Math.round(n).toLocaleString('en-US');
+
+// A lever is "flagged" if it has >=2 findings OR any 'high' finding (review's own thresholds).
+function flaggedLevers(targetDir, home) {
+  const { projectFindings } = review.analyze(targetDir, home);
+  const byLever = {};
+  for (const f of projectFindings) (byLever[f.lever] = byLever[f.lever] || []).push(f);
+  const flagged = [];
+  for (const [lever, list] of Object.entries(byLever)) {
+    if (list.length >= 2 || list.some(f => f.severity === 'high')) flagged.push(+lever);
+  }
+  const MODELED = [1, 4, 5, 6, 8]; // levers the cost model can adjust
+  return flagged.filter(l => MODELED.includes(l));
+}
 
 function runEstimate(opts = {}) {
   const targetDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
   const home      = opts._home || os.homedir();
-  const inp  = deriveInputs(targetDir, home, opts);
-  const s    = savings(inp, DEFAULT_FLAGGED, {});
+  const inp    = deriveInputs(targetDir, home, opts);
+  const levers = flaggedLevers(targetDir, home);
+  const s      = savings(inp, levers.length ? levers : [6], {}); // fall back to L6 if nothing flagged
 
   if (opts.json) {
     console.log(JSON.stringify({
