@@ -14,8 +14,20 @@ const os   = require('os');
 const estTok = s => Math.round((s || '').length / 4);
 
 const DEFAULT_CONFIG = {
-  enabled: false, minTokensToCompress: 1500, minLines: 60, headTail: 20, sidecarRetentionDays: 7,
+  // Bash-only by default: compress incidental verbose command output, NOT intentional
+  // retrieval (Read/Grep belong to Lever 5 digests). Opt in by adding them to `tools`.
+  // mode: 'audit' = record what it would save but leave output untouched; 'active' = compress.
+  // keep: regex patterns whose matching lines are NEVER collapsed (protect your own signals).
+  enabled: false, mode: 'active', tools: ['Bash'], keep: [],
+  minTokensToCompress: 1500, minLines: 60, headTail: 20, sidecarRetentionDays: 7,
 };
+
+// Build a "never collapse this line" predicate from cfg.keep (case-insensitive regexes).
+function keepMatcher(cfg) {
+  const res = ((cfg && cfg.keep) || [])
+    .map(p => { try { return new RegExp(p, 'i'); } catch { return null; } }).filter(Boolean);
+  return res.length ? (ln => res.some(re => re.test(ln))) : () => false;
+}
 
 function configPath(root) { return path.join(root, '.claude', 'toolout', 'filter.json'); }
 // Read global then project config (project wins) so a `--global` install's gate is
@@ -44,11 +56,12 @@ const FAIL_RE    = /(fail(ed|ure|s)?|error|assert|traceback|exception|panic|✗|
 const SUMMARY_RE = /(?:^|\s)\d+\s+(?:passed|failed|errors?|skipped|deselected|tests?\b)|test result:|\bRan\s+\d+\s+test|={3,}[^=]*\b(?:passed|failed)\b|^\s*OK\b|^\s*FAILED\b/i;
 
 function compressTests(text, cfg) {
+  const protect = keepMatcher(cfg);
   const lines = stripNoise(text).split('\n');
   const kept = []; let run = 0; let lastKept = false;
   const flush = () => { if (run > 0) { kept.push(`  … (${run} passing/ok lines)`); run = 0; } };
   for (const ln of lines) {
-    const keep = FAIL_RE.test(ln) || SUMMARY_RE.test(ln) || (lastKept && /^\s+\S/.test(ln));
+    const keep = FAIL_RE.test(ln) || SUMMARY_RE.test(ln) || (lastKept && /^\s+\S/.test(ln)) || protect(ln);
     if (keep) { flush(); kept.push(ln); lastKept = true; }
     else { run++; lastKept = false; }
   }
@@ -80,11 +93,12 @@ function compressRead(text, cfg) {
   const lines = stripNoise(text).split('\n');
   const n = cfg.headTail;
   if (lines.length <= n * 2 + 5) return lines.join('\n');
+  const protect = keepMatcher(cfg);
   const head = lines.slice(0, n);
   const tail = lines.slice(-n);
-  const sigs = lines.slice(n, -n).filter(l => SIG_RE.test(l)).slice(0, 80);
+  const sigs = lines.slice(n, -n).filter(l => SIG_RE.test(l) || protect(l)).slice(0, 80);
   const mid = sigs.length
-    ? [`  … (${lines.length - 2 * n} lines elided — signatures:)`, ...sigs]
+    ? [`  … (${lines.length - 2 * n} lines elided — kept signatures/marked:)`, ...sigs]
     : [`  … (${lines.length - 2 * n} lines elided)`];
   return [...head, ...mid, ...tail].join('\n');
 }
@@ -100,20 +114,35 @@ function dedupLog(text, cfg) {
   flush();
   let r = out;
   if (r.length > cfg.headTail * 2 + 10) {
-    r = [...out.slice(0, cfg.headTail), `  … (${out.length - cfg.headTail * 2} lines elided)`, ...out.slice(-cfg.headTail)];
+    const protect = keepMatcher(cfg);
+    const head = out.slice(0, cfg.headTail);
+    const tail = out.slice(-cfg.headTail);
+    const mid  = out.slice(cfg.headTail, out.length - cfg.headTail);
+    const kept = mid.filter(protect);                       // protected lines survive elision
+    r = [...head, ...kept, `  … (${mid.length - kept.length} lines elided)`, ...tail];
   }
   return r.join('\n');
 }
 
 // ── classify (tool + command → compressor) ────────────────────────────────────
 const TEST_CMD_RE = /\b(pytest|jest|vitest|mocha|cargo test|go test|npm (run )?test|yarn test|pnpm test|rspec|phpunit|gradle test|mvn test|unittest)\b/;
-function classify(payload, cfg) {
+// The compressor "kind" — also the row key in the --report table.
+function classifyKind(payload) {
   const tool = payload.tool_name || '';
   const cmd  = (payload.tool_input && payload.tool_input.command) || '';
-  if (tool === 'Read')                return (t) => compressRead(t, cfg);
-  if (tool === 'Bash' && TEST_CMD_RE.test(cmd)) return (t) => compressTests(t, cfg);
-  if (tool === 'Bash' && /^\s*git\b/.test(cmd)) return (t) => compressGit(t, cmd, cfg);
-  return (t) => dedupLog(t, cfg);
+  if (tool === 'Read') return 'read';
+  if (tool === 'Bash' && TEST_CMD_RE.test(cmd)) return 'tests';
+  if (tool === 'Bash' && /^\s*git\b/.test(cmd)) return 'git';
+  return 'log';
+}
+function classify(payload, cfg) {
+  const cmd = (payload.tool_input && payload.tool_input.command) || '';
+  switch (classifyKind(payload)) {
+    case 'read':  return (t) => compressRead(t, cfg);
+    case 'tests': return (t) => compressTests(t, cfg);
+    case 'git':   return (t) => compressGit(t, cmd, cfg);
+    default:      return (t) => dedupLog(t, cfg);
+  }
 }
 
 // ── output extraction (defensive across hook payload shapes) ───────────────────
@@ -153,10 +182,21 @@ function pruneSidecar(root, days) {
   } catch { /* dir missing — nothing to prune */ }
 }
 
+// One measured line per compressed call — the raw material for `filter --report`.
+function recordStats(root, entry) {
+  try {
+    const dir = path.join(root, '.claude', 'toolout');
+    fs.mkdirSync(dir, { recursive: true });
+    fs.appendFileSync(path.join(dir, 'stats.jsonl'), JSON.stringify(entry) + '\n');
+  } catch { /* stats are best-effort — must never break the hook */ }
+}
+
 // ── core: compress a payload → hook JSON string or null (no rewrite) ────────────
 function compressPayload(payload, root, nowIso) {
   const cfg = loadConfig(root);
   if (!cfg.enabled) return null;                 // gate: disabled → pass through
+  const tools = Array.isArray(cfg.tools) && cfg.tools.length ? cfg.tools : ['Bash'];
+  if (!tools.includes(payload.tool_name || '')) return null;  // tool not in allowlist → pass through
   const full = extractOutput(payload);
   if (full == null) return null;                 // unknown shape → pass through
   // Baseline measured AFTER noise-strip so the "real gain" check compares like-for-like
@@ -166,6 +206,9 @@ function compressPayload(payload, root, nowIso) {
   const compressed = classify(payload, cfg)(full).trim();
   const compLines = compressed.split('\n').length;
   if (!compressed || compLines >= baseLines) return null; // no real gain → pass through
+  recordStats(root, { ts: nowIso, tool: payload.tool_name || '', kind: classifyKind(payload),
+                      rawTok: estTok(full), compTok: estTok(compressed) });
+  if ((cfg.mode || 'active') !== 'active') return null;  // audit mode → recorded, output left untouched
   pruneSidecar(root, cfg.sidecarRetentionDays);
   const sidecar = writeSidecar(root, payload.tool_name, full, nowIso);
   const view = `${compressed}\n[token-diet: compressed ${baseLines}→${compLines} lines · full: ${sidecar}]`;
@@ -196,21 +239,28 @@ function runInstall(opts = {}) {
   fs.mkdirSync(path.join(base, 'toolout'), { recursive: true });
   const cfgP = path.join(base, 'toolout', 'filter.json');
   if (!fs.existsSync(cfgP)) fs.writeFileSync(cfgP, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
+  let cfg = { ...DEFAULT_CONFIG };
+  try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(cfgP, 'utf8')) }; } catch { /* default */ }
+  const tools   = Array.isArray(cfg.tools) && cfg.tools.length ? cfg.tools : ['Bash'];
+  const matcher = tools.join('|');
 
   const setP = path.join(base, 'settings.json');
   let settings = {};
   try { settings = JSON.parse(fs.readFileSync(setP, 'utf8')); } catch { /* new file */ }
   settings.hooks = settings.hooks || {};
   settings.hooks.PostToolUse = settings.hooks.PostToolUse || [];
-  const present = settings.hooks.PostToolUse.some(h => (h.hooks || []).some(x => x.command === HOOK_CMD));
-  if (!present) {
-    settings.hooks.PostToolUse.push({ matcher: 'Bash|Read|Grep', hooks: [{ type: 'command', command: HOOK_CMD }] });
-    fs.writeFileSync(setP, JSON.stringify(settings, null, 2) + '\n');
-  }
+  // Re-sync: drop any prior token-diet entry, then add one with the matcher from config.
+  settings.hooks.PostToolUse = settings.hooks.PostToolUse
+    .map(h => ({ ...h, hooks: (h.hooks || []).filter(x => x.command !== HOOK_CMD) }))
+    .filter(h => (h.hooks || []).length > 0);
+  settings.hooks.PostToolUse.push({ matcher, hooks: [{ type: 'command', command: HOOK_CMD }] });
+  fs.writeFileSync(setP, JSON.stringify(settings, null, 2) + '\n');
+
   console.log(`\ntoken-diet filter installed (DISABLED) at ${base}`);
-  console.log(`  hook   : PostToolUse → ${HOOK_CMD} (matcher Bash|Read|Grep)`);
-  console.log(`  config : ${cfgP}`);
-  console.log(`\nNext: 'token-diet filter --self-test', then 'token-diet filter --enable'\n`);
+  console.log(`  hook   : PostToolUse [${matcher}] → ${HOOK_CMD}`);
+  console.log(`  config : ${cfgP}  (compresses tools: ${tools.join(', ')})`);
+  console.log(`\nNext: --self-test → --enable (AUDIT: records what it'd save, no changes) → --report → --activate`);
+  console.log(`Tune in filter.json: "tools" (add Read/Grep), "keep" (regexes never collapsed), thresholds.\n`);
 }
 
 function runUninstall(opts = {}) {
@@ -230,15 +280,21 @@ function runUninstall(opts = {}) {
   } catch { console.log('No settings.json hook to remove.'); }
 }
 
-function setEnabled(opts, enabled) {
+function setState(opts, enabled, mode) {
   const cfgP = path.join(resolveBase(opts), 'toolout', 'filter.json');
   let cfg = { ...DEFAULT_CONFIG };
   try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(cfgP, 'utf8')) }; } catch { /* default */ }
   cfg.enabled = enabled;
+  if (mode) cfg.mode = mode;
   fs.mkdirSync(path.dirname(cfgP), { recursive: true });
   fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
-  console.log(`token-diet filter ${enabled ? 'ENABLED' : 'disabled'} (${cfgP})`);
+  const state = !enabled ? 'disabled'
+    : cfg.mode === 'active' ? 'ACTIVE — compressing output'
+    : 'AUDIT — recording what it would save; output UNCHANGED. Review with --report, then --activate';
+  console.log(`\ntoken-diet filter: ${state}\n  ${cfgP}\n`);
 }
+// `--enable` defaults to safe AUDIT mode; `--activate` goes live; `--disable` turns it off.
+function setEnabled(opts, enabled) { return setState(opts, enabled, enabled ? 'audit' : undefined); }
 
 // Inline fixtures (shipped in this file — no extra paths to resolve).
 const FIXTURES = {
@@ -265,9 +321,56 @@ function runSelfTest() {
   console.log("Fixtures only. Enable on real output with: token-diet filter --enable\n");
 }
 
+// ── report: aggregate recorded stats into a measured reduction table ───────────
+const KIND_LABEL = { tests: 'tests (pytest/jest/…)', git: 'git (status/diff/log)', read: 'large file reads', log: 'logs / other output' };
+
+function aggregateStats(entries) {
+  const agg = {};
+  for (const e of entries) {
+    const k = e.kind || 'log';
+    (agg[k] = agg[k] || { kind: k, count: 0, raw: 0, comp: 0 });
+    agg[k].count++; agg[k].raw += e.rawTok || 0; agg[k].comp += e.compTok || 0;
+  }
+  const rows = Object.values(agg)
+    .map(v => ({ ...v, pct: v.raw ? Math.round(100 * (v.raw - v.comp) / v.raw) : 0 }))
+    .sort((a, b) => (b.raw - b.comp) - (a.raw - a.comp));
+  const total = rows.reduce((s, r) => ({ count: s.count + r.count, raw: s.raw + r.raw, comp: s.comp + r.comp }),
+    { count: 0, raw: 0, comp: 0 });
+  total.pct = total.raw ? Math.round(100 * (total.raw - total.comp) / total.raw) : 0;
+  return { rows, total };
+}
+
+function runReport(opts = {}) {
+  const root = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  let entries = [];
+  try {
+    entries = fs.readFileSync(path.join(root, '.claude', 'toolout', 'stats.jsonl'), 'utf8')
+      .split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  } catch { /* no stats yet */ }
+
+  if (!entries.length) {
+    console.log('\nNo filter activity recorded yet. Run `token-diet filter --install --self-test --enable`,\nthen use the project — the table builds from your real tool output.\n');
+    return;
+  }
+  const { rows, total } = aggregateStats(entries);
+  if (opts.json) { console.log(JSON.stringify({ rows, total }, null, 2)); return; }
+
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const pad = (s, w) => String(s).padStart(w);
+  console.log('\n=== token-diet filter — measured token reduction (your real sessions) ===\n');
+  console.log('  type                   |  calls |     before |      after | reduction');
+  console.log('  -----------------------+--------+------------+------------+----------');
+  for (const r of rows)
+    console.log(`  ${(KIND_LABEL[r.kind] || r.kind).padEnd(22)} | ${pad(r.count, 6)} | ${pad(fmt(r.raw), 10)} | ${pad(fmt(r.comp), 10)} | ${pad('-' + r.pct + '%', 8)}`);
+  console.log('  -----------------------+--------+------------+------------+----------');
+  console.log(`  ${'TOTAL'.padEnd(22)} | ${pad(total.count, 6)} | ${pad(fmt(total.raw), 10)} | ${pad(fmt(total.comp), 10)} | ${pad('-' + total.pct + '%', 8)}`);
+  console.log(`\n  ${fmt(total.raw - total.comp)} tokens saved across ${total.count} filtered calls (token ≈ chars/4).`);
+  console.log('  Tool-output only — for the whole-project effect, use `token-diet compare`.\n');
+}
+
 module.exports = {
   DEFAULT_CONFIG, loadConfig, configPath, stripNoise,
-  compressTests, compressGit, compressRead, dedupLog, classify, extractOutput,
-  writeSidecar, pruneSidecar, compressPayload, runFilter,
-  runInstall, runUninstall, setEnabled, runSelfTest,
+  compressTests, compressGit, compressRead, dedupLog, classify, classifyKind, extractOutput,
+  writeSidecar, pruneSidecar, recordStats, compressPayload, runFilter, keepMatcher,
+  runInstall, runUninstall, setEnabled, setState, runSelfTest, aggregateStats, runReport,
 };

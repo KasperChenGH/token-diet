@@ -110,3 +110,85 @@ test('install writes disabled config + settings hook; setEnabled flips the gate'
   assert.equal(JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'filter.json'), 'utf8')).enabled, true);
   rm(root);
 });
+
+test('aggregateStats: rolls up by kind with reduction % and a total (golden)', () => {
+  const { rows, total } = F.aggregateStats([
+    { kind: 'tests', rawTok: 1000, compTok: 100 },
+    { kind: 'tests', rawTok: 1000, compTok: 300 },
+    { kind: 'git',   rawTok: 200,  compTok: 50  },
+  ]);
+  const tests = rows.find(r => r.kind === 'tests');
+  assert.equal(tests.count, 2);
+  assert.equal(tests.raw, 2000);
+  assert.equal(tests.comp, 400);
+  assert.equal(tests.pct, 80);              // (2000-400)/2000
+  assert.equal(rows[0].kind, 'tests');      // sorted by absolute saving (1600 > 150)
+  assert.equal(total.count, 3);
+  assert.equal(total.raw, 2200);
+  assert.equal(total.pct, 80);              // (2200-450)/2200 ≈ 79.5 → 80
+});
+
+test('compressPayload records one stats line per compressed call', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true }));
+  const big = Array.from({ length: 200 }, (_, i) => `row ${i}`).join('\n');
+  F.compressPayload({ tool_name: 'Bash', tool_input: { command: 'pytest -q' }, tool_response: big }, root, 'ts');
+  const stats = fs.readFileSync(path.join(root, '.claude', 'toolout', 'stats.jsonl'), 'utf8').trim().split('\n');
+  assert.equal(stats.length, 1);
+  const e = JSON.parse(stats[0]);
+  assert.equal(e.kind, 'tests');
+  assert.ok(e.rawTok > e.compTok, 'raw should exceed compressed');
+  rm(root);
+});
+
+test('runReport with no stats prints guidance and does not throw', () => {
+  const root = tmpDir();
+  let out = ''; const o = console.log; console.log = (...a) => { out += a.join(' ') + '\n'; };
+  try { F.runReport({ dir: root }); } finally { console.log = o; }
+  assert.match(out, /No filter activity/);
+  rm(root);
+});
+
+test('audit mode records the would-be saving but leaves output untouched', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, mode: 'audit' }));
+  const big = Array.from({ length: 200 }, (_, i) => `row ${i}`).join('\n');
+  const payload = { tool_name: 'Bash', tool_input: { command: 'echo' }, tool_response: big };
+  assert.equal(F.compressPayload(payload, root, 'ts'), null, 'audit must not rewrite output');
+  const stats = fs.readFileSync(path.join(root, '.claude', 'toolout', 'stats.jsonl'), 'utf8').trim().split('\n');
+  assert.equal(stats.length, 1, 'audit still records what it would have saved');
+});
+
+test('keep-patterns protect a matching line from being collapsed', () => {
+  const cfg = { ...F.DEFAULT_CONFIG, keep: ['DEPRECATION'] };
+  const input = 'a PASSED\n'.repeat(20) + 'DEPRECATION: old api used\n' + 'b PASSED\n'.repeat(20);
+  assert.match(F.compressTests(input, cfg), /DEPRECATION: old api used/);  // kept despite not being a failure
+  assert.doesNotMatch(F.compressTests(input, { ...F.DEFAULT_CONFIG }), /DEPRECATION/);  // collapsed without the keep rule
+});
+
+test('tools allowlist: Read passes through by default; compresses only when opted in', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  const big = Array.from({ length: 200 }, (_, i) => `line ${i}`).join('\n');
+  const readPayload = { tool_name: 'Read', tool_input: { file_path: 'big.py' }, tool_response: big };
+
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true }));   // default tools=['Bash']
+  assert.equal(F.compressPayload(readPayload, root, 'ts'), null, 'Read should pass through by default');
+
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, tools: ['Bash', 'Read'] }));
+  assert.ok(F.compressPayload(readPayload, root, 'ts2'), 'Read should compress once opted in');
+  rm(root);
+});
+
+test('install matcher follows filter.json tools', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: false, tools: ['Bash', 'Read'] }));
+  silence(() => F.runInstall({ dir: root }));
+  const set = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
+  const entry = set.hooks.PostToolUse.find(h => h.hooks.some(x => x.command === 'token-diet filter'));
+  assert.equal(entry.matcher, 'Bash|Read');
+  rm(root);
+});

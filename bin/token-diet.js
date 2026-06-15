@@ -58,7 +58,9 @@ function parseArgs(argv) {
     install:    false,
     uninstall:  false,
     enable:     false,
+    activate:   false,
     disable:    false,
+    report:     false,
   };
   const positional = [];
 
@@ -120,8 +122,12 @@ function parseArgs(argv) {
       opts.uninstall = true;
     } else if (a === '--enable') {
       opts.enable = true;
+    } else if (a === '--activate') {
+      opts.activate = true;
     } else if (a === '--disable') {
       opts.disable = true;
+    } else if (a === '--report') {
+      opts.report = true;
     } else if (a === '--json') {
       opts.json = true;
     } else if (a === '--global') {
@@ -165,7 +171,9 @@ ACT
               --changeset <file> --only 1,3 --dry-run   |   --verify checks edited files
   filter      Lever 8 output-compression engine (PostToolUse hook). Compresses verbose tool
               output before it re-enters context; full output saved to .claude/toolout/.
-              Disabled by default: --install [--global] · --self-test · --enable · --disable · --uninstall
+              Off by default. Flow: --install [--global] → --self-test → --enable (AUDIT: records
+              what it'd save, no changes) → --report → --activate (go live). Also --disable / --uninstall.
+              --report [--json] shows the measured reduction table. Tune tools/keep/thresholds in filter.json.
   init        Install token-diet as a Claude Code skill + agent + command + lever rubrics
               Default: <cwd>/.claude/  |  --global: ~/.claude/
 
@@ -257,8 +265,10 @@ async function main() {
       if (opts.selfTest)       filter.runSelfTest();
       else if (opts.install)   filter.runInstall(opts);
       else if (opts.uninstall) filter.runUninstall(opts);
-      else if (opts.enable)    filter.setEnabled(opts, true);
-      else if (opts.disable)   filter.setEnabled(opts, false);
+      else if (opts.enable)    filter.setState(opts, true, 'audit');   // safe: records, no changes
+      else if (opts.activate)  filter.setState(opts, true, 'active');  // go live
+      else if (opts.disable)   filter.setState(opts, false);
+      else if (opts.report)    filter.runReport(opts);   // measured reduction table
       else                     filter.runFilter(opts);   // hook mode — reads stdin
       break;
     default:

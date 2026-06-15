@@ -26,12 +26,32 @@ A plain, dependency-free CLI does all the measuring and *applies* every approved
 
 ## Install
 
+First get the CLI tool (or use it via `npx`):
+
 ```bash
 npm install -g github:KasperChenGH/token-diet
-token-diet init --global     # deploys the agent + 10 subagents + command + skill + rubrics into ~/.claude/
 ```
 
-Then in any project: **`/token-diet`** — or just tell Claude "put this project on a token diet."
+Then deploy the agent + 10 subagents + `/token-diet` command + skill into Claude Code — pick a scope:
+
+**A) All your projects (global)** — installs into `~/.claude/`:
+
+```bash
+token-diet init --global
+```
+
+**B) One repo only (project-scoped)** — installs into that repo's `./.claude/`:
+
+```bash
+cd your-repo
+token-diet init            # no --global → project-local
+```
+
+Reload Claude Code, then run **`/token-diet`** (or tell Claude *"put this project on a token diet"*).
+
+The optional **output filter** (Lever 8 engine) scopes the same way — `token-diet filter --install [--global]`. It's **safe by default**: `--enable` starts in **audit mode** (records what it *would* save without changing any output — review with **`token-diet filter --report`**, a *measured* reduction table from your real sessions), and only `--activate` makes it live. It compresses **Bash output by default** (Read/Grep are opt-in via `tools` in `filter.json`, since those are better handled by Lever 5 digests), always keeps the full output in a sidecar, and you can shield specific lines from compression with `keep` regexes in `filter.json`. And the project `.claude/` artifacts are plain files: **commit** them to share the setup with your team, or **gitignore** them to keep it personal.
+
+> The `npm install -g` step installs only the *CLI tool* globally. What makes token-diet global vs. project-scoped is where `init` places the Claude Code artifacts — controlled by the presence of `--global`.
 
 ## Start here: static project review (no usage history needed)
 
