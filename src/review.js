@@ -530,43 +530,27 @@ function worstSev(findings) {
 
 // ── main ──────────────────────────────────────────────────────────────────────
 
-async function runReview(opts = {}) {
-  const targetDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
-  const home      = os.homedir();
-  // Initialise module-level scope resolver
+/**
+ * analyze — collect files, run every lever check, return findings + grade.
+ * Shared with estimate (review-driven flagged levers). No printing.
+ */
+function analyze(targetDir, home) {
   _targetDir = targetDir;
   _home      = home;
-  const findings  = [];
-
-  // ── Collect all command/agent/skill files with content ───────────────────
+  const findings = [];
   const allCommandFiles = [];
-
-  function collect(filePaths, label) {
-    for (const f of filePaths) {
-      const content = readText(f);
-      allCommandFiles.push({ file: f, content, label });
-    }
-  }
-
-  // Project commands
-  collect(globMdFiles(path.join(targetDir, '.claude', 'commands')), 'project command');
-  // Project agents
-  collect(globMdFiles(path.join(targetDir, '.claude', 'agents')), 'project agent');
-  // Project skills
-  collect(globSkillFiles(path.join(targetDir, '.claude', 'skills'), 'SKILL.md'), 'project skill');
-  // Global commands
-  collect(globMdFiles(path.join(home, '.claude', 'commands')), 'global command');
-  // Global agents
-  collect(globMdFiles(path.join(home, '.claude', 'agents')), 'global agent');
-  // Global skills
-  collect(globSkillFiles(path.join(home, '.claude', 'skills'), 'SKILL.md'), 'global skill');
-  // CLAUDE.md files (for lever 3/4/5 text checks too)
+  const collect = (filePaths) => { for (const f of filePaths) allCommandFiles.push({ file: f, content: readText(f) }); };
+  collect(globMdFiles(path.join(targetDir, '.claude', 'commands')));
+  collect(globMdFiles(path.join(targetDir, '.claude', 'agents')));
+  collect(globSkillFiles(path.join(targetDir, '.claude', 'skills'), 'SKILL.md'));
+  collect(globMdFiles(path.join(home, '.claude', 'commands')));
+  collect(globMdFiles(path.join(home, '.claude', 'agents')));
+  collect(globSkillFiles(path.join(home, '.claude', 'skills'), 'SKILL.md'));
   const projClaude   = path.join(targetDir, 'CLAUDE.md');
   const globalClaude = path.join(home, '.claude', 'CLAUDE.md');
-  if (fs.existsSync(projClaude))   allCommandFiles.push({ file: projClaude,   content: readText(projClaude),   label: 'project CLAUDE.md' });
-  if (fs.existsSync(globalClaude)) allCommandFiles.push({ file: globalClaude, content: readText(globalClaude), label: 'global CLAUDE.md' });
+  if (fs.existsSync(projClaude))   allCommandFiles.push({ file: projClaude,   content: readText(projClaude) });
+  if (fs.existsSync(globalClaude)) allCommandFiles.push({ file: globalClaude, content: readText(globalClaude) });
 
-  // ── Run all lever checks ─────────────────────────────────────────────────
   const { rows: overheadRows, perSpawnTotal } = checkLever6(targetDir, home, findings);
   checkLever1(allCommandFiles, findings);
   checkLever2(allCommandFiles, findings);
@@ -575,21 +559,26 @@ async function runReview(opts = {}) {
   checkLever5(targetDir, allCommandFiles, findings);
   checkLever7(allCommandFiles, findings);
 
-  // ── Split findings by scope ──────────────────────────────────────────────
   const projectFindings = findings.filter(f => f.scope === 'project');
-  const globalFindings  = findings.filter(f => f.scope === 'global');
+  const hasProjectArtifacts = fs.existsSync(projClaude) || fs.existsSync(path.join(targetDir, '.claude'));
+  const grade = hasProjectArtifacts ? computeGrade(projectFindings) : 'N/A';
+  return { findings, projectFindings, allCommandFiles, overheadRows, perSpawnTotal, grade };
+}
+
+async function runReview(opts = {}) {
+  const targetDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const home      = os.homedir();
+
+  const { findings, projectFindings, allCommandFiles, overheadRows, perSpawnTotal, grade } = analyze(targetDir, home);
+  const globalFindings = findings.filter(f => f.scope === 'global');
 
   // Detect whether any project-level Claude Code artifacts exist
-  const hasProjectClaude    = fs.existsSync(path.join(targetDir, 'CLAUDE.md'));
-  const hasProjectDotClaude = fs.existsSync(path.join(targetDir, '.claude'));
-  const hasProjectArtifacts = hasProjectClaude || hasProjectDotClaude;
+  const hasProjectArtifacts = fs.existsSync(path.join(targetDir, 'CLAUDE.md')) || fs.existsSync(path.join(targetDir, '.claude'));
 
   // ── Build per-lever scorecard (project scope only) ───────────────────────
   const leverFindings = {};
   for (let i = 1; i <= 7; i++) leverFindings[i] = [];
   for (const f of projectFindings) leverFindings[f.lever].push(f);
-
-  const grade = hasProjectArtifacts ? computeGrade(projectFindings) : 'N/A';
 
   // ── JSON output ──────────────────────────────────────────────────────────
   if (opts.json) {
@@ -730,4 +719,4 @@ async function runReview(opts = {}) {
   console.log('');
 }
 
-module.exports = { runReview };
+module.exports = { runReview, analyze };
