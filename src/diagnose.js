@@ -9,7 +9,7 @@
  * 3. TURNY SESSIONS (cache mechanics) — sessions with > 150 calls
  * 4. IDLE BABYSITTING (Lever 3) — sessions with > 15 min of idle time
  *    (gap > 5 min between consecutive assistant timestamps)
- * 5. MODEL MIX      (Lever 7) — fable/opus share of output tokens; warn if > 80%
+ * 5. MODEL MIX      (Lever 7) — opus share of output tokens; warn if > 80%
  *    when subagent files also exist
  * 6. SESSION DENSITY (Lever 2) — sessions-per-day (informational)
  * 7. TOOL OUTPUT BLOAT (Lever 8) — cache-read-amplified cost of large tool results
@@ -147,7 +147,7 @@ async function runDiagnose(opts = {}) {
     totalOut += r.output;
     if (r.sessionKind === 'subagent') hasSubagents = true;
   }
-  const topTierOut = (modelOut['fable'] || 0) + (modelOut['opus'] || 0);
+  const topTierOut = (modelOut['opus'] || 0);
   const topTierPct = totalOut > 0 ? (topTierOut / totalOut * 100) : 0;
 
   // ── HEURISTIC 6: SESSION DENSITY (Lever 2) ────────────────────────────────
@@ -328,7 +328,7 @@ async function runDiagnose(opts = {}) {
     console.log(`  ${padL(fam, 10)}  ${padR(fmt(out), 14)} output tokens  (${padR(pct, 5)}%)`);
   }
   if (topTierPct > 80 && hasSubagents) {
-    console.log(`\n  WARNING: top-tier models (fable/opus) account for ${topTierPct.toFixed(1)}% of output`);
+    console.log(`\n  WARNING: top-tier models (opus) account for ${topTierPct.toFixed(1)}% of output`);
     console.log('  while subagent files exist. Consider routing subagents to sonnet/haiku.');
   }
   console.log('');
@@ -387,7 +387,7 @@ async function runDiagnose(opts = {}) {
     { lever: 'Lever 2    Session density',    pct: dayEntries.length > 0     ? '5-15%'  : 'n/a',  note: '/clear more often, consolidate short sessions' },
     { lever: 'Lever 3    Idle babysitting',   pct: idleSessions.length > 0   ? '10-25%' : '~0%',  note: 'run long tasks unattended, reduce polling' },
     { lever: 'Lever 5    Hot files',          pct: hotFiles.length > 0       ? '20-40%' : '~0%',  note: 'consolidate or cache frequently read files' },
-    { lever: 'Lever 7    Model mix',          pct: topTierPct > 80           ? '10-30%' : '<5%',  note: 'sonnet for subagents, opus/fable for synthesis only' },
+    { lever: 'Lever 7    Model mix',          pct: topTierPct > 80           ? '10-30%' : '<5%',  note: 'sonnet for subagents, opus for synthesis only' },
     { lever: 'Lever 8    Tool output bloat',  pct: totalAmpli > 50_000       ? '10-25%' : '~0%',  note: 'filter bash/read output; PostToolUse hook or rtk CLI' },
     { lever: 'Cache-mech Turny sessions',     pct: turnySessions.length > 0  ? '5-15%'  : '~0%',  note: '/clear every N turns to reset cache window' },
   ];

@@ -179,7 +179,7 @@ SESSION KINDS
   subagent  — spawned sub-session (agent-*.jsonl)
 
 MODEL FAMILIES
-  fable | opus | sonnet | haiku | other
+  opus | sonnet | haiku | other
 
 See SKILL.md for the full optimization guide and levers.
 `);

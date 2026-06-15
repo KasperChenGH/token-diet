@@ -43,7 +43,6 @@ const readline = require('readline');
 function modelFamily(modelStr) {
   if (!modelStr) return 'other';
   const m = modelStr.toLowerCase();
-  if (m.includes('fable'))  return 'fable';
   if (m.includes('opus'))   return 'opus';
   if (m.includes('sonnet')) return 'sonnet';
   if (m.includes('haiku'))  return 'haiku';

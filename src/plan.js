@@ -113,7 +113,7 @@ function computeModelMix(records) {
     totalOut += r.output;
     if (r.sessionKind === 'subagent') hasSubagents = true;
   }
-  const topTierOut = (modelOut['fable'] || 0) + (modelOut['opus'] || 0);
+  const topTierOut = (modelOut['opus'] || 0);
   const topTierPct = totalOut > 0 ? (topTierOut / totalOut * 100) : 0;
   return { modelOut, totalOut, topTierPct, hasSubagents };
 }
@@ -290,8 +290,8 @@ async function runPlan(opts = {}) {
   if (modelMix.topTierPct > 80 && modelMix.hasSubagents) {
     findings.push({
       lever:   'Lever 7',
-      title:   `Top-tier models (fable/opus) account for ${modelMix.topTierPct.toFixed(1)}% of output while subagents exist`,
-      action:  'Route subagents to sonnet/haiku; reserve fable/opus for synthesis and strategy turns',
+      title:   `Top-tier models (opus) account for ${modelMix.topTierPct.toFixed(1)}% of output while subagents exist`,
+      action:  'Route subagents to sonnet/haiku; reserve opus for synthesis and strategy turns',
       evidence:`top_tier_pct=${modelMix.topTierPct.toFixed(1)}%, has_subagents=true`,
       saving:  'Est. 3-5× cost reduction on routed share',
     });

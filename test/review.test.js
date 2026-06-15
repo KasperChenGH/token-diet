@@ -56,3 +56,10 @@ test('overhead prints a deprecation note and the per-spawn total', () => {
   assert.match(out, /per-spawn/i);
   rm(dir);
 });
+
+const S = require('../src/scan');
+test('fable is no longer a detected family or a top tier', () => {
+  assert.equal(S.modelFamily('claude-fable-5'), 'other');
+  assert.equal(R.modelTier('claude-fable-5'), 'other');   // not 'top'
+  assert.equal(R.modelTier('claude-opus-4-8'), 'top');    // opus stays top
+});

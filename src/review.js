@@ -97,7 +97,7 @@ function parseFrontmatterModel(content) {
 function modelTier(modelStr) {
   if (!modelStr) return 'unknown';
   const m = modelStr.toLowerCase();
-  if (m.includes('fable') || m.includes('opus')) return 'top';
+  if (m.includes('opus')) return 'top';
   if (m.includes('sonnet'))                       return 'mid';
   if (m.includes('haiku'))                        return 'low';
   return 'other';
@@ -762,4 +762,4 @@ async function runReview(opts = {}) {
   console.log('');
 }
 
-module.exports = { runReview, analyze, LEVER_NAMES };
+module.exports = { runReview, analyze, LEVER_NAMES, modelTier };
