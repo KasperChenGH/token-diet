@@ -59,4 +59,21 @@ function applyScaffold(item, root) {
   return { id: item.id, op: 'scaffold', status: item.disabled ? 'scaffolded (disabled)' : 'scaffolded' };
 }
 
-module.exports = { applyMove, applyWrite, applyScaffold };
+function applyCommentMarker(item, root) {
+  const file = path.join(root, item.file);
+  const content = fs.readFileSync(file, 'utf8');
+  if (content.includes(item.text)) {
+    return { id: item.id, op: 'comment-marker', status: 'skipped (present)' };
+  }
+  const lines = content.split('\n');
+  let insertAt = 0;
+  if (lines[0] === '---') {
+    const end = lines.indexOf('---', 1);
+    if (end > 0) insertAt = end + 1;
+  }
+  lines.splice(insertAt, 0, item.text);
+  fs.writeFileSync(file, lines.join('\n'));
+  return { id: item.id, op: 'comment-marker', status: 'inserted' };
+}
+
+module.exports = { applyMove, applyWrite, applyScaffold, applyCommentMarker };

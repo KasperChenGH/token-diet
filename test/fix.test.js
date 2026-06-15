@@ -59,3 +59,15 @@ test('applyScaffold: unknown template is an error, not a silent empty file', () 
   assert.match(res.status, /ERROR/);
   rm(dir);
 });
+
+test('applyCommentMarker: inserts after frontmatter; idempotent', () => {
+  const dir = tmpDir();
+  writeFile(dir, '.claude/agents/x.md', '---\nname: x\n---\nbody');
+  const item = { id: 4, op: 'comment-marker', file: '.claude/agents/x.md',
+                 anchor: 'top', text: '<!-- token-diet: removal candidate -->' };
+  assert.equal(F.applyCommentMarker(item, dir).status, 'inserted');
+  const out = fs.readFileSync(path.join(dir, '.claude/agents/x.md'), 'utf8');
+  assert.equal(out, '---\nname: x\n---\n<!-- token-diet: removal candidate -->\nbody');
+  assert.match(F.applyCommentMarker(item, dir).status, /skipped/);
+  rm(dir);
+});
