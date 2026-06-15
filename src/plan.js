@@ -349,7 +349,7 @@ async function runPlan(opts = {}) {
 
   lines.push('---');
   lines.push('');
-  lines.push('Execute this plan with your agent. Methodology: SKILL.md / https://github.com/KasperChenGH/token-diet');
+  lines.push('Execute this plan with your agent. Methodology: skills/SKILL.md / https://github.com/KasperChenGH/token-diet');
   lines.push('(or: `git clone` the repo into `~/.claude/skills/`)');
   lines.push('');
 

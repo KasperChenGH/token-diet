@@ -16,7 +16,7 @@
  * Data source: ~/.claude/projects/<project-slug>/*.jsonl
  *              (agent-*.jsonl files are classified as "subagent" sessions)
  *
- * See SKILL.md for the full reference guide and optimization levers.
+ * See skills/SKILL.md for the full reference guide and optimization levers.
  */
 
 const { runAudit }    = require('../src/audit');
@@ -180,7 +180,7 @@ SESSION KINDS
 MODEL FAMILIES
   opus | sonnet | haiku | other
 
-See SKILL.md for the full optimization guide and levers.
+See skills/SKILL.md for the full optimization guide and levers.
 `);
 }
 
