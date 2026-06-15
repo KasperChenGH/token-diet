@@ -217,7 +217,7 @@ async function runPlan(opts = {}) {
   const outFile   = opts.out  || 'diet-plan.md';
   const projectDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
 
-  const records = await scanAll({ ...opts, days });
+  const { records } = await scanAll({ ...opts, days });
 
   if (records.length === 0) {
     console.log('No records found for the given filters. Cannot generate plan.');

@@ -26,7 +26,7 @@ function hline(widths) {
 // ── main ─────────────────────────────────────────────────────────────────────
 
 async function runAudit(opts = {}) {
-  const records = await scanAll(opts);
+  const { records } = await scanAll(opts);
 
   if (records.length === 0) {
     console.log('No records found for the given filters.');

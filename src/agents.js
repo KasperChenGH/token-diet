@@ -21,7 +21,7 @@ function padR(s, w)  { return String(s).padStart(w); }
 function hline(ws)   { return ws.map(w => '-'.repeat(w)).join('-+-'); }
 
 async function runAgents(opts = {}) {
-  const records = await scanAll(opts);
+  const { records } = await scanAll(opts);
 
   if (records.length === 0) {
     console.log('No records found for the given filters.');

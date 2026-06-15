@@ -23,6 +23,14 @@
  * Strategy: token counts are recorded only for the FIRST line seen for each
  * requestId (or message.id as fallback).  tool_use blocks are collected across
  * ALL lines so no tool call is missed.  `calls` = number of distinct IDs.
+ *
+ * Tool result tracking (Lever 8):
+ *   type:"user" lines carry message.content[] entries with type:"tool_result".
+ *   Each tool_result records {tool_use_id, result_tokens, calls_before} where
+ *   calls_before = number of distinct assistant requestIds already seen in this
+ *   file when the result appears.  result_tokens = len(content_text) / 4.
+ *   Per-file summary: toolResults[] and totalCalls (= final seenRequestIds size).
+ *   tool_use records are also keyed by id in toolCallsById for the join in diagnose.
  */
 
 const fs   = require('fs');
@@ -94,6 +102,22 @@ function collectJsonlFiles(projectDirs) {
 }
 
 /**
+ * Extract plain text from a tool_result content field.
+ * content is either a string or an array of {type:"text", text:"..."} blocks.
+ */
+function toolResultText(content) {
+  if (!content) return '';
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .filter(b => b && b.type === 'text')
+      .map(b => b.text || '')
+      .join('');
+  }
+  return '';
+}
+
+/**
  * Stream a single .jsonl file, yielding parsed records.
  * Returns a Promise that resolves when done.
  *
@@ -104,10 +128,17 @@ function collectJsonlFiles(projectDirs) {
  * {
  *   file, sessionId, sessionKind, modelFamily, model, timestamp,
  *   input, cacheWrite, cacheRead, output,        ← token counts
- *   toolCalls: [ { name, filePath } ]            ← tool_use entries
+ *   toolCalls:   [ { id, name, input } ]         ← tool_use entries (id added for Lever 8 join)
+ *   toolResults: [ { tool_use_id, result_tokens, calls_before } ]  ← Lever 8
+ *   totalCalls:  number   ← distinct assistant requestIds in this file (set at close)
  * }
+ *
+ * NOTE: toolResults / totalCalls are file-level aggregates collected per-file
+ * and attached to the FIRST record emitted from that file (the file-summary record).
+ * diagnose.js reads them from a separate per-file accumulator to avoid coupling
+ * to individual record ordering; scan exposes them via onFileDone callback.
  */
-function streamFile(filePath, cutoffMs, onRecord) {
+function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
   return new Promise((resolve, reject) => {
     let stream;
     try {
@@ -119,15 +150,42 @@ function streamFile(filePath, cutoffMs, onRecord) {
     const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
 
     // Per-file dedup state.
-    // seenIds: requestId (or message.id fallback) → record object already emitted
     // pendingRecords: id → record (built up as we scan; flushed on close)
     const pendingRecords = new Map(); // id → record
+
+    // seenRequestIds: set of distinct assistant callIds seen so far in this file.
+    // Used to compute calls_before for tool_results.
+    const seenRequestIds = new Set();
+
+    // Per-file tool_use registry: id → { name, input } for Lever 8 join.
+    const toolCallsById = new Map(); // tool_use_id → { name, input }
+
+    // Per-file tool_result accumulator (Lever 8).
+    const fileToolResults = []; // { tool_use_id, result_tokens, calls_before }
 
     rl.on('line', (line) => {
       if (!line.trim()) return;
       let obj;
       try { obj = JSON.parse(line); }
       catch { return; }
+
+      // ── Handle user-type lines (tool_result blocks) ─────────────────────
+      if (obj.type === 'user') {
+        if (obj.message && Array.isArray(obj.message.content)) {
+          for (const c of obj.message.content) {
+            if (c && c.type === 'tool_result') {
+              const text   = toolResultText(c.content);
+              const tokens = Math.round(text.length / 4);
+              fileToolResults.push({
+                tool_use_id:  c.tool_use_id || '',
+                result_tokens: tokens,
+                calls_before:  seenRequestIds.size,
+              });
+            }
+          }
+        }
+        return; // user lines carry no usage — done
+      }
 
       if (obj.type !== 'assistant') return;
 
@@ -139,6 +197,9 @@ function streamFile(filePath, cutoffMs, onRecord) {
       // Fall back to message.id if requestId is absent (older transcripts).
       // If neither is present, use a sentinel so we still count the line once.
       const callId = obj.requestId || (obj.message && obj.message.id) || null;
+
+      // Track distinct assistant call ids (for calls_before snapshots above)
+      if (callId !== null) seenRequestIds.add(callId);
 
       // Timestamp filter — apply on first encounter of this callId
       const tsRaw = obj.timestamp || (obj.message && obj.message.timestamp) || null;
@@ -172,11 +233,22 @@ function streamFile(filePath, cutoffMs, onRecord) {
         pendingRecords.set(callId, record);
       }
 
+      // Collect tool_use ids into the file-level registry for ALL lines,
+      // even time-filtered ones — tool_results may reference calls from before
+      // the cutoff, so we need the id→{name,input} mapping regardless.
+      if (obj.message && Array.isArray(obj.message.content)) {
+        for (const c of obj.message.content) {
+          if (c && c.type === 'tool_use' && c.id) {
+            toolCallsById.set(c.id, { name: c.name || '', input: c.input || {} });
+          }
+        }
+      }
+
       // Retrieve the record (may be null if time-filtered)
       const record = pendingRecords.get(callId);
-      if (!record) return; // time-filtered
+      if (!record) return; // time-filtered — token counts already excluded
 
-      // Collect tool_use blocks from ALL duplicate lines for this callId
+      // Collect tool_use blocks into the record's toolCalls list (in-window only)
       if (obj.message && Array.isArray(obj.message.content)) {
         for (const c of obj.message.content) {
           if (c && c.type === 'tool_use') {
@@ -202,6 +274,15 @@ function streamFile(filePath, cutoffMs, onRecord) {
           onRecord(record);
         }
       }
+      // Deliver per-file tool_result + tool_use data (Lever 8)
+      if (onFileDone) {
+        onFileDone({
+          file:         filePath,
+          toolResults:  fileToolResults,
+          toolCallsById,
+          totalCalls:   seenRequestIds.size,
+        });
+      }
       resolve();
     });
     rl.on('error', () => resolve()); // skip errored files
@@ -210,7 +291,10 @@ function streamFile(filePath, cutoffMs, onRecord) {
 
 /**
  * Main entry: scan all matching project dirs for records in the last N days.
- * Returns Promise<record[]>
+ * Returns Promise<{ records, fileMeta }>
+ *   records  — array of per-call records (existing shape, unchanged)
+ *   fileMeta — Map<filePath, { toolResults, toolCallsById, totalCalls }>
+ *              (Lever 8 data; only populated for files that had at least one line)
  */
 async function scanAll(opts = {}) {
   const days     = opts.days != null ? +opts.days : 2;
@@ -220,11 +304,22 @@ async function scanAll(opts = {}) {
   const dirs  = resolveProjectDirs(project);
   const files = collectJsonlFiles(dirs);
 
-  const records = [];
+  const records  = [];
+  const fileMeta = new Map(); // filePath → { toolResults, toolCallsById, totalCalls }
+
   for (const f of files) {
-    await streamFile(f, cutoffMs, r => records.push(r));
+    await streamFile(
+      f,
+      cutoffMs,
+      r => records.push(r),
+      meta => fileMeta.set(meta.file, {
+        toolResults:  meta.toolResults,
+        toolCallsById: meta.toolCallsById,
+        totalCalls:   meta.totalCalls,
+      }),
+    );
   }
-  return records;
+  return { records, fileMeta };
 }
 
 module.exports = { scanAll, modelFamily, sessionKind, resolveProjectDirs, collectJsonlFiles };
