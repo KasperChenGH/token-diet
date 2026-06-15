@@ -2,6 +2,11 @@
 *review_out.json
 *.tmp.json
 
+# generated diet artifacts (from dogfooding plan/fix in this repo)
+diet-changeset.json
+diet-history.json
+diet-plan.md
+
 # dev-only reading / design docs — never ship in the published repo
 HANDOVER.md
 CLAUDE.md
