@@ -495,6 +495,7 @@ const LEVER_NAMES = {
   5: 'Tier knowledge',
   6: 'Always-loaded overhead',
   7: 'Model arbitrage',
+  8: 'Filter tool output',
 };
 
 function computeGrade(findings) {
@@ -511,7 +512,7 @@ function computeGrade(findings) {
   let total = 0;
   for (const v of Object.values(byLever)) total += Math.min(v, 6);
 
-  const maxPossible = 7 * 6; // 42
+  const maxPossible = 8 * 6; // 48
   const ratio = total / maxPossible;
 
   if (ratio <= 0.05) return 'A';
@@ -529,6 +530,30 @@ function worstSev(findings) {
 }
 
 // ── main ──────────────────────────────────────────────────────────────────────
+
+// ── LEVER 8 — filter tool output (no-history likely-risk flag) ────────────────
+
+function hasPostToolUseHook(targetDir, home) {
+  for (const base of [path.join(targetDir, '.claude'), path.join(home, '.claude')]) {
+    for (const f of ['settings.json', 'settings.local.json']) {
+      try {
+        const j = JSON.parse(fs.readFileSync(path.join(base, f), 'utf8'));
+        if (j && j.hooks && j.hooks.PostToolUse) return true;
+      } catch { /* missing/invalid */ }
+    }
+  }
+  return false;
+}
+const TOOLOUT_RE = /\b(test|build|log|pytest|jest|docker|webpack|npm (?:run|test))\b/i;
+function checkLever8(targetDir, home, allCommandFiles, findings) {
+  if (hasPostToolUseHook(targetDir, home)) return;
+  const hits = allCommandFiles.filter(c => c.content && TOOLOUT_RE.test(c.content));
+  if (hits.length >= 1) {
+    findings.push(finding(8, 'med', hits[0].file,
+      `${hits.length} file(s) mention test/build/log with no PostToolUse output-filter hook (likely re-send risk)`,
+      'Add a PostToolUse output filter (rtk or a scaffold) so verbose stdout is not re-sent every turn'));
+  }
+}
 
 /**
  * analyze — collect files, run every lever check, return findings + grade.
@@ -558,6 +583,7 @@ function analyze(targetDir, home) {
   checkLever4(allCommandFiles, findings);
   checkLever5(targetDir, allCommandFiles, findings);
   checkLever7(allCommandFiles, findings);
+  checkLever8(targetDir, home, allCommandFiles, findings);
 
   const projectFindings = findings.filter(f => f.scope === 'project');
   const hasProjectArtifacts = fs.existsSync(projClaude) || fs.existsSync(path.join(targetDir, '.claude'));
@@ -577,7 +603,7 @@ async function runReview(opts = {}) {
 
   // ── Build per-lever scorecard (project scope only) ───────────────────────
   const leverFindings = {};
-  for (let i = 1; i <= 7; i++) leverFindings[i] = [];
+  for (let i = 1; i <= 8; i++) leverFindings[i] = [];
   for (const f of projectFindings) leverFindings[f.lever].push(f);
 
   // ── JSON output ──────────────────────────────────────────────────────────
@@ -626,7 +652,7 @@ async function runReview(opts = {}) {
   console.log(scHdr.map((h, i) => i === 0 ? padR(h, scColW[i]) : i === 1 ? padL(h, scColW[i]) : padL(h, scColW[i])).join('  |  '));
   console.log(hline(scColW));
 
-  for (let i = 1; i <= 7; i++) {
+  for (let i = 1; i <= 8; i++) {
     const flist  = leverFindings[i];
     const status = flist.length === 0 ? 'OK' : `${flist.length} finding${flist.length > 1 ? 's' : ''}`;
     const wsev   = worstSev(flist) || '-';
@@ -719,4 +745,4 @@ async function runReview(opts = {}) {
   console.log('');
 }
 
-module.exports = { runReview, analyze };
+module.exports = { runReview, analyze, LEVER_NAMES };
