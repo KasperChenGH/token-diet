@@ -649,7 +649,7 @@ async function runReview(opts = {}) {
         agent_cost:    { n1: perSpawnTotal, n5: perSpawnTotal * 5, n10: perSpawnTotal * 10 },
       },
     }, null, 2));
-    return;
+    return grade;
   }
 
   // ── Human-readable output ────────────────────────────────────────────────
@@ -760,6 +760,15 @@ async function runReview(opts = {}) {
   console.log('For measured usage, run `token-diet audit/diagnose` after sessions.');
   console.log('Execute fixes with the token-diet agent (`/token-diet`).');
   console.log('');
+  return grade;
 }
 
-module.exports = { runReview, analyze, LEVER_NAMES, modelTier };
+// Grade ranking for the --fail-under CI gate (A best … F worst). 'N/A' never fails.
+const GRADE_ORDER = ['A', 'B', 'C', 'D', 'F'];
+function gradeWorseThan(grade, threshold) {
+  const g = GRADE_ORDER.indexOf(String(grade || '').toUpperCase());
+  const t = GRADE_ORDER.indexOf(String(threshold || '').toUpperCase());
+  return g >= 0 && t >= 0 && g > t;
+}
+
+module.exports = { runReview, analyze, LEVER_NAMES, modelTier, gradeWorseThan };

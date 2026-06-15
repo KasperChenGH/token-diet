@@ -30,10 +30,11 @@ const { runOverhead } = require('../src/overhead');
 const { runPlan }     = require('../src/plan');
 const { runCompare }  = require('../src/compare');
 const { runInit }     = require('../src/init');
-const { runReview }   = require('../src/review');
+const { runReview, gradeWorseThan } = require('../src/review');
 const { runEstimate } = require('../src/estimate');
 const { runFix, runVerify } = require('../src/fix');
 const filter          = require('../src/filter');
+const { runSetup }    = require('../src/setup');
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -61,6 +62,7 @@ function parseArgs(argv) {
     activate:   false,
     disable:    false,
     report:     false,
+    failUnder:  null,
   };
   const positional = [];
 
@@ -128,6 +130,10 @@ function parseArgs(argv) {
       opts.disable = true;
     } else if (a === '--report') {
       opts.report = true;
+    } else if (a === '--fail-under') {
+      opts.failUnder = args[++i];
+    } else if (a.startsWith('--fail-under=')) {
+      opts.failUnder = a.split('=')[1];
     } else if (a === '--json') {
       opts.json = true;
     } else if (a === '--global') {
@@ -150,6 +156,7 @@ REVIEW (static, no history)
               Reads CLAUDE.md, commands, agents, skills, settings, knowledge/ dirs.
               Emits per-lever scorecard + findings + overall grade (A-F).
               No transcript history needed — run before your first session.
+              --fail-under <grade> exits non-zero on regression (CI / pre-commit gate)
   estimate    Forward token projection (no history): per-run bill (write/read/output,
               raw + price-weighted), post-fix re-projection, per-lever savings ranking.
               Inputs derived from structure; override with --spawns/--turns/--toolout.
@@ -176,6 +183,8 @@ ACT
               --report [--json] shows the measured reduction table. Tune tools/keep/thresholds in filter.json.
   init        Install token-diet as a Claude Code skill + agent + command + lever rubrics
               Default: <cwd>/.claude/  |  --global: ~/.claude/
+  setup       Wire ongoing protection in one shot: output filter (AUDIT mode — records only,
+              no changes) + a pre-commit drift reminder. Then 'filter --activate' when ready.
 
 VERIFY
   compare     Before vs after: per-day averages, delta %, verdict line
@@ -193,6 +202,7 @@ OPTIONS
   --before-days A   Compare: start of "before" window (days ago)
   --after-days B    Compare: boundary between before/after (days ago); "after" = last B days
   --global          init: install to ~/.claude/skills/ instead of project .claude/skills/
+  --fail-under <g>  review: exit non-zero if the grade is worse than <g> (A-F) — for CI gates
   --help            Show this help
 
 NOTE: Usage is deduplicated per API request (keyed on requestId). Claude Code
@@ -247,8 +257,16 @@ async function main() {
     case 'init':
       await runInit(opts);
       break;
-    case 'review':
-      await runReview(opts);
+    case 'review': {
+      const grade = await runReview(opts);
+      if (opts.failUnder && gradeWorseThan(grade, opts.failUnder)) {
+        console.error(`token-diet: grade ${grade} is below --fail-under ${opts.failUnder}`);
+        process.exit(1);
+      }
+      break;
+    }
+    case 'setup':
+      await runSetup(opts);
       break;
     case 'estimate':
       await runEstimate(opts);

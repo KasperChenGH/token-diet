@@ -35,9 +35,12 @@ Run `token-diet fix --changeset diet-changeset.json --only <approved>`, then
 `token-diet fix --changeset diet-changeset.json --verify`. Do NOT hand-edit. Rule: trim = move,
 never delete (enforced and tested in `fix`).
 
-## Phase 5 — Verify (main)
+## Phase 5 — Verify + wire ongoing protection (main)
 Run `token-diet review --dir .` for the static delta (it now includes the overhead snapshot). Tell
 the user to run normally for a few days, then `token-diet compare --before-days 14 --after-days 7`.
+Then OFFER (one approval) to run `token-diet setup` — it wires the output filter in AUDIT mode
+(records only, output unchanged) + a pre-commit drift reminder, so future regressions are caught
+automatically. The filter stays in audit until the user runs `filter --activate`; never auto-activate.
 
 ## Hard rules
 - Never reduce information irrecoverably. Trim = move to a reference, never delete.
