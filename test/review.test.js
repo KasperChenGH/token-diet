@@ -35,3 +35,12 @@ test('checkLever8: flags test/build/log mention with no PostToolUse hook; clears
 test('grade denominator is 8 levers (LEVER_NAMES has 8)', () => {
   assert.equal(Object.keys(R.LEVER_NAMES).length, 8);
 });
+
+test('checkVerbose: large low-heading file is flagged likely-verbose', () => {
+  const dir = tmpDir();
+  const body = '# Title\n' + Array.from({ length: 200 }, () => 'lots of words here and there').join('\n');
+  writeFile(dir, '.claude/commands/big.md', body);
+  const a = R.analyze(dir, NO_HOME(dir));
+  assert.ok(a.findings.some(f => f.lever === 6 && /verbose/i.test(f.evidence)), 'expected a verbose flag');
+  rm(dir);
+});

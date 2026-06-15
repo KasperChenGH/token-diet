@@ -555,6 +555,22 @@ function checkLever8(targetDir, home, allCommandFiles, findings) {
   }
 }
 
+// ── likely-verbose heuristic (F3): large file + low heading density ───────────
+function checkVerbose(allCommandFiles, findings) {
+  for (const { file, content } of allCommandFiles) {
+    if (!content) continue;
+    const lines = content.split('\n');
+    if (lines.length < 120) continue;
+    const headings = lines.filter(l => /^#{1,6}\s/.test(l)).length;
+    const density = headings / lines.length;
+    if (density < 0.03) {
+      findings.push(finding(6, 'low', file,
+        `${lines.length} lines, low heading density (${(density * 100).toFixed(1)}%) — likely verbose prose`,
+        'Tighten wording (run with --prose) or split into digests'));
+    }
+  }
+}
+
 /**
  * analyze — collect files, run every lever check, return findings + grade.
  * Shared with estimate (review-driven flagged levers). No printing.
@@ -584,6 +600,7 @@ function analyze(targetDir, home) {
   checkLever5(targetDir, allCommandFiles, findings);
   checkLever7(allCommandFiles, findings);
   checkLever8(targetDir, home, allCommandFiles, findings);
+  checkVerbose(allCommandFiles, findings);
 
   const projectFindings = findings.filter(f => f.scope === 'project');
   const hasProjectArtifacts = fs.existsSync(projClaude) || fs.existsSync(path.join(targetDir, '.claude'));
