@@ -71,3 +71,26 @@ test('applyCommentMarker: inserts after frontmatter; idempotent', () => {
   assert.match(F.applyCommentMarker(item, dir).status, /skipped/);
   rm(dir);
 });
+
+function changeset(dir, items) { writeFile(dir, 'diet-changeset.json', JSON.stringify({ items })); }
+
+test('runFix: applies all, --only filters, --dry-run writes nothing', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'a.md', 'A');
+  writeFile(dir, 'b.md', 'B');
+  changeset(dir, [
+    { id: 1, op: 'write', to: 'out1.md', content: '1' },
+    { id: 2, op: 'write', to: 'out2.md', content: '2' },
+  ]);
+  const cs = path.join(dir, 'diet-changeset.json');
+
+  const dry = F.runFix({ dir, changeset: cs, dryRun: true, json: true, _silent: true });
+  assert.ok(dry.every(r => /dry-run/.test(r.status)));
+  assert.equal(fs.existsSync(path.join(dir, 'out1.md')), false);
+
+  const only = F.runFix({ dir, changeset: cs, only: '2', json: true, _silent: true });
+  assert.equal(only.length, 1);
+  assert.equal(fs.existsSync(path.join(dir, 'out2.md')), true);
+  assert.equal(fs.existsSync(path.join(dir, 'out1.md')), false);
+  rm(dir);
+});

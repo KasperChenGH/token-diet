@@ -76,4 +76,31 @@ function applyCommentMarker(item, root) {
   return { id: item.id, op: 'comment-marker', status: 'inserted' };
 }
 
-module.exports = { applyMove, applyWrite, applyScaffold, applyCommentMarker };
+const OPS = { move: applyMove, write: applyWrite, scaffold: applyScaffold, 'comment-marker': applyCommentMarker };
+
+function runFix(opts = {}) {
+  const root = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const csPath = path.resolve(opts.changeset || path.join(root, 'diet-changeset.json'));
+  const cs = JSON.parse(fs.readFileSync(csPath, 'utf8'));
+  let items = cs.items;
+  if (opts.only != null) {
+    const ids = String(opts.only).split(',').map(s => parseInt(s.trim(), 10));
+    items = items.filter(it => ids.includes(it.id));
+  }
+  const results = [];
+  for (const item of items) {
+    if (opts.dryRun) { results.push({ id: item.id, op: item.op, status: '(dry-run)' }); continue; }
+    const fn = OPS[item.op];
+    if (!fn) { results.push({ id: item.id, op: item.op, status: 'ERROR unknown op' }); break; }
+    let r; try { r = fn(item, root); } catch (e) { r = { id: item.id, op: item.op, status: 'ERROR ' + e.message }; }
+    results.push(r);
+    if (/^ERROR/.test(r.status)) break;   // abort remaining on first failure
+  }
+  if (!opts._silent) {
+    if (opts.json) console.log(JSON.stringify({ applied: results }, null, 2));
+    else { console.log(`\n=== token-diet fix ${opts.dryRun ? '(dry-run)' : ''} ===\n`); results.forEach(r => console.log(`  [${r.id}] ${r.op}: ${r.status}`)); console.log(''); }
+  }
+  return results;
+}
+
+module.exports = { applyMove, applyWrite, applyScaffold, applyCommentMarker, runFix };
