@@ -50,6 +50,28 @@ test('fix --verify exits non-zero on a dangling pointer', () => {
   rm(dir);
 });
 
+test('audit --json and agents --json run end-to-end on a fixture transcript', () => {
+  const home = tmpDir();
+  const env  = { ...process.env, HOME: home, USERPROFILE: home };
+  const ts   = new Date().toISOString();
+  const rec  = JSON.stringify({
+    type: 'assistant', requestId: 'req-1', timestamp: ts, sessionId: 's1',
+    message: { model: 'claude-opus-4', usage: {
+      input_tokens: 10, cache_creation_input_tokens: 100, cache_read_input_tokens: 500, output_tokens: 50 } },
+  });
+  writeFile(home, '.claude/projects/proj/sess.jsonl', rec + '\n');
+
+  const audit = JSON.parse(execFileSync('node', [BIN, 'audit', '--days', '7', '--json'], { encoding: 'utf8', env }));
+  assert.ok(Array.isArray(audit.groups) && audit.groups.length === 1);
+  assert.equal(audit.groups[0].output, 50);
+  assert.equal(audit.groups[0].calls, 1);
+
+  const agents = JSON.parse(execFileSync('node', [BIN, 'agents', '--days', '7', '--json'], { encoding: 'utf8', env }));
+  assert.ok(Array.isArray(agents) && agents.length === 1);
+  assert.equal(agents[0].calls, 1);
+  rm(home);
+});
+
 test('plan emits diet-changeset.json even with no history', () => {
   const dir = tmpDir();
   const home = tmpDir();                          // empty home -> scanAll finds no records
