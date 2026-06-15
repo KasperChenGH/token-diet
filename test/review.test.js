@@ -44,3 +44,15 @@ test('checkVerbose: large low-heading file is flagged likely-verbose', () => {
   assert.ok(a.findings.some(f => f.lever === 6 && /verbose/i.test(f.evidence)), 'expected a verbose flag');
   rm(dir);
 });
+
+const O = require('../src/overhead');
+test('overhead prints a deprecation note and the per-spawn total', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'x'.repeat(400));
+  let out = '';
+  const orig = console.log; console.log = (...a) => { out += a.join(' ') + '\n'; };
+  try { O.runOverhead({ dir, _home: NO_HOME(dir) }); } finally { console.log = orig; }
+  assert.match(out, /now part of `review`/);
+  assert.match(out, /per-spawn/i);
+  rm(dir);
+});
