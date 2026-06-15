@@ -26,6 +26,7 @@ const { runOverhead } = require('../src/overhead');
 const { runPlan }     = require('../src/plan');
 const { runCompare }  = require('../src/compare');
 const { runInit }     = require('../src/init');
+const { runReview }   = require('../src/review');
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -82,8 +83,14 @@ function parseArgs(argv) {
 
 function showHelp() {
   console.log(`
-token-diet — Measure, plan, and verify token-usage reduction for agentic workflows
+token-diet — Static project review + Measure, plan, and verify token-usage reduction for agentic workflows
   (zero dependencies, reads ~/.claude/projects/**/*.jsonl)
+
+REVIEW (static, no history)
+  review      Score a project's Claude Code design artifacts against all 7 levers.
+              Reads CLAUDE.md, commands, agents, skills, settings, knowledge/ dirs.
+              Emits per-lever scorecard + findings + overall grade (A-F).
+              No transcript history needed — run before your first session.
 
 MEASURE
   audit       Token breakdown by session-kind × model-family + top sessions
@@ -110,7 +117,7 @@ OPTIONS
   --days N          Only include lines timestamped in the last N days (default varies by subcommand)
   --project <s>     Filter to project dirs whose name contains <s> (substring match)
   --json            Emit JSON instead of human-readable tables
-  --dir <path>      Directory to scan for overhead (default: cwd)
+  --dir <path>      Directory to scan for overhead/review (default: cwd)
   --out <file>      Output file for plan (default: diet-plan.md)
   --before-days A   Compare: start of "before" window (days ago)
   --after-days B    Compare: boundary between before/after (days ago); "after" = last B days
@@ -168,6 +175,9 @@ async function main() {
       break;
     case 'init':
       await runInit(opts);
+      break;
+    case 'review':
+      await runReview(opts);
       break;
     default:
       console.error(`Unknown subcommand: ${subcommand}`);

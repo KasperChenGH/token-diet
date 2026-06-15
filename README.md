@@ -19,7 +19,26 @@ token-diet init --global     # deploys agent + command + skill into ~/.claude/
 
 Then in any project: **`/token-diet`** — or just tell Claude "put this project on a token diet."
 
-## The workflow
+## Start here: static project review (no usage history needed)
+
+```bash
+token-diet review --dir .
+```
+
+Reviews your project's `.claude/` design — CLAUDE.md, commands, agents, skills — and grades it (A–F) against all 7 levers, telling you how to cut token usage **before you've spent a token**. Works on a brand-new project. Global infrastructure is reported separately so your project is graded on what it owns.
+
+Sample (a heavy real project):
+```
+Lever 1  Delete ceremonial agents   5 findings  med   (3 commands fan out >= 3 subagents)
+Lever 2  Merge sessions             2 findings  med   (process.md: prepare + finalize per cycle)
+Lever 3  Evict in-session compute   7 findings  med   (sweep/backtest run inside sessions)
+Lever 4  Scripts for determinism    2 findings  high  (LLM computes verdict/margin)
+Lever 6  Always-loaded overhead     3 findings  med   (report.md 153 lines; 3,800 tok/spawn → 38k at N=10)
+Lever 7  Model arbitrage            1 finding   high  (12 command files, no model pin)
+Grade: F
+```
+
+## The workflow (when you have usage history too)
 
 ```bash
 # MEASURE — where do tokens actually go?

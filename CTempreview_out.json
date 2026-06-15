@@ -1,0 +1,590 @@
+{
+  "dir": "C:\\Users\\User\\Desktop\\example-project",
+  "grade": "F",
+  "grade_basis": "project-scope findings only",
+  "scorecard": {
+    "1": {
+      "lever_name": "Delete ceremonial agents",
+      "status": "5 findings",
+      "worst_severity": "med",
+      "findings": [
+        {
+          "lever": 1,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\report.md",
+          "evidence": "16 spawn signals detected (subagent, Spawn, subagent...)",
+          "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+          "scope": "project"
+        },
+        {
+          "lever": 1,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+          "evidence": "3 spawn signals detected (spawn, subagent, spawn...)",
+          "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+          "scope": "project"
+        },
+        {
+          "lever": 1,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\precheck.md",
+          "evidence": "9 spawn signals detected (subagent, Spawn, subagent...)",
+          "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+          "scope": "project"
+        },
+        {
+          "lever": 1,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\loop.md",
+          "evidence": "7 spawn signals detected (Spawn, subagent, spawn...)",
+          "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+          "scope": "project"
+        },
+        {
+          "lever": 1,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\CLAUDE.md",
+          "evidence": "3 spawn signals detected (subagent, subagent, subagent...)",
+          "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+          "scope": "project"
+        }
+      ]
+    },
+    "2": {
+      "lever_name": "Merge sessions",
+      "status": "2 findings",
+      "worst_severity": "med",
+      "findings": [
+        {
+          "lever": 2,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+          "evidence": "Found \"prepare\"+\"finalize\" mode pair — implies >= 2 sessions per cycle",
+          "recommendation": "Merge prepare+finalize into a single session; use in-session state to bridge phases",
+          "scope": "project"
+        },
+        {
+          "lever": 2,
+          "severity": "low",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+          "evidence": "7-step linear session flow (### Step 1, ### Step 2, ### Step 3...)",
+          "recommendation": "Long linear step flows often hide places to /clear earlier; audit which steps genuinely need prior context",
+          "scope": "project"
+        }
+      ]
+    },
+    "3": {
+      "lever_name": "Evict in-session compute",
+      "status": "7 findings",
+      "worst_severity": "med",
+      "findings": [
+        {
+          "lever": 3,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\analysis.md",
+          "evidence": "In-session compute described: \"sweep\"",
+          "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+          "scope": "project"
+        },
+        {
+          "lever": 3,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\report.md",
+          "evidence": "In-session compute described: \"sweep\"",
+          "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+          "scope": "project"
+        },
+        {
+          "lever": 3,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+          "evidence": "In-session compute described: \"sweep\"",
+          "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+          "scope": "project"
+        },
+        {
+          "lever": 3,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\precheck.md",
+          "evidence": "In-session compute described: \"sweep, backtest\"",
+          "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+          "scope": "project"
+        },
+        {
+          "lever": 3,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\loop.md",
+          "evidence": "In-session compute described: \"sweep\"",
+          "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+          "scope": "project"
+        },
+        {
+          "lever": 3,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\research.md",
+          "evidence": "In-session compute described: \"build, sweep\"",
+          "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+          "scope": "project"
+        },
+        {
+          "lever": 3,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\CLAUDE.md",
+          "evidence": "In-session compute described: \"sweep\"",
+          "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+          "scope": "project"
+        }
+      ]
+    },
+    "4": {
+      "lever_name": "Scripts for determinism",
+      "status": "2 findings",
+      "worst_severity": "high",
+      "findings": [
+        {
+          "lever": 4,
+          "severity": "high",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+          "evidence": "6 determinism phrases: \"verdict\", \"diff \", \"margin\"",
+          "recommendation": "Extract scoring/ranking/counting into a deterministic script; LLM should only interpret results",
+          "scope": "project"
+        },
+        {
+          "lever": 4,
+          "severity": "high",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\loop.md",
+          "evidence": "7 determinism phrases: \"verdict\", \"margin\"",
+          "recommendation": "Extract scoring/ranking/counting into a deterministic script; LLM should only interpret results",
+          "scope": "project"
+        }
+      ]
+    },
+    "5": {
+      "lever_name": "Tier knowledge",
+      "status": "OK",
+      "worst_severity": null,
+      "findings": []
+    },
+    "6": {
+      "lever_name": "Always-loaded overhead",
+      "status": "3 findings",
+      "worst_severity": "med",
+      "findings": [
+        {
+          "lever": 6,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\report.md",
+          "evidence": "153 lines (~2,324 tokens) [project command]",
+          "recommendation": "Trim to <=90 lines; move depth to on-demand reference files",
+          "scope": "project"
+        },
+        {
+          "lever": 6,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+          "evidence": "120 lines (~2,051 tokens) [project command]",
+          "recommendation": "Trim to <=90 lines; move depth to on-demand reference files",
+          "scope": "project"
+        },
+        {
+          "lever": 6,
+          "severity": "med",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\test-agent.md",
+          "evidence": "101 lines (~1,071 tokens) [project command]",
+          "recommendation": "Trim to <=90 lines; move depth to on-demand reference files",
+          "scope": "project"
+        }
+      ]
+    },
+    "7": {
+      "lever_name": "Model arbitrage",
+      "status": "1 findings",
+      "worst_severity": "high",
+      "findings": [
+        {
+          "lever": 7,
+          "severity": "high",
+          "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\analysis.md",
+          "evidence": "12 command/agent files have no model pin (inherit session model)",
+          "recommendation": "Add `model: \"sonnet\"` frontmatter to mechanical agents; reserve top-tier for synthesis/judgment",
+          "scope": "project"
+        }
+      ]
+    }
+  },
+  "findings": [
+    {
+      "lever": 6,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\report.md",
+      "evidence": "153 lines (~2,324 tokens) [project command]",
+      "recommendation": "Trim to <=90 lines; move depth to on-demand reference files",
+      "scope": "project"
+    },
+    {
+      "lever": 6,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+      "evidence": "120 lines (~2,051 tokens) [project command]",
+      "recommendation": "Trim to <=90 lines; move depth to on-demand reference files",
+      "scope": "project"
+    },
+    {
+      "lever": 6,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\test-agent.md",
+      "evidence": "101 lines (~1,071 tokens) [project command]",
+      "recommendation": "Trim to <=90 lines; move depth to on-demand reference files",
+      "scope": "project"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\report.md",
+      "evidence": "16 spawn signals detected (subagent, Spawn, subagent...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "project"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+      "evidence": "3 spawn signals detected (spawn, subagent, spawn...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "project"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\precheck.md",
+      "evidence": "9 spawn signals detected (subagent, Spawn, subagent...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "project"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\loop.md",
+      "evidence": "7 spawn signals detected (Spawn, subagent, spawn...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "project"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\commands\\token-diet.md",
+      "evidence": "4 spawn signals detected (Spawn, Spawn, spawn...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "global"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\skills\\token-diet\\SKILL.md",
+      "evidence": "9 spawn signals detected (subagent, spawn, subagent...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "global"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\CLAUDE.md",
+      "evidence": "3 spawn signals detected (subagent, subagent, subagent...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "project"
+    },
+    {
+      "lever": 2,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+      "evidence": "Found \"prepare\"+\"finalize\" mode pair — implies >= 2 sessions per cycle",
+      "recommendation": "Merge prepare+finalize into a single session; use in-session state to bridge phases",
+      "scope": "project"
+    },
+    {
+      "lever": 2,
+      "severity": "low",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+      "evidence": "7-step linear session flow (### Step 1, ### Step 2, ### Step 3...)",
+      "recommendation": "Long linear step flows often hide places to /clear earlier; audit which steps genuinely need prior context",
+      "scope": "project"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\analysis.md",
+      "evidence": "In-session compute described: \"sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "project"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\report.md",
+      "evidence": "In-session compute described: \"sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "project"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+      "evidence": "In-session compute described: \"sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "project"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\precheck.md",
+      "evidence": "In-session compute described: \"sweep, backtest\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "project"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\loop.md",
+      "evidence": "In-session compute described: \"sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "project"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\research.md",
+      "evidence": "In-session compute described: \"build, sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "project"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\commands\\len_review.md",
+      "evidence": "In-session compute described: \"sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\commands\\token-diet.md",
+      "evidence": "In-session compute described: \"npm install\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\agents\\token-diet.md",
+      "evidence": "In-session compute described: \"npm install, build, train, backtest\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\skills\\token-diet\\SKILL.md",
+      "evidence": "In-session compute described: \"build, test suite, train\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\CLAUDE.md",
+      "evidence": "In-session compute described: \"sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "project"
+    },
+    {
+      "lever": 4,
+      "severity": "high",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+      "evidence": "6 determinism phrases: \"verdict\", \"diff \", \"margin\"",
+      "recommendation": "Extract scoring/ranking/counting into a deterministic script; LLM should only interpret results",
+      "scope": "project"
+    },
+    {
+      "lever": 4,
+      "severity": "high",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\loop.md",
+      "evidence": "7 determinism phrases: \"verdict\", \"margin\"",
+      "recommendation": "Extract scoring/ranking/counting into a deterministic script; LLM should only interpret results",
+      "scope": "project"
+    },
+    {
+      "lever": 7,
+      "severity": "high",
+      "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\analysis.md",
+      "evidence": "12 command/agent files have no model pin (inherit session model)",
+      "recommendation": "Add `model: \"sonnet\"` frontmatter to mechanical agents; reserve top-tier for synthesis/judgment",
+      "scope": "project"
+    }
+  ],
+  "global_findings": [
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\commands\\token-diet.md",
+      "evidence": "4 spawn signals detected (Spawn, Spawn, spawn...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "global"
+    },
+    {
+      "lever": 1,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\skills\\token-diet\\SKILL.md",
+      "evidence": "9 spawn signals detected (subagent, spawn, subagent...)",
+      "recommendation": "Consider whether all agent fans are necessary; merge specialists or make spawning conditional",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\commands\\len_review.md",
+      "evidence": "In-session compute described: \"sweep\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\commands\\token-diet.md",
+      "evidence": "In-session compute described: \"npm install\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\agents\\token-diet.md",
+      "evidence": "In-session compute described: \"npm install, build, train, backtest\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    },
+    {
+      "lever": 3,
+      "severity": "med",
+      "file": "C:\\Users\\User\\.claude\\skills\\token-diet\\SKILL.md",
+      "evidence": "In-session compute described: \"build, test suite, train\"",
+      "recommendation": "Offload long-running commands to background tasks / Cron / external scripts; keep LLM session idle-free",
+      "scope": "global"
+    }
+  ],
+  "overhead": {
+    "files": [
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\CLAUDE.md",
+        "label": "project CLAUDE.md",
+        "scope": "per-spawn",
+        "lines": 69,
+        "tokens": 1591
+      },
+      {
+        "file": "C:\\Users\\User\\.claude\\CLAUDE.md",
+        "label": "global CLAUDE.md",
+        "scope": "per-spawn",
+        "lines": 28,
+        "tokens": 478
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\analysis.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 34,
+        "tokens": 455
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\report.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 153,
+        "tokens": 2324
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\process.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 120,
+        "tokens": 2051
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\handover.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 26,
+        "tokens": 405
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\positions.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 16,
+        "tokens": 140
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\precheck.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 70,
+        "tokens": 1028
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\loop.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 60,
+        "tokens": 1491
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\research.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 16,
+        "tokens": 400
+      },
+      {
+        "file": "C:\\Users\\User\\Desktop\\example-project\\.claude\\commands\\test-agent.md",
+        "label": "project command",
+        "scope": "per-session",
+        "lines": 101,
+        "tokens": 1071
+      },
+      {
+        "file": "C:\\Users\\User\\.claude\\commands\\handover.md",
+        "label": "global command",
+        "scope": "per-session",
+        "lines": 49,
+        "tokens": 547
+      },
+      {
+        "file": "C:\\Users\\User\\.claude\\commands\\len_review.md",
+        "label": "global command",
+        "scope": "per-session",
+        "lines": 55,
+        "tokens": 758
+      },
+      {
+        "file": "C:\\Users\\User\\.claude\\commands\\token-diet.md",
+        "label": "global command",
+        "scope": "per-session",
+        "lines": 41,
+        "tokens": 425
+      },
+      {
+        "file": "C:\\Users\\User\\.claude\\skills\\token-diet\\SKILL.md",
+        "label": "global skill",
+        "scope": "per-spawn",
+        "lines": 59,
+        "tokens": 1731
+      }
+    ],
+    "per_spawn_tokens": 3800,
+    "agent_cost": {
+      "n1": 3800,
+      "n5": 19000,
+      "n10": 38000
+    }
+  }
+}

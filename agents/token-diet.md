@@ -19,23 +19,27 @@ Run `token-diet --help`. If the command is not found:
 
 ---
 
-## Phase 1 — Measure + Diagnose (read-only)
+## Phase 1 — Review + Measure (read-only)
 
-Run all four measurement commands. Use `--days 7` unless the user specifies otherwise.
+**Always start with the static design review — it needs no usage history and works on any project, even a brand-new one:**
+
+```
+token-diet review --dir .
+```
+
+This scores the project's `.claude/` design (CLAUDE.md, commands, agents, skills) against all 7 levers and grades it. This is the spine of the report.
+
+**Then, IF the project has transcript history, add the measured view:**
 
 ```
 token-diet audit --days 7
 token-diet agents --days 7
 token-diet diagnose --days 7
-token-diet overhead --dir .
 ```
 
-If any command reports "No records found" or "0 sessions":
-- The project has no Claude Code transcript data under `~/.claude/projects/`.
-- Fall back: run `token-diet overhead --dir .` only, then do a static read-only review of the `.claude/` layout (CLAUDE.md, .claude/commands/*.md, .claude/agents/*.md, .claude/skills/**/*.md).
-- Note the fallback in your Phase 2 plan header.
+If those report "No records found" / "0 sessions", the project hasn't been run yet — that is FINE. The static `review` alone is a complete deliverable; note "design review only — no usage history yet" in the Phase 2 plan header and skip the measured commands.
 
-Do not modify anything. Record all command output verbatim for use in Phase 2.
+`review` already includes the always-loaded overhead (Lever 6). Do not modify anything. Record output verbatim for Phase 2.
 
 ---
 
