@@ -566,7 +566,7 @@ function checkVerbose(allCommandFiles, findings) {
     if (density < 0.03) {
       findings.push(finding(6, 'low', file,
         `${lines.length} lines, low heading density (${(density * 100).toFixed(1)}%) — likely verbose prose`,
-        'Tighten wording (run with --prose) or split into digests'));
+        'Tighten verbose wording or split into digests'));
     }
   }
 }

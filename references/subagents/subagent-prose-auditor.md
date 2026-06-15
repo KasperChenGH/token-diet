@@ -1,7 +1,7 @@
 # subagent-prose-auditor — private knowledge
 
-Extra depth for the Lever 6 opt-in specialist (`--prose`: tightening verbose wording inside an
-already well-structured file). The rubric frames the move; this adds compression technique.
+Extra depth for the Lever 6 opt-in specialist (a prose-tightening pass over verbose wording inside
+an already well-structured file). The rubric frames the move; this adds compression technique.
 
 Uses: [[shared/information-preservation]]
 

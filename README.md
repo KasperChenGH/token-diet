@@ -5,7 +5,7 @@
 **An agent that puts your agents on a diet.** Install it, type `/token-diet`, and it measures your real token spend, diagnoses the structural waste, presents a reduction plan, executes the approved items, and verifies the result. Three layers:
 
 - **An agent** (`/token-diet`) that drives the whole workflow on your project — with a hard approval gate before it touches any file
-- **A CLI** that does everything deterministic: transcript measurement, overhead quantification, plan generation, before/after verification — no LLM, no estimates, no vibes
+- **A CLI** that owns every deterministic step — real transcript measurement, overhead quantification, rule-based waste *detection*, the plan/changeset *skeleton*, mechanical edit *application*, and before/after re-measurement. The LLM is never asked to count, compute, or apply. (The one forward projection, `estimate`, is labelled a model — not a measurement.)
 - **A skill** carrying the architecture-first methodology (measured ~85% per-round reduction on the originating project)
 
 The product eats its own dogfood: *scripts compute, LLM judges* — the agent never estimates what the CLI can measure, and never recomputes what the plan already concluded.
@@ -22,7 +22,7 @@ token-diet is an agent that audits that setup and fixes it. You type `/token-die
 4. **Applies** the changes you approve — always *moving* content to a reference file, never deleting it.
 5. **Re-measures** to prove it actually worked.
 
-A plain, dependency-free CLI does all the counting and editing; the AI is used only for judgment calls. Think of it as a personal trainer for your AI agents: it weighs them, finds the flab, and puts them on a diet — without cutting any muscle (information).
+A plain, dependency-free CLI does all the measuring and *applies* every approved edit mechanically; the AI is used only for the judgment calls — deciding *which* changes to make and writing any new content. (The CLI flags suspects by fixed rules; the AI gives the final keep-or-trim verdict.) Think of it as a personal trainer for your AI agents: it weighs them, finds the flab, and puts them on a diet — without cutting any muscle (information).
 
 ## Install
 
@@ -62,13 +62,13 @@ token-diet agents                                  # useful-work ratio per agent
 # DIAGNOSE — what structural waste exists?
 token-diet diagnose                                # red flags mapped to levers (hot files, low-ratio agents,
                                                    # turny sessions, idle babysitting, model mix)
-token-diet overhead [--dir .]                      # static always-loaded burden: CLAUDE.md, commands, skills —
+token-diet overhead [--dir .]                      # always-loaded burden (now folded into `review`): CLAUDE.md, commands, skills —
                                                    # what EVERY spawn pays, at N=1/5/10 agents
 
 # ACT — turn findings into work
 token-diet plan --out diet-plan.md                 # ordered checkbox plan per lever with evidence + est. savings;
                                                    # hand it to your agent: "execute diet-plan.md"
-token-diet init [--global]                         # install the methodology skill the agent uses to execute it
+token-diet init [--global]                         # install the agent + subagents + command + skill + rubrics
 
 # VERIFY — did it work?
 token-diet compare --before-days 14 --after-days 7 # per-day deltas across windows; the re-measure bookend
@@ -109,7 +109,7 @@ Full methodology with red flags and common mistakes: [SKILL.md](skills/SKILL.md)
 ```
 token-diet/
 ├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit ·
-│                                  agents · diagnose · plan · fix · compare · init
+│                                  agents · diagnose · overhead · plan · fix · compare · init
 ├── src/*.js                       the deterministic engine (zero deps, no LLM): scan,
 │                                  collectors, review, estimate, diagnose, plan,
 │                                  changeset, fix, compare, history, …
@@ -123,7 +123,7 @@ token-diet/
 ├── agents/
 │   ├── token-diet.md              tier-1 orchestrator (the /token-diet agent)
 │   ├── subagent-analyst.md        tier-2 — measures, plans, spawns specialists, merges
-│   └── subagent-<role>.md  ×9     tier-3 lever specialists (one per lever)
+│   └── subagent-<role>.md  ×9     tier-3 lever specialists (9 across the 8 levers; Lever 6 has an opt-in prose variant)
 ├── references/
 │   ├── levers/lever-N-*.md  ×8    per-lever judgment rubrics (a specialist's core body)
 │   └── subagents/*.md       ×10   per-subagent extra professional knowledge

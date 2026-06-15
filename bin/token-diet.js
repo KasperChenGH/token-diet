@@ -5,13 +5,16 @@
  *              token-usage reduction in agentic workflows
  *
  * Usage:
+ *   token-diet review    [--dir <path>=cwd] [--json]
+ *   token-diet estimate  [--dir <path>=cwd] [--spawns N] [--turns N] [--toolout W] [--json]
  *   token-diet audit     [--days N=2] [--project <slug>] [--json]
  *   token-diet agents    [--days N=2] [--project <slug>] [--json]
  *   token-diet diagnose  [--days N=2] [--project <slug>] [--json]
  *   token-diet overhead  [--dir <path>=cwd] [--json]
  *   token-diet plan      [--days N=7] [--project <slug>] [--out diet-plan.md]
+ *   token-diet fix       --changeset <file> [--only 1,3] [--dry-run | --verify]
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
- *   token-diet init      [--global]
+ *   token-diet init      [--global] [--dir <path>]
  *
  * Data source: ~/.claude/projects/<project-slug>/*.jsonl
  *              (agent-*.jsonl files are classified as "subagent" sessions)
@@ -154,7 +157,7 @@ OPTIONS
   --days N          Only include lines timestamped in the last N days (default varies by subcommand)
   --project <s>     Filter to project dirs whose name contains <s> (substring match)
   --json            Emit JSON instead of human-readable tables
-  --dir <path>      Directory to scan for overhead/review/estimate (default: cwd)
+  --dir <path>      Directory to scan for review/estimate/overhead/plan, or install target for init (default: cwd)
   --spawns N        estimate: assumed subagent spawns per run (default: derived)
   --turns N         estimate: assumed turns per agent (default: derived)
   --toolout W       estimate: tool-output weight low|med|high (default: derived)
