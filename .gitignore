@@ -13,3 +13,5 @@ diet-plan.md
 # dev-only reading / design docs — never ship in the published repo
 dev_only/
 CLAUDE.md
+HANDOVER.md
+WORKFLOW.md
