@@ -71,12 +71,13 @@ function composeSubagentBody(srcPath, pkgRoot) {
               fs.readFileSync(rp, 'utf8').trimEnd();
   }
   // Per-subagent private knowledge: references/subagents/<this agent's filename>.md.
-  // Skip unfilled stubs (they carry the `_Stub —` marker) so empty placeholders never
-  // pollute a deployed agent — a Private-knowledge section appears only once authored.
+  // Skip unfilled stubs (any line starting with `_Stub`, case-insensitive) so empty
+  // placeholders never pollute a deployed agent — a Private-knowledge section appears
+  // only once the file is authored.
   const ownPath = path.join(pkgRoot, 'references', 'subagents', path.basename(srcPath));
   if (fs.existsSync(ownPath)) {
     const own = fs.readFileSync(ownPath, 'utf8');
-    if (!/^_Stub —/m.test(own))
+    if (!/^_stub\b/im.test(own))
       body += `\n\n---\n\n## Private knowledge (inlined at install)\n\n` + own.trimEnd();
   }
   for (const m of body.matchAll(/\[\[shared\/([a-z0-9-]+)\]\]/gi)) {
