@@ -10,11 +10,25 @@
 
 The product eats its own dogfood: *scripts compute, LLM judges* — the agent never estimates what the CLI can measure, and never recomputes what the plan already concluded.
 
+## In plain English
+
+Your AI coding agents waste tokens — which costs money and burns through usage limits — not because of *what* they say, but because of *how they're set up*: too many helper agents, the same big instruction files reloaded on every step, the model re-doing arithmetic it shouldn't, verbose command output piped back into the conversation forever.
+
+token-diet is an agent that audits that setup and fixes it. You type `/token-diet` and it:
+
+1. **Measures** where your tokens actually go (reads your real Claude Code usage logs — no guessing).
+2. **Finds** the structural waste, sorted into 8 well-known causes ("levers").
+3. **Shows you a plan** with the expected savings — and stops, waiting for your approval.
+4. **Applies** the changes you approve — always *moving* content to a reference file, never deleting it.
+5. **Re-measures** to prove it actually worked.
+
+A plain, dependency-free CLI does all the counting and editing; the AI is used only for judgment calls. Think of it as a personal trainer for your AI agents: it weighs them, finds the flab, and puts them on a diet — without cutting any muscle (information).
+
 ## Install
 
 ```bash
 npm install -g github:KasperChenGH/token-diet
-token-diet init --global     # deploys agent + command + skill into ~/.claude/
+token-diet init --global     # deploys the agent + 10 subagents + command + skill + rubrics into ~/.claude/
 ```
 
 Then in any project: **`/token-diet`** — or just tell Claude "put this project on a token diet."
@@ -71,7 +85,7 @@ MODEL MIX: 100% top-tier output while subagents exist -> arbitrage available
 
 Usage is deduplicated per API request (`requestId`) — Claude Code writes 2–3 transcript lines per call with repeated usage; naive summing inflates totals ~2–3×. This tool counts each call once.
 
-The review phase uses per-lever specialist reviewers: for each lever with ≥ 2 findings, a parallel Sonnet sub-reviewer reads only its dedicated rubric (`references/levers/lever-N-*.md`) and the flagged files, returning per-item KEEP / MOVE / DISPOSE-CANDIDATE verdicts. Clean levers (0–1 findings) are judged inline — no subagent spawned.
+The review phase uses per-lever specialist sub-agents: for each lever with ≥ 2 findings, a parallel Sonnet specialist judges only its flagged files, returning per-item KEEP / MOVE / DISPOSE-CANDIDATE verdicts. Each specialist is deployed **self-contained** — its lever rubric, its private professional knowledge (e.g. summarization technique for the digester, data-cleaning criteria for the trimmer), and a shared fidelity/audit contract are all inlined into the agent at install time, so it needs no runtime file lookups. Clean levers (0–1 findings) are judged inline — no subagent spawned.
 
 ## The methodology (the skill)
 
@@ -89,6 +103,36 @@ Eight levers, in leverage order — each shrinks the next:
 Bookends: measure first (this CLI), re-measure + adversarial consistency review after.
 
 Full methodology with red flags and common mistakes: [SKILL.md](skills/SKILL.md).
+
+## What's in the box (project layout)
+
+```
+token-diet/
+├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit ·
+│                                  agents · diagnose · plan · fix · compare · init
+├── src/*.js                       the deterministic engine (zero deps, no LLM): scan,
+│                                  collectors, review, estimate, diagnose, plan,
+│                                  changeset, fix, compare, history, …
+├── skills/
+│   ├── SKILL.md                   the 8-lever methodology (the main skill)
+│   └── shared/                    knowledge shared across subagents (inlined on install)
+│       ├── specialist-contract.md     how every specialist returns verdicts
+│       ├── cost-mechanics.md          the token cost model
+│       ├── information-preservation.md never-lose-info fidelity rule
+│       └── audit-method.md            evidence + confidence scoring
+├── agents/
+│   ├── token-diet.md              tier-1 orchestrator (the /token-diet agent)
+│   ├── subagent-analyst.md        tier-2 — measures, plans, spawns specialists, merges
+│   └── subagent-<role>.md  ×9     tier-3 lever specialists (one per lever)
+├── references/
+│   ├── levers/lever-N-*.md  ×8    per-lever judgment rubrics (a specialist's core body)
+│   └── subagents/*.md       ×10   per-subagent extra professional knowledge
+└── commands/token-diet.md         the /token-diet slash command
+```
+
+**How a specialist is assembled:** `init` deploys each subagent **self-contained** by inlining
+`agent contract + its lever rubric + its private knowledge + shared contracts` into one file —
+because spawned subagents run in your project dir and can't read companion files at runtime.
 
 ## Measured impact (originating case)
 
