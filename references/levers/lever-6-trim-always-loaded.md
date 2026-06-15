@@ -2,8 +2,8 @@
 
 **Lever statement:** Everything in CLAUDE.md and entry-point command files loads into every agent spawn. Cut to essentials (rules, invariants, current state pointers). Move depth/detail to named reference files with a pointer. Every line removed saves tokens × spawn-count.
 
-## Compression rule (how to trim safely)
-When producing a digest or trimming a file, REMOVE: articles, filler words, hedging, pleasantries, redundant phrasing. PRESERVE VERBATIM: code blocks, URLs, file paths, commands, API signatures, type/function names, version numbers, exact thresholds/numbers, proper nouns. Trimming changes wording, never facts or contracts.
+## Trim fidelity rule
+A digest may reword prose freely but must never disturb load-bearing tokens. Strip what carries no meaning — connective filler, hedging, courtesy phrasing, and anything stated more than once. Reproduce character-for-character everything an agent could act on literally: source snippets, links, file paths, shell commands, function and type names, API signatures, version strings, numeric thresholds, and proper nouns. Rule of thumb — wording is negotiable; facts, identifiers, and contracts are not.
 
 ## Inspect
 Read the full body of the flagged file. Classify each section:

@@ -2,9 +2,9 @@
 
 **Lever statement:** Static reference material re-read every run belongs in a digest (~2k tokens, `Source:` pointers) or archive (full file, pulled on demand). Only living state (rules, current open items, what NOT to do) belongs always-loaded.
 
-## Compression rule (how to trim safely)
+## Trim fidelity rule
 
-When producing a digest or trimming a file, REMOVE: articles, filler words, hedging, pleasantries, redundant phrasing. PRESERVE VERBATIM: code blocks, URLs, file paths, commands, API signatures, type/function names, version numbers, exact thresholds/numbers, proper nouns. Trimming changes wording, never facts or contracts.
+A digest may reword prose freely but must never disturb load-bearing tokens. Strip what carries no meaning — connective filler, hedging, courtesy phrasing, and anything stated more than once. Reproduce character-for-character everything an agent could act on literally: source snippets, links, file paths, shell commands, function and type names, API signatures, version strings, numeric thresholds, and proper nouns. Rule of thumb — wording is negotiable; facts, identifiers, and contracts are not.
 
 ---
 
