@@ -88,7 +88,7 @@ Eight levers, in leverage order — each shrinks the next:
 
 Bookends: measure first (this CLI), re-measure + adversarial consistency review after.
 
-Full methodology with red flags and common mistakes: [SKILL.md](SKILL.md).
+Full methodology with red flags and common mistakes: [SKILL.md](skills/SKILL.md).
 
 ## Measured impact (originating case)
 

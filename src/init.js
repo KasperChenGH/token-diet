@@ -4,7 +4,7 @@
  *
  * Installs four artifacts into ~/.claude/ (--global) or <cwd>/.claude/ (default):
  *
- *   SKILL.md              → {base}/skills/token-diet/SKILL.md
+ *   skills/SKILL.md        → {base}/skills/token-diet/SKILL.md
  *   agents/token-diet.md  → {base}/agents/token-diet.md
  *   commands/token-diet.md → {base}/commands/token-diet.md
  *   references/levers/    → {base}/skills/token-diet/references/levers/*.md
@@ -49,7 +49,7 @@ async function runInit(opts = {}) {
   // Each entry: { src: absolute-path, destRelative: relative-to-base }
   const artifacts = [
     {
-      src:         path.join(pkgRoot, 'SKILL.md'),
+      src:         path.join(pkgRoot, 'skills', 'SKILL.md'),
       destRelative: path.join('skills', 'token-diet', 'SKILL.md'),
       label:       'skill (SKILL.md)',
     },
