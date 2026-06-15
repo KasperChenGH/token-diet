@@ -72,7 +72,7 @@ test('compressPayload: disabled gate → null; enabled + large → rewrite + ful
   assert.equal(F.compressPayload(payload, root, 'ts'), null);          // no config → disabled
 
   fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
-  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true }));
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, mode: 'active' }));
   const out = F.compressPayload(payload, root, '2026-01-01T00:00:00.000Z');
   assert.ok(out, 'expected a rewrite');
   const j = JSON.parse(out);
@@ -177,8 +177,27 @@ test('tools allowlist: Read passes through by default; compresses only when opte
   writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true }));   // default tools=['Bash']
   assert.equal(F.compressPayload(readPayload, root, 'ts'), null, 'Read should pass through by default');
 
-  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, tools: ['Bash', 'Read'] }));
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, mode: 'active', tools: ['Bash', 'Read'] }));
   assert.ok(F.compressPayload(readPayload, root, 'ts2'), 'Read should compress once opted in');
+  rm(root);
+});
+
+test('keep-patterns survive log-dedup head/tail elision', () => {
+  const cfg = { ...F.DEFAULT_CONFIG, headTail: 5, keep: ['KEEPME'] };
+  const input = Array.from({ length: 30 }, (_, i) => `noise ${i}`).join('\n').replace('noise 15', 'KEEPME critical line');
+  assert.match(F.dedupLog(input, cfg), /KEEPME critical line/);   // protected even though it's in the elided middle
+});
+
+test('install preserves OTHER PostToolUse hooks and stays idempotent', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude'), { recursive: true });
+  writeFile(root, '.claude/settings.json', JSON.stringify({ hooks: { PostToolUse: [
+    { matcher: 'Edit', hooks: [{ type: 'command', command: 'prettier' }] } ] } }));
+  silence(() => F.runInstall({ dir: root }));
+  silence(() => F.runInstall({ dir: root }));   // twice → idempotent
+  const set = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
+  assert.ok(set.hooks.PostToolUse.some(h => h.hooks.some(x => x.command === 'prettier')), 'foreign hook preserved');
+  assert.equal(set.hooks.PostToolUse.filter(h => h.hooks.some(x => x.command === 'token-diet filter')).length, 1, 'exactly one token-diet entry');
   rm(root);
 });
 

@@ -16,6 +16,7 @@
  *   token-diet filter    --install | --self-test | --enable | --disable | --uninstall
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
  *   token-diet init      [--global] [--dir <path>]
+ *   token-diet setup     wire the filter (audit) + a pre-commit drift gate in one command
  *
  * Data source: ~/.claude/projects/<project-slug>/*.jsonl
  *              (agent-*.jsonl files are classified as "subagent" sessions)
@@ -258,6 +259,10 @@ async function main() {
       await runInit(opts);
       break;
     case 'review': {
+      if (opts.failUnder && !['A', 'B', 'C', 'D', 'F'].includes(String(opts.failUnder).toUpperCase())) {
+        console.error(`token-diet: --fail-under must be one of A B C D F (got "${opts.failUnder}")`);
+        process.exit(2);
+      }
       const grade = await runReview(opts);
       if (opts.failUnder && gradeWorseThan(grade, opts.failUnder)) {
         console.error(`token-diet: grade ${grade} is below --fail-under ${opts.failUnder}`);

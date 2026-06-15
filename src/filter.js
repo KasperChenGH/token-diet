@@ -18,7 +18,7 @@ const DEFAULT_CONFIG = {
   // retrieval (Read/Grep belong to Lever 5 digests). Opt in by adding them to `tools`.
   // mode: 'audit' = record what it would save but leave output untouched; 'active' = compress.
   // keep: regex patterns whose matching lines are NEVER collapsed (protect your own signals).
-  enabled: false, mode: 'active', tools: ['Bash'], keep: [],
+  enabled: false, mode: 'audit', tools: ['Bash'], keep: [],
   minTokensToCompress: 1500, minLines: 60, headTail: 20, sidecarRetentionDays: 7,
 };
 
@@ -208,7 +208,7 @@ function compressPayload(payload, root, nowIso) {
   if (!compressed || compLines >= baseLines) return null; // no real gain → pass through
   recordStats(root, { ts: nowIso, tool: payload.tool_name || '', kind: classifyKind(payload),
                       rawTok: estTok(full), compTok: estTok(compressed) });
-  if ((cfg.mode || 'active') !== 'active') return null;  // audit mode → recorded, output left untouched
+  if ((cfg.mode || 'audit') !== 'active') return null;  // audit (default) → recorded, output left untouched
   pruneSidecar(root, cfg.sidecarRetentionDays);
   const sidecar = writeSidecar(root, payload.tool_name, full, nowIso);
   const view = `${compressed}\n[token-diet: compressed ${baseLines}→${compLines} lines · full: ${sidecar}]`;
@@ -357,13 +357,14 @@ function runReport(opts = {}) {
 
   const fmt = n => Math.round(n).toLocaleString('en-US');
   const pad = (s, w) => String(s).padStart(w);
+  const pctStr = p => (p < 0 ? '+' + Math.abs(p) : '-' + p) + '%';   // reduction is "-N%"; growth (rare) is "+N%"
   console.log('\n=== token-diet filter — measured token reduction (your real sessions) ===\n');
   console.log('  type                   |  calls |     before |      after | reduction');
   console.log('  -----------------------+--------+------------+------------+----------');
   for (const r of rows)
-    console.log(`  ${(KIND_LABEL[r.kind] || r.kind).padEnd(22)} | ${pad(r.count, 6)} | ${pad(fmt(r.raw), 10)} | ${pad(fmt(r.comp), 10)} | ${pad('-' + r.pct + '%', 8)}`);
+    console.log(`  ${(KIND_LABEL[r.kind] || r.kind).padEnd(22)} | ${pad(r.count, 6)} | ${pad(fmt(r.raw), 10)} | ${pad(fmt(r.comp), 10)} | ${pad(pctStr(r.pct), 8)}`);
   console.log('  -----------------------+--------+------------+------------+----------');
-  console.log(`  ${'TOTAL'.padEnd(22)} | ${pad(total.count, 6)} | ${pad(fmt(total.raw), 10)} | ${pad(fmt(total.comp), 10)} | ${pad('-' + total.pct + '%', 8)}`);
+  console.log(`  ${'TOTAL'.padEnd(22)} | ${pad(total.count, 6)} | ${pad(fmt(total.raw), 10)} | ${pad(fmt(total.comp), 10)} | ${pad(pctStr(total.pct), 8)}`);
   console.log(`\n  ${fmt(total.raw - total.comp)} tokens saved across ${total.count} filtered calls (token ≈ chars/4).`);
   console.log('  Tool-output only — for the whole-project effect, use `token-diet compare`.\n');
 }

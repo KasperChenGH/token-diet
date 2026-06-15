@@ -20,7 +20,7 @@ function installPreCommit(root) {
   let body = '';
   try { body = fs.readFileSync(hookP, 'utf8'); } catch { /* none yet */ }
   if (body.includes(HOOK_MARK)) return { ok: true, status: 'already present' };
-  const block = `${HOOK_MARK}\ntoken-diet review --dir . || true   # add --fail-under C to BLOCK commits on regression\n`;
+  const block = `${HOOK_MARK}\ntoken-diet review --dir .   # add --fail-under C to BLOCK commits when the grade regresses\n`;
   if (body) fs.appendFileSync(hookP, '\n' + block);
   else      fs.writeFileSync(hookP, '#!/bin/sh\n' + block);
   try { fs.chmodSync(hookP, 0o755); } catch { /* no-op on Windows */ }
@@ -31,8 +31,13 @@ async function runSetup(opts = {}) {
   const root = opts.dir ? path.resolve(opts.dir) : process.cwd();
   console.log('\n=== token-diet setup — wiring ongoing protection ===');
 
-  filter.runInstall(opts);              // install the hook (disabled)
-  filter.setState(opts, true, 'audit'); // start recording in AUDIT — output stays unchanged
+  // Don't downgrade a filter the user already activated; otherwise start in safe AUDIT.
+  let mode = 'audit';
+  try {
+    if (JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'filter.json'), 'utf8')).mode === 'active') mode = 'active';
+  } catch { /* no config yet → audit */ }
+  filter.runInstall(opts);             // install the hook (disabled)
+  filter.setState(opts, true, mode);   // record in AUDIT (or keep ACTIVE if already live)
 
   const pc = installPreCommit(root);
   console.log(`  pre-commit drift reminder: ${pc.ok ? pc.status : 'skipped — ' + pc.reason}`);

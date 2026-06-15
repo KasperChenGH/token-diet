@@ -131,7 +131,7 @@ Full methodology with red flags and common mistakes: [SKILL.md](skills/SKILL.md)
 ```
 token-diet/
 ├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit · agents ·
-│                                  diagnose · overhead · plan · fix · filter · compare · init
+│                                  diagnose · overhead · plan · fix · filter · compare · init · setup
 ├── src/filter.js                  Lever 8 output-compression engine (PostToolUse hook):
 │                                  compresses verbose tool output → context, full output → sidecar
 ├── src/*.js                       the deterministic engine (zero deps, no LLM): scan,
@@ -157,6 +157,50 @@ token-diet/
 **How a specialist is assembled:** `init` deploys each subagent **self-contained** by inlining
 `agent contract + its lever rubric + its private knowledge + shared contracts` into one file —
 because spawned subagents run in your project dir and can't read companion files at runtime.
+
+## The output filter — safe by default
+
+The Lever 8 filter compresses verbose tool output (test logs, git, builds) before it re-enters context. It's built so you can **prove it's safe on your output before it changes anything.**
+
+### Audit mode (the default-on state)
+
+Enabling never jumps straight to live compression:
+
+```bash
+token-diet filter --install     # wire the PostToolUse hook (off)
+token-diet filter --enable      # AUDIT: records what it *would* save — output UNCHANGED
+token-diet filter --report      # the measured reduction table from your real sessions
+token-diet filter --activate    # go live (the one switch you flip yourself)
+token-diet filter --disable     # turn it back off anytime
+```
+
+In **audit** mode the filter runs on every matched call, records the would-be saving to `.claude/toolout/stats.jsonl`, but **returns the original output unchanged**. You review `--report`, confirm the reductions look right, then `--activate`. Nothing is modified until you opt in — and even when live, the full output is always preserved in `.claude/toolout/<ts>.log` with a pointer, so it's never lost.
+
+### keep-patterns — protect your own signals
+
+Generic rules can't know what matters in *your* output. Add regexes to `keep` in `.claude/toolout/filter.json`; any matching line is **never** collapsed (in tests, log-dedup, and large reads):
+
+```json
+{
+  "enabled": true,
+  "mode": "audit",
+  "tools": ["Bash"],
+  "keep": ["WARNING", "DEPRECATION", "your-custom-marker"],
+  "minTokensToCompress": 1500,
+  "minLines": 60,
+  "headTail": 20,
+  "sidecarRetentionDays": 7
+}
+```
+
+| field | meaning |
+|---|---|
+| `mode` | `audit` (record only, output unchanged) or `active` (compress for real) |
+| `tools` | which tools to compress — `["Bash"]` by default; add `"Read"`/`"Grep"` to opt in (then re-run `--install` to re-sync the hook matcher), though those are usually better handled by Lever 5 digests |
+| `keep` | regexes whose matching lines are never collapsed |
+| `minTokensToCompress` / `minLines` | only compress output above this size; smaller output passes through untouched |
+| `headTail` | head/tail lines kept when eliding an oversized middle |
+| `sidecarRetentionDays` | prune full-output sidecar logs older than this |
 
 ## Measured impact (originating case)
 

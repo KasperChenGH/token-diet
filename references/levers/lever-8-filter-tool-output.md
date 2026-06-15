@@ -10,8 +10,9 @@ context, then re-sent every turn as cache reads?
 ## Disposal rubric (per candidate)
 - **KEEP** — output is already small or filtered; a hook exists.
 - **MOVE** — verbose output goes to a sidecar log (`.claude/toolout/<ts>.log`) with a compressed
-  view in context. token-diet ships this as a built-in engine — `token-diet filter --install`
-  (disabled), `--self-test`, then `--enable`. The `scaffold` op points the user at those commands.
+  view in context. token-diet ships this as a built-in engine (Bash output by default). Wire it with
+  `token-diet setup` (filter in audit + a pre-commit gate), or `filter --install` → `--enable`
+  (audit: records only) → `--report` → `--activate`. The `scaffold` op points the user at those.
 - **DISPOSE-CANDIDATE** — n/a for tool output (never discard; always move to sidecar).
 
 ## Return format
