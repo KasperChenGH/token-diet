@@ -63,4 +63,17 @@ function deriveInputs(targetDir, home, opts = {}) {
   };
 }
 
-module.exports = { TOOLOUT, OUTPUT_PER_TURN, PRICE, deriveInputs };
+function computeBill(inp) {
+  const write  = inp.spawnsPerRun * inp.perSpawnOverhead + inp.perSessionOverhead;
+  const read   = inp.spawnsPerRun * (inp.perSpawnOverhead + inp.toolOutputTokens) * inp.turnsPerAgent;
+  const output = inp.spawnsPerRun * inp.turnsPerAgent * OUTPUT_PER_TURN;
+  return { write, read, output, total: write + read + output };
+}
+function weight(bill) {
+  const write  = bill.write  * PRICE.write;
+  const read   = bill.read   * PRICE.read;
+  const output = bill.output * PRICE.output;
+  return { write, read, output, total: write + read + output };
+}
+
+module.exports = { TOOLOUT, OUTPUT_PER_TURN, PRICE, deriveInputs, computeBill, weight };

@@ -41,3 +41,21 @@ test('deriveInputs: flags override derivation', () => {
   assert.equal(inp.toolOutputTokens, 6000);
   rm(dir);
 });
+
+test('computeBill: exact for known inputs', () => {
+  const inp = { perSpawnOverhead: 100, perSessionOverhead: 0,
+                spawnsPerRun: 5, turnsPerAgent: 8, toolOutputTokens: 6000 };
+  const bill = E.computeBill(inp);
+  assert.equal(bill.write, 500);       // 5*100 + 0
+  assert.equal(bill.read, 244000);     // 5*(100+6000)*8
+  assert.equal(bill.output, 14000);    // 5*8*350
+  assert.equal(bill.total, 258500);
+});
+
+test('weight: applies price multipliers', () => {
+  const w = E.weight({ write: 500, read: 244000, output: 14000 });
+  assert.equal(w.write, 625);          // 500*1.25
+  assert.equal(w.read, 24400);         // 244000*0.1
+  assert.equal(w.output, 14000);       // 14000*1.0
+  assert.equal(w.total, 39025);
+});
