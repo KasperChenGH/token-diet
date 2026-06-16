@@ -19,6 +19,13 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
   a tag→version release workflow, `CODE_OF_CONDUCT.md`, and this changelog.
 
 ### Fixed
+- **`dedupLog` no longer elides error/warning lines from the middle** — auditing real
+  shell logs found it silently dropped a critical line (Python tracebacks, `FutureWarning`,
+  `FAIL`) in **14% of elided calls**; the log compressor now always keeps error/warning
+  lines in the elided middle (down to ~0% real loss, for ~1% less compression).
+- **`compressTests` keeps Pester `[-]` failures** — a failing PowerShell/Pester test with a
+  neutral name (no "fail" word) had its `[-]` line and `Expected …` detail collapsed; `FAIL_RE`
+  now matches the `[-]` marker. Caught by replaying real Pester output.
 - **filter never drops a failure line again** — `FAIL_RE` now matches `✖` (the glyph
   `node --test` uses, which token-diet itself runs) and TAP `not ok`; a real
   signal-preservation gap caught by replaying live tool output. Plus a batch of

@@ -50,11 +50,32 @@ test('signal preservation: node --test failure (✖) is never collapsed [regress
   assert.ok(out.split('\n').length < NODE_TEST.split('\n').length);   // still compresses
 });
 
+test('signal preservation: Pester [-] failure (neutral name) survives [regression]', () => {
+  // Real Pester 5 format; the failing test name has NO "fail" word, so only the [-] marker saves it.
+  const PESTER = Array.from({ length: 30 }, (_, i) => `[+] Math.case ${i} 5ms`).join('\n') +
+    '\n[-] Math.computes the total 44ms\n Expected 5, but got 4.\n at It (line 4)\n' +
+    'Tests Passed: 30, Failed: 1, Skipped: 0';
+  const { out, lost } = survivors(PESTER, t => F.compressTests(t, cfg));
+  assert.deepEqual(lost, []);
+  assert.match(out, /\[-\] Math\.computes the total/);   // the failing test line
+  assert.match(out, /Expected 5, but got 4/);            // its indented assertion detail
+  assert.match(out, /Failed: 1/);
+});
+
 test('signal preservation: pytest failure block survives', () => {
   const { out, lost } = survivors(PYTEST, t => F.compressTests(t, cfg));
   assert.deepEqual(lost, []);
   assert.match(out, /1 failed, 40 passed/);
   assert.match(out, /AssertionError: boom/);
+});
+
+test('signal preservation: dedupLog never elides an error/traceback from the middle [regression]', () => {
+  const lines = Array.from({ length: 60 }, (_, i) => `progress line ${i}`);
+  lines.splice(30, 0, 'Traceback (most recent call last):', '  File "x.py", line 5', 'FutureWarning: deprecated thing');
+  const out = F.dedupLog(lines.join('\n'), cfg);   // default keep=[]
+  assert.match(out, /lines elided/);                              // the middle WAS elided
+  assert.match(out, /Traceback \(most recent call last\)/);       // …but the traceback survived
+  assert.match(out, /FutureWarning/);
 });
 
 test('signal preservation: cargo errors + warnings survive build compression', () => {

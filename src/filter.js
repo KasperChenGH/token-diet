@@ -59,7 +59,7 @@ function stripNoise(text) {
 }
 
 // ── compressors (pure: string -> string) ──────────────────────────────────────
-const FAIL_RE    = /(fail(ed|ure|s)?|error|assert|traceback|exception|panic|✗|✘|✖|\bFAILED\b|\bERROR\b|\bnot ok\b)/i;
+const FAIL_RE    = /(fail(ed|ure|s)?|error|assert|traceback|exception|panic|✗|✘|✖|\[-\]|\bFAILED\b|\bERROR\b|\bnot ok\b)/i;
 // Summary lines only — the count digit must sit at a token boundary so per-test lines
 // like "test_5 PASSED" (digit inside the name) are collapsed, not kept.
 const SUMMARY_RE = /(?:^|\s)\d+\s+(?:passed|failed|errors?|skipped|deselected|tests?\b)|test result:|\bRan\s+\d+\s+test|={3,}[^=]*\b(?:passed|failed)\b|^\s*OK\b|^\s*FAILED\b/i;
@@ -136,6 +136,9 @@ function compressRead(text, cfg) {
   return [...head, ...mid, ...tail].join('\n');
 }
 
+// Error/warning lines a generic log compressor must NEVER elide from the middle — extends
+// the "never drop a failure line" contract (which tests/build have) to plain log output.
+const CRITICAL_RE = /\b(error|fail(ed|ure)?|exception|traceback|panic|fatal|critical)\b|✗|✘|✖|\bwarn(ing)?\b|deprecat/i;
 function dedupLog(text, cfg) {
   const lines = stripNoise(text).split('\n');
   const out = []; let prev = null, count = 0;
@@ -148,10 +151,11 @@ function dedupLog(text, cfg) {
   let r = out;
   if (r.length > cfg.headTail * 2 + 10) {
     const protect = keepMatcher(cfg);
+    const keep = ln => CRITICAL_RE.test(ln) || protect(ln);  // error/warning lines + user keep-patterns survive
     const head = out.slice(0, cfg.headTail);
     const tail = out.slice(-cfg.headTail);
     const mid  = out.slice(cfg.headTail, out.length - cfg.headTail);
-    const kept = mid.filter(protect);                       // protected lines survive elision
+    const kept = mid.filter(keep);
     r = [...head, ...kept, `  … (${mid.length - kept.length} lines elided)`, ...tail];
   }
   return r.join('\n');

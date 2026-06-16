@@ -114,17 +114,17 @@ Pooled across **eight production codebases**, counting only what the default fil
 
 | tool output | what it keeps · what it collapses | calls | reduction |
 |---|---|---|---|
-| **git** — `status` / `diff` / `log` | branch + changed files + diff hunks · unchanged-tree noise | 50 | **−81%** |
-| **tests** — pytest / jest / cargo / go / Pester | failures, tracebacks, the pass/fail summary · passing runs | 31 | **−86%** |
-| **logs / other** shell output | dedups repeated lines · head/tail-elides oversized middles | 298 | **−63%** |
-| **shell total** — Bash + PowerShell (the safe default) | the rows above, blended | **379** | **−69%** |
-| **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | — | **−86%** \* |
+| **git** — `status` / `diff` / `log` | branch + changed files + diff hunks · unchanged-tree noise | 49 | **−81%** |
+| **tests** — pytest / jest / cargo / go / Pester | failures, tracebacks, the pass/fail summary · passing runs | 31 | **−85%** |
+| **logs / other** shell output | dedups repeats · head/tail-elides middles (errors/warnings always kept) | 298 | **−62%** |
+| **shell total** — Bash + PowerShell (the safe default) | the rows above, blended | **378** | **−68%** |
+| **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | — | **−86…−98%** \* |
 | **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads | — | **~−42%** † |
 
-The **shell total** is the headline: **−69% across 379 calls** (586k → 183k tokens). Structured output compresses hardest — tests **−86%**, git **−81%**, meeting or beating a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs, which dominate the volume and have no schema to exploit. The lower-call rows (tests, git) are lightly sampled — these codebases run few large suites through the shell — so their numbers are shown with their N, not folded into a falsely-precise spread. (Only shell tools are counted: Read/Grep/Task results are excluded because the default filter never touches them — see Lever 5.)
+The **shell total** is the headline: **−68% across 378 calls** (584k → 185k tokens). Structured output compresses hardest — tests **−85%**, git **−81%**, meeting or beating a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs, which dominate the volume and have no schema to exploit. The lower-call rows (tests, git) are lightly sampled — these codebases run few large suites through the shell. (Only shell tools are counted: Read/Grep/Task results are excluded because the default filter never touches them — see Lever 5.) These are **per-call** figures; on a heavy real session the per-call saving is a rounding error, but **compounded through `cache_read`** (a compressed output is re-sent every later turn) it is the dominant effect — measure the whole-session result with `token-diet compare`.
 
-\* **builds** — measured on the bundled `--self-test`; none of the eight codebases ran a build big enough to clear the gate, so there's no per-session sample yet (same engine, just unexercised).
-† **file reads** — *not* in the shell total and *not* an automatic filter win: a separate, opt-in mechanism conditional on adopting a tight (≤ ~600-token) digest. It's by far the bigger pool — across the same eight codebases, **4.5M tokens** went to re-reading files vs **586k** on shells. Surface candidates with `token-diet digest`, then `--scaffold` a skeleton for an agent to summarize.
+\* **builds** — **−98%** on a real verbose `npm install` (823 → 15 lines); the eight pooled codebases show none because modern build tools are quiet by default, so verbose build output (cargo, webpack, docker, `npm --verbose`) is where the **−86…−98%** lands.
+† **file reads** — *not* in the shell total and *not* an automatic filter win: a separate, opt-in mechanism conditional on adopting a tight (≤ ~600-token) digest. It's by far the bigger pool — **5.4M read tokens**, of which **93% are re-reads** (the same files pulled 100–300×) that digests can address, vs only 584k on shells. Surface candidates with `token-diet digest`, then `--scaffold` a skeleton for an agent to summarize.
 
 `cache_read` itself is never a row — it's not a kind of output, it's the re-transmission of everything above; the filter and digest shrink the *sources* that feed it.
 
