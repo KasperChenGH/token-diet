@@ -20,9 +20,11 @@ enough to decide the next step. No history is a full deliverable, not just a gra
 - **Light** (0–1 flagged levers): do it inline on the main agent.
 - **Heavy** (≥2 flagged levers): delegate to `subagent-analyst`, passing the Phase 1 `--json`.
 The analyst reads all project files, runs `token-diet plan` (emits the `diet-changeset.json`
-skeleton), spawns the role-named lever specialists for flagged levers (or drafts inline if nested
-spawning is unavailable), and merges their drafted content into `diet-changeset.json`. It returns a
-compact summary. The main agent never holds the raw file reads.
+skeleton) plus `token-diet digest --scaffold` when Lever 5 (hot re-read files) is flagged — the
+biggest token pool — spawns the role-named lever specialists for flagged levers (or drafts inline if
+nested spawning is unavailable), and merges their drafted content into `diet-changeset.json`. It
+returns a compact summary, flagging any specialist verdict it couldn't land rather than dropping it.
+The main agent never holds the raw file reads.
 
 ## Phase 3 — Approval gate (HARD STOP)
 Present the prepared changeset (already-drafted edits) with the `estimate` projection as

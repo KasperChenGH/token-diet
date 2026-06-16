@@ -5,9 +5,9 @@
 [![Node](https://img.shields.io/badge/node-%E2%89%A5%2018-brightgreen.svg)](package.json)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
 
-> **Cut the token spend of your AI-agent workflows by fixing how they're built — not what they say.**
+> **Token observability for your AI agents — read your real transcripts, see where the architecture wastes tokens, and restructure it.**
 
-Agentic pipelines burn tokens *structurally*: too many helper agents, the same big instruction files reloaded every step, the model re-doing arithmetic it shouldn't, and verbose command output re-sent on every turn. **token-diet** is a Claude Code agent + CLI + skill that measures where your tokens actually go — from your real usage logs, not guesses — finds the waste across **8 levers**, and fixes it (moving content to references, never deleting). Across eight real codebases its output filter alone cut Bash tool output **−65% over 824 calls**.
+Agentic pipelines burn tokens *structurally* — too many helper agents, the same instruction files reloaded every step, results re-computed, verbose output re-sent every turn — not because of *what* the agents say but *how they're built*. **token-diet** is a Claude Code agent + CLI + skill that measures where your tokens actually go (from real usage logs, not estimates), sorts the waste into **8 levers**, and fixes it — moving content to references, never deleting. On the originating project a 23-round research loop fell from **~1.1M to ~100–180k tokens/round**. (Its automatic output filter is the easy set-and-forget win — a measured **−68%** on shell output — but the bigger money is structural: too many agents, reloaded context, and files re-read 100×.)
 
 It eats its own dogfood — ***scripts compute, LLM judges***: a zero-dependency CLI does every measurement and applies every edit mechanically; the model is used only for the keep-or-trim judgment calls.
 
@@ -44,7 +44,7 @@ Reload Claude Code, then run **`/token-diet`** (or just say *"put this project o
 
 ## How to use it — two modes
 
-Pick how hands-on you want to be. Most people use both.
+**Start with Mode 1** — the structural review is where the real savings are. **Mode 2** (the output filter) is an automatic quick-win you can also leave running, but on its own it's the smaller pool. Most people do the review once, then keep the filter on.
 
 ### Mode 1 · Review — `/token-diet`  (full control)
 

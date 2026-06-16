@@ -33,6 +33,16 @@
  *   tool_use records are also keyed by id in toolCallsById for the join in diagnose.
  */
 
+// ── PLATFORM DEPENDENCY (ADR) ───────────────────────────────────────────────────
+// token-diet's MEASUREMENT layer is coupled to Claude Code's on-disk transcript format:
+//   • path:    ~/.claude/projects/<slug>/*.jsonl   (and one level of agent-* sub-dirs)
+//   • shape:   newline-delimited JSON; `type:"assistant"` lines carry `message.usage`
+//              (input/cache_creation/cache_read/output tokens) + `requestId` for dedup;
+//              `type:"user"` lines carry tool_result blocks; tool_use blocks carry id+name+input.
+// If Anthropic changes this format, scan/audit/agents/diagnose/compare/digest break (the
+// methodology in SKILL.md is platform-neutral; the CLI is NOT). A non-Claude-Code adapter
+// would map its own transcripts to {requestId, usage, tool_use, tool_result} and feed scanAll.
+// Decision: own the Claude Code niche; keep this the single coupling point.
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');

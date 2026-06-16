@@ -36,6 +36,13 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
   node:test / pytest / cargo / npm output, asserting no error/warning line is collapsed.
 
 ### Changed
+- **Lever 5 (digest) is now first-class in the agent flow** — the analyst runs
+  `token-diet digest --scaffold` when hot re-read files are flagged (the biggest token
+  pool: 93% of read volume is re-reads), the digester turns the scaffolds into prose
+  digests, and the analyst now asserts every specialist verdict lands (or flags it skipped).
+- **README repositioned** around *token observability + structural diagnosis* (the real
+  savings); the output filter is framed as the automatic quick-win, not the headline.
+- Documented the Claude Code transcript-format dependency as an ADR in `src/scan.js`.
 - **Default now compresses both shells — Bash _and_ PowerShell** (incidental verbose
   output, like Bash). The git classifier now catches `cd … && git`, `git -C …`, and piped
   forms, and `Invoke-Pester` counts as tests. Task/Edit/Grep/Glob stay untouched.
