@@ -13,7 +13,7 @@ Spawns the token-diet agent on the current project. The agent runs Phases 0-3 (m
 Usage:
   /token-diet           — full flow, 7-day window
   /token-diet 14        — full flow, 14-day window
-  /token-diet status    — audit + overhead summary only (read-only, no plan)
+  /token-diet status    — audit + review summary only (read-only, no plan)
 ```
 
 ## /token-diet [days] — full flow

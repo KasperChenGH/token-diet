@@ -16,7 +16,9 @@ For each flagged file, assess:
 - DEAD — superseded, never referenced? → DISPOSE-CANDIDATE
 - Digest already exists? Check `knowledge/digests/` for `*-digest.md`
 
-Hot-files from `token-diet diagnose` (> 10x/day reads) are Lever 5 targets.
+Hot-files from `token-diet digest` (the dedicated re-read finder; `diagnose` also reports them) are
+Lever 5 targets. Run `token-diet digest --scaffold` to write a structure skeleton per candidate under
+`.claude/digests/`, then turn each skeleton into the prose digest (one section per topic, `Source:` pointer).
 
 ## Decision tests
 
