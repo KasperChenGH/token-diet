@@ -22,7 +22,7 @@ Also check whether a verdict/score file is written by a script and then re-read 
 
 **Judgment call** — the "computation" requires interpreting ambiguous evidence, weighing trade-offs, or applying contextual knowledge that varies by situation. Not a script candidate.
 
-**Fuzzy/contextual threshold** — the threshold itself is a judgment call (e.g., "is this output good enough?") even if applying the threshold once it's set is deterministic.
+**Fuzzy/contextual threshold** — the threshold itself is a judgment call (e.g., "is this output good enough to ship?") even if applying the threshold once it's set is deterministic.
 
 **Script already exists** — the flagged pattern already has a script kernel. The issue is the LLM re-deriving it instead of reading the script's output file.
 
@@ -55,6 +55,6 @@ One line per flagged item:
 Example:
 ```
 verdict assembly in report.md → DISPOSE-CANDIDATE: LLM assembles pass/fail rows from CSV — pure arithmetic + restructure: score.py already exists; wire report.md to read verdict_N.json instead of recomputing
-delta calc in loop.md → DISPOSE-CANDIDATE: LLM computes % above baseline — 2 arithmetic ops + restructure: add margin field to score.py output; LLM reads and interprets the margin value
-design-fit judgment in precheck.md → KEEP: "is this config coherent with the current baseline?" is a judgment call, not arithmetic
+delta calc in loop.md → DISPOSE-CANDIDATE: LLM computes a % delta vs baseline — 2 arithmetic ops + restructure: add a delta field to score.py output; LLM reads and interprets the value
+design-fit judgment in precheck.md → KEEP: "is this config coherent with the current target?" is a judgment call, not arithmetic
 ```

@@ -55,7 +55,7 @@ One line per flagged item:
 
 Example:
 ```
-sweep command in process.md → MOVE: backtest sweep runs 5–20 min with no LLM mid-run decisions + restructure: scripts/run_batch.sh — call batch_job.py, write output to results/result.csv, session resumes after
-poll loop in loop.md → MOVE: sleep+check loop burns tokens across idle minutes + restructure: driver polls build workers; session triggers on completion file
+batch command in process.md → MOVE: the batch job runs 5–20 min with no LLM mid-run decisions + restructure: scripts/run_batch.sh — invoke the long job, write output to out/result.csv, session resumes after
+poll loop in loop.md → MOVE: sleep+check loop burns tokens across idle minutes + restructure: driver polls the workers; session triggers on completion file
 report.md inline scoring → KEEP: LLM inspects partial results per round to decide next config — genuinely interactive
 ```

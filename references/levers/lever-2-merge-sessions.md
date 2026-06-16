@@ -47,6 +47,6 @@ One line per flagged session pair:
 
 Example:
 ```
-precheck.md + process.md → DISPOSE-CANDIDATE: phases pass a findings file; no contamination boundary; merge into one session with state written to diet-plan.md between phases + restructure: fold preflight checks into process.md Phase 1, write findings file, continue in same session
+precheck.md + process.md → DISPOSE-CANDIDATE: phases pass a findings file; no contamination boundary; merge into one session with state written to a plan file between phases + restructure: fold the precheck into process.md Phase 1, write findings file, continue in same session
 loop.md (round N) + loop.md (round N+1) → KEEP: each round must be a fresh session — context grows unbounded over 20+ rounds
 ```
