@@ -57,12 +57,13 @@ Run the agent. It **measures** your real token usage, **finds** the structural w
 It turns on in **three one-time steps**, so it can never surprise you:
 
 ```bash
-token-diet setup              # 1 · install — starts in WATCH-ONLY mode: shows what it would cut, changes nothing
-token-diet filter --report    # 2 · check — the savings it would make on your own real output
+token-diet setup              # 1 · install — WATCH-ONLY mode: records what it would cut, changes nothing
+# → reload Claude Code, then use it normally for a bit — the hook records as you go
+token-diet filter --report    # 2 · check — what it would have saved on YOUR real output
 token-diet filter --activate  # 3 · go live — now it actually compresses
 ```
 
-After step 3 it's genuinely set-and-forget. Even when live, the full original output is always saved to a sidecar file with a pointer back to it — nothing is ever lost — and you can `token-diet filter --disable` anytime. (Step 1's "watch-only" state is the filter's **audit** mode.)
+(Steps 2–3 come after you've used Claude Code a little, so `--report` has real data to show.) After step 3 it's genuinely set-and-forget. Even when live, the full original output is always saved to a sidecar file with a pointer back to it — nothing is ever lost — and you can `token-diet filter --disable` anytime. (Step 1's "watch-only" state is the filter's **audit** mode.)
 
 <details>
 <summary>Bonus: <code>setup</code> also adds a commit-time guard</summary>
