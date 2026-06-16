@@ -104,7 +104,8 @@ function compressBuild(text, cfg) {
 
 function compressGit(text, command, cfg) {
   const lines = stripNoise(text).split('\n');
-  const sub = ((command || '').match(/git\s+(\w+)/) || [])[1] || '';
+  // Find the git subcommand even past leading flags/args (`git -C /path diff`, `git --no-pager log`).
+  const sub = ((command || '').match(/\bgit\b[^|&;]*?\b(diff|show|status|log)\b/) || [])[1] || '';
   if (sub === 'diff' || sub === 'show') {
     const out = lines.filter(l => /^(diff |index |--- |\+\+\+ |@@ |Binary |rename |new file|deleted)/.test(l)
                                || /\bfiles?\s+changed\b/.test(l));
