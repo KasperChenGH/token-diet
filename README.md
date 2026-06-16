@@ -55,26 +55,48 @@ The optional **output filter** (Lever 8 engine) scopes the same way — `token-d
 
 > The `npm install -g` step installs only the *CLI tool* globally. What makes token-diet global vs. project-scoped is where `init` places the Claude Code artifacts — controlled by the presence of `--global`.
 
-## Start here: static project review (no usage history needed)
+## How to use it — two modes
+
+Pick how hands-on you want to be. Most people use both.
+
+### Mode 1 · Review — `/token-diet`  (full control)
+
+Run the agent. It **measures** your real token usage, **finds** the structural waste (sorted into
+the 8 levers), and **shows you a plan** with the expected savings — then **stops**. Nothing in your
+project changes until you approve (reply *approve all*, *approve 1,3*, or *none*), and every applied
+change is a **move, never a delete**. This is the mode for the big structural wins, where you want
+to see each trim before it lands.
+
+No install or usage history needed to try it — grade your project's `.claude/` design A–F in one
+command:
 
 ```bash
 token-diet review --dir .
 ```
-
-Reviews your project's `.claude/` design — CLAUDE.md, commands, agents, skills — and grades it (A–F) against all 8 levers, telling you how to cut token usage **before you've spent a token**. Works on a brand-new project. Global infrastructure is reported separately so your project is graded on what it owns.
-
-Sample (a heavy real project):
 ```
-Lever 1  Delete ceremonial agents   5 findings  med   (3 commands fan out >= 3 subagents)
-Lever 2  Merge sessions             2 findings  med   (process.md: prepare + finalize per cycle)
-Lever 3  Evict in-session compute   7 findings  med   (sweep/backtest run inside sessions)
-Lever 4  Scripts for determinism    2 findings  high  (LLM computes verdict/margin)
-Lever 6  Always-loaded overhead     3 findings  med   (report.md 153 lines; 3,800 tok/spawn → 38k at N=10)
-Lever 7  Model arbitrage            1 finding   high  (12 command files, no model pin)
+Lever 1  Delete ceremonial agents   5 findings  med
+Lever 4  Scripts for determinism    2 findings  high
+Lever 7  Model arbitrage            1 finding   high
 Grade: F
 ```
 
-## The workflow (when you have usage history too)
+### Mode 2 · Auto — `token-diet setup`  (set-and-forget)
+
+Want the savings without babysitting? One command wires the **output filter**; then you preview and
+flip it live:
+
+```bash
+token-diet setup              # installs the filter in safe AUDIT mode (records, changes nothing)
+token-diet filter --report    # preview what it would save on your real output
+token-diet filter --activate  # go live
+```
+
+From then on it **automatically** compresses verbose tool output — tests, git, logs, builds — on
+every call, in the background, with no plans and no approvals. Safe by default: it starts in audit
+(output untouched) and always keeps the full output in a sidecar even when live.
+
+<details>
+<summary><b>Manual CLI</b> — the individual steps the two modes wrap (for power users)</summary>
 
 ```bash
 # MEASURE — where do tokens actually go?
@@ -82,32 +104,23 @@ token-diet audit   [--days 7] [--project myapp]   # usage by session-kind × mod
 token-diet agents                                  # useful-work ratio per agent; flags READING NOT THINKING
 
 # DIAGNOSE — what structural waste exists?
-token-diet diagnose                                # red flags mapped to levers (hot files, low-ratio agents,
-                                                   # turny sessions, idle babysitting, model mix)
-token-diet overhead [--dir .]                      # always-loaded burden (now folded into `review`): CLAUDE.md, commands, skills —
-                                                   # what EVERY spawn pays, at N=1/5/10 agents
+token-diet diagnose                                # red flags mapped to levers
+token-diet digest                                  # Lever 5: files an agent re-reads, with their token cost
 
 # ACT — turn findings into work
-token-diet plan --out diet-plan.md                 # ordered checkbox plan per lever with evidence + est. savings;
-                                                   # hand it to your agent: "execute diet-plan.md"
-token-diet init [--global]                         # install the agent + subagents + command + skill + rubrics
+token-diet plan --out diet-plan.md                 # ordered checkbox plan per lever with evidence + savings
+token-diet init [--global]                         # install the agent + subagents + command + skill
 
 # VERIFY — did it work?
 token-diet compare --before-days 14 --after-days 7 # per-day deltas across windows; the re-measure bookend
 ```
 
-Sample (real project, 3 days):
-
-```
-HOT FILES (Lever 5): file_a.py read 125x, file_b.py 80x, HANDOVER.md 41x ...
-LOW-RATIO AGENTS: 14/36 sessions below 0.15 — worst spends 93% of budget on context, 7% on thinking
-IDLE BABYSITTING: session 00000000 idle 3,083 min across 329 calls (compute running inside the session)
-MODEL MIX: 100% top-tier output while subagents exist -> arbitrage available
-```
-
-Usage is deduplicated per API request (`requestId`) — Claude Code writes 2–3 transcript lines per call with repeated usage; naive summing inflates totals ~2–3×. This tool counts each call once.
-
-The review phase uses per-lever specialist sub-agents: for each lever with ≥ 2 findings, a parallel Sonnet specialist judges only its flagged files, returning per-item KEEP / MOVE / DISPOSE-CANDIDATE verdicts. Each specialist is deployed **self-contained** — its lever rubric, its private professional knowledge (e.g. summarization technique for the digester, data-cleaning criteria for the trimmer), and a shared fidelity/audit contract are all inlined into the agent at install time, so it needs no runtime file lookups. Clean levers (0–1 findings) are judged inline — no subagent spawned.
+Usage is deduplicated per API request (`requestId`) — Claude Code writes 2–3 transcript lines per
+call with repeated usage; naive summing inflates totals ~2–3×. This tool counts each call once. In
+review mode, levers with ≥ 2 findings are judged by parallel Sonnet specialist sub-agents (each
+deployed self-contained, with its rubric + private knowledge inlined at install time); clean levers
+are judged inline.
+</details>
 
 ## The methodology (the skill)
 
