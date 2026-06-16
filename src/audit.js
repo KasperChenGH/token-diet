@@ -30,6 +30,7 @@ async function runAudit(opts = {}) {
 
   if (records.length === 0) {
     console.log('No records found for the given filters.');
+    console.log('  Try `token-diet review --dir .` for a zero-history grade, or widen with --days N / check --project.');
     return;
   }
 

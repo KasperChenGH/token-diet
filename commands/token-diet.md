@@ -30,10 +30,10 @@ If the user types `/token-diet status`, do not spawn the full agent. Instead run
 
 ```
 token-diet audit --days 7
-token-diet overhead --dir .
+token-diet review --dir .
 ```
 
-Report: avg output/day, avg calls/day, per-spawn overhead tokens, top 3 flagged sessions (if any). No plan, no edits.
+Report: avg output/day, avg calls/day, per-spawn overhead tokens (from the review's overhead snapshot), top 3 flagged levers (if any). No plan, no edits.
 
 ## Note on first run
 

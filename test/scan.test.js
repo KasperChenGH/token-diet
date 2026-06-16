@@ -79,6 +79,20 @@ test('regression: a filtered no-id line does not drop a later in-window no-id li
   rm(home);
 });
 
+// ── no-id dedup: synthesized key collapses one call's content-block lines ─────────
+test('no-id lines sharing ts+usage count ONCE (not per content block)', () => {
+  const home = tmpDir();
+  const ts = isoNow();
+  writeFile(home, '.claude/projects/proj/sess.jsonl',
+    [rec({ output: 50, ts }),               // no requestId/id → key on ts+usage
+     rec({ output: 50, ts }),               // same call's 2nd block → same key → deduped
+     rec({ output: 99, ts })].join('\n') + '\n');  // different usage → distinct call
+  const agents = agentsJson(home);
+  assert.equal(agents[0].calls, 2);          // 2 distinct, NOT 3
+  assert.equal(agents[0].output, 149);       // 50 + 99 — not 50 + 50 + 99
+  rm(home);
+});
+
 // ── determinism ──────────────────────────────────────────────────────────────────
 test('scan is deterministic: identical fixture → identical output', () => {
   const home = tmpDir();

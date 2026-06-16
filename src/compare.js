@@ -74,21 +74,21 @@ async function scanWindow(fromMs, toMs, projectFilter) {
         const usage = obj.message && obj.message.usage;
         if (!usage) return;
 
-        const callId  = obj.requestId || (obj.message && obj.message.id) || null;
         const tsRaw   = obj.timestamp || (obj.message && obj.message.timestamp) || null;
+        // Same synthetic-key dedup as scan.js: no-id lines key on ts+usage so the 2-3
+        // content-block lines of one call dedup, but distinct calls stay distinct.
+        const callId  = obj.requestId || (obj.message && obj.message.id) ||
+          `noid:${tsRaw || ''}|${usage.input_tokens || 0}|${usage.cache_creation_input_tokens || 0}|${usage.cache_read_input_tokens || 0}|${usage.output_tokens || 0}`;
 
         if (!pending.has(callId)) {
-          // Time window filter
           if (tsRaw) {
             const ms = Date.parse(tsRaw);
             if (!isNaN(ms) && (ms < fromMs || ms >= toMs)) {
-              if (callId !== null) pending.set(callId, null);
+              pending.set(callId, null);   // outside window — mark so duplicate lines skip
               return;
             }
           }
-
-          const modelStr = (obj.message && obj.message.model) || '';
-          const record = {
+          pending.set(callId, {
             file:        filePath,
             sessionKind: path.basename(filePath).startsWith('agent-') ? 'subagent' : 'session',
             timestamp:   tsRaw,
@@ -96,16 +96,7 @@ async function scanWindow(fromMs, toMs, projectFilter) {
             cacheWrite:  +(usage.cache_creation_input_tokens || 0),
             cacheRead:   +(usage.cache_read_input_tokens || 0),
             output:      +(usage.output_tokens || 0),
-          };
-          pending.set(callId, record);
-        }
-
-        const record = pending.get(callId);
-        if (!record) return;
-
-        if (callId === null) {
-          pending.delete(callId);
-          records.push(record);
+          });
         }
       });
 
@@ -125,8 +116,14 @@ async function scanWindow(fromMs, toMs, projectFilter) {
 /** Aggregate per-day stats from a record array */
 function aggregate(records) {
   const days = {};
+  let undated = 0;
   for (const r of records) {
-    const day = r.timestamp ? r.timestamp.slice(0, 10) : 'unknown';
+    // Undated records can't belong to a calendar day. Counting them as an 'unknown'
+    // day would add a phantom day to the denominator and silently dilute every per-day
+    // average (and could fabricate a before/after delta). Exclude them from the per-day
+    // math; surface their count separately.
+    if (!r.timestamp) { undated++; continue; }
+    const day = r.timestamp.slice(0, 10);
     if (!days[day]) {
       days[day] = { fresh_in: 0, cache_write: 0, cache_read: 0, output: 0, calls: 0, sessions: new Set() };
     }
@@ -138,9 +135,6 @@ function aggregate(records) {
     days[day].sessions.add(r.file);
   }
 
-  // Count all day buckets (incl. an 'unknown' bucket for undated records) so the
-  // per-day numerator (totals over all buckets) and denominator (numDays) stay
-  // consistent — otherwise undated records inflate every per-day average.
   const numDays = Math.max(Object.keys(days).length, 1);
   const totals  = { fresh_in: 0, cache_write: 0, cache_read: 0, output: 0, calls: 0, sessions: 0 };
   for (const d of Object.values(days)) {
@@ -163,7 +157,8 @@ function aggregate(records) {
     },
     total:   totals,
     numDays,
-    numCalls: records.length,
+    numCalls: totals.calls,   // dated calls — consistent with per-day + per-call math
+    undated,
   };
 }
 
@@ -199,8 +194,8 @@ async function runCompare(opts = {}) {
   if (opts.json) {
     console.log(JSON.stringify({
       windows: {
-        before: { fromDays: beforeDays, toDays: afterDays, numCalls: before.numCalls, numDays: before.numDays },
-        after:  { fromDays: afterDays,  toDays: 0,         numCalls: after.numCalls,  numDays: after.numDays },
+        before: { fromDays: beforeDays, toDays: afterDays, numCalls: before.numCalls, numDays: before.numDays, undated: before.undated },
+        after:  { fromDays: afterDays,  toDays: 0,         numCalls: after.numCalls,  numDays: after.numDays, undated: after.undated },
       },
       perDay: {
         before: before.perDay,
@@ -218,7 +213,10 @@ async function runCompare(opts = {}) {
   const aLabel = `after  (last ${afterDays}d, ${after.numDays} active days)`;
 
   console.log(`  Before window: ${before.numCalls} calls over ${before.numDays} active day(s)`);
-  console.log(`  After  window: ${after.numCalls} calls over ${after.numDays} active day(s)\n`);
+  console.log(`  After  window: ${after.numCalls} calls over ${after.numDays} active day(s)`);
+  if (before.undated || after.undated)
+    console.log(`  (${before.undated + after.undated} undated record(s) excluded from per-day math)`);
+  console.log('');
 
   if (lowConfidence.length > 0) {
     for (const w of lowConfidence) {

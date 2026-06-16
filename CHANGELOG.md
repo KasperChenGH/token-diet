@@ -38,7 +38,7 @@ shipped:
 - `token-diet setup` — one-command ongoing protection (filter in audit mode + a pre-commit
   drift reminder) and `review --fail-under <grade>` as a CI/commit gate.
 - Zero-dependency CLI: `review · estimate · audit · agents · diagnose · overhead · plan ·
-  fix · filter · compare · init`, reading real Claude Code transcripts with per-`requestId`
-  dedup.
+  fix · filter · digest · compare · init · setup`, reading real Claude Code transcripts with
+  per-`requestId` dedup.
 
 [Unreleased]: https://github.com/KasperChenGH/token-diet/compare/v0.7.0...HEAD

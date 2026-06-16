@@ -8,9 +8,13 @@
  */
 const fs     = require('fs');
 const path   = require('path');
+const os     = require('os');
 const filter = require('./filter');
 
 const HOOK_MARK = '# token-diet review (drift reminder)';
+// Guard the command so a missing token-diet on PATH (GUI git clients, nvm shells) degrades
+// to a no-op instead of blocking the commit; with --fail-under it still gates when present.
+const HOOK_CMD = 'command -v token-diet >/dev/null 2>&1 && token-diet review --dir .   # add --fail-under C to BLOCK commits when the grade regresses';
 
 function installPreCommit(root) {
   if (!fs.existsSync(path.join(root, '.git'))) return { ok: false, reason: 'not a git repo' };
@@ -20,7 +24,7 @@ function installPreCommit(root) {
   let body = '';
   try { body = fs.readFileSync(hookP, 'utf8'); } catch { /* none yet */ }
   if (body.includes(HOOK_MARK)) return { ok: true, status: 'already present' };
-  const block = `${HOOK_MARK}\ntoken-diet review --dir .   # add --fail-under C to BLOCK commits when the grade regresses\n`;
+  const block = `${HOOK_MARK}\n${HOOK_CMD}\n`;
   if (body) fs.appendFileSync(hookP, '\n' + block);
   else      fs.writeFileSync(hookP, '#!/bin/sh\n' + block);
   try { fs.chmodSync(hookP, 0o755); } catch { /* no-op on Windows */ }
@@ -32,9 +36,11 @@ async function runSetup(opts = {}) {
   console.log('\n=== token-diet setup — wiring ongoing protection ===');
 
   // Don't downgrade a filter the user already activated; otherwise start in safe AUDIT.
+  // Probe the SAME location the install will write to (honor --global), not always the cwd.
+  const base = opts.global ? os.homedir() : root;
   let mode = 'audit';
   try {
-    if (JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'filter.json'), 'utf8')).mode === 'active') mode = 'active';
+    if (JSON.parse(fs.readFileSync(path.join(base, '.claude', 'toolout', 'filter.json'), 'utf8')).mode === 'active') mode = 'active';
   } catch { /* no config yet → audit */ }
   filter.runInstall(opts);             // install the hook (disabled)
   filter.setState(opts, true, mode);   // record in AUDIT (or keep ACTIVE if already live)

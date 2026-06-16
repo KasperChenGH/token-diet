@@ -2,6 +2,7 @@
 /** history.js — append-only diet-history.json (cross-run memory, F5). */
 const fs   = require('fs');
 const path = require('path');
+const { writeFileAtomic } = require('./atomic');
 
 function historyPath(root) { return path.join(root, 'diet-history.json'); }
 function readHistory(root) {
@@ -11,7 +12,7 @@ function readHistory(root) {
 function appendRun(root, record) {
   const h = readHistory(root);
   h.runs.push(record);
-  fs.writeFileSync(historyPath(root), JSON.stringify(h, null, 2), 'utf8');
+  writeFileAtomic(historyPath(root), JSON.stringify(h, null, 2));
   return h;
 }
 function rejectedItemKeys(history) {

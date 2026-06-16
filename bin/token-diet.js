@@ -68,6 +68,8 @@ function parseArgs(argv) {
     failUnder:  null,
     scaffold:   false,
     minReads:   null,
+    help:       false,
+    _unknown:   [],
   };
   const positional = [];
 
@@ -149,8 +151,12 @@ function parseArgs(argv) {
       opts.json = true;
     } else if (a === '--global') {
       opts.global = true;
+    } else if (a === '--help' || a === '-h') {
+      opts.help = true;
     } else if (!a.startsWith('-')) {
       positional.push(a);
+    } else {
+      opts._unknown.push(a);   // unrecognized flag — surface a typo instead of ignoring it
     }
   }
 
@@ -168,9 +174,9 @@ REVIEW (static, no history)
               Emits per-lever scorecard + findings + overall grade (A-F).
               No transcript history needed — run before your first session.
               --fail-under <grade> exits non-zero on regression (CI / pre-commit gate)
-  estimate    Forward token projection (no history): per-run bill (write/read/output,
-              raw + price-weighted), post-fix re-projection, per-lever savings ranking.
-              Inputs derived from structure; override with --spawns/--turns/--toolout.
+  estimate    Forward token projection (a MODEL, not a measurement): per-run bill
+              (write/read/output, raw + price-weighted), post-fix re-projection, per-lever
+              savings ranking. Inputs derived from structure; override --spawns/--turns/--toolout.
 
 MEASURE
   audit       Token breakdown by session-kind × model-family + top sessions
@@ -179,8 +185,8 @@ MEASURE
 
 DIAGNOSE
   diagnose    Six waste heuristics with lever labels and addressable share estimates
-  overhead    Static always-loaded burden: CLAUDE.md, commands, skills (Lever 6)
-              Shows "cost per round if N agents spawned" for N=1/5/10
+  overhead    [DEPRECATED — folded into review] Static always-loaded burden (Lever 6).
+              Prints a deprecation notice; use 'token-diet review' for the overhead snapshot.
 
 ACT
   plan        Turn diagnosis into an actionable ordered plan (markdown checklist)
@@ -246,9 +252,12 @@ See skills/SKILL.md for the full optimization guide and levers.
 async function main() {
   const { subcommand, opts } = parseArgs(process.argv);
 
-  if (!subcommand || subcommand === '--help' || subcommand === 'help') {
+  if (!subcommand || subcommand === '--help' || subcommand === 'help' || opts.help) {
     showHelp();
     return;
+  }
+  if (opts._unknown.length) {
+    console.error(`token-diet: unrecognized option(s): ${opts._unknown.join(', ')}  (run \`token-diet --help\`)`);
   }
 
   switch (subcommand) {
@@ -301,7 +310,9 @@ async function main() {
         const problems = runVerify(opts);
         if (problems.length) process.exit(1);
       } else {
-        await runFix(opts);
+        const results = await runFix(opts);
+        // A partial apply must not look like success — exit non-zero if any item errored.
+        if (Array.isArray(results) && results.some(r => /^ERROR/.test(r.status || ''))) process.exit(1);
       }
       break;
     case 'filter':
@@ -310,7 +321,7 @@ async function main() {
       else if (opts.uninstall) filter.runUninstall(opts);
       else if (opts.enable)    filter.setState(opts, true, 'audit');   // safe: records, no changes
       else if (opts.activate)  filter.setState(opts, true, 'active');  // go live
-      else if (opts.disable)   filter.setState(opts, false);
+      else if (opts.disable)   filter.setState(opts, false, 'audit');   // off + reset to safe default
       else if (opts.report)    filter.runReport(opts);   // measured reduction table
       else                     filter.runFilter(opts);   // hook mode — reads stdin
       break;

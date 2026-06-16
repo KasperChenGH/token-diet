@@ -13,7 +13,7 @@ Read the full body of the flagged file. Classify each section:
 - **Reference depth** — background, rationale, extended examples; useful occasionally, not every turn.
 - **Redundant copy** — duplicates another always-loaded file.
 
-`token-diet overhead --dir .` quantifies per-spawn cost. Use its line counts — don't re-measure.
+`token-diet review --dir .` includes the overhead snapshot (Lever 6 section) with per-spawn cost. Use its line counts — don't re-measure.
 
 ## Decision tests
 

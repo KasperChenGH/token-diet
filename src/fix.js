@@ -3,16 +3,27 @@
 const fs   = require('fs');
 const path = require('path');
 
+// Changeset paths are LLM-generated; never let one escape the project root (e.g. "../../.bashrc").
+function resolveInside(root, rel) {
+  const abs = path.resolve(root, String(rel == null ? '' : rel));
+  const r = path.relative(root, abs);
+  if (r === '' || r.startsWith('..') || path.isAbsolute(r))
+    throw new Error(`path escapes project root: ${rel}`);
+  return abs;
+}
+
 function applyMove(item, root) {
-  const from = path.join(root, item.from);
-  const to   = path.join(root, item.to);
+  const from = resolveInside(root, item.from);
+  const to   = resolveInside(root, item.to);
   const raw  = fs.readFileSync(from, 'utf8');
-  const firstPointerLine = (item.pointer || '').split('\n')[0];
+  const firstPointerLine = (item.pointer || '').split('\n').find(Boolean);  // first NON-empty line
   if (firstPointerLine && raw.includes(firstPointerLine)) {
     return { id: item.id, op: 'move', status: 'skipped (already applied)' };
   }
   const src = raw.split('\n');
-  const { fromLine, toLine } = item.region;
+  const { fromLine, toLine } = item.region || {};
+  if (!Number.isInteger(fromLine) || !Number.isInteger(toLine) || fromLine < 1 || fromLine > toLine || toLine > src.length)
+    return { id: item.id, op: 'move', status: `ERROR region out of range (${fromLine}-${toLine}; file has ${src.length} lines)` };
   const moved = src.slice(fromLine - 1, toLine).join('\n');
   // MOVE = MOVE-NOT-DELETE: write destination FIRST, so a crash never loses content.
   fs.mkdirSync(path.dirname(to), { recursive: true });
@@ -25,7 +36,7 @@ function applyMove(item, root) {
 }
 
 function applyWrite(item, root) {
-  const to = path.join(root, item.to);
+  const to = resolveInside(root, item.to);
   if (fs.existsSync(to) && !item.overwrite) {
     return { id: item.id, op: 'write', status: 'skipped (exists, no overwrite)' };
   }
@@ -49,7 +60,7 @@ function applyScaffold(item, root) {
   if (!(item.template in TEMPLATES)) {
     return { id: item.id, op: 'scaffold', status: `ERROR unknown template: ${item.template}` };
   }
-  const to = path.join(root, item.to);
+  const to = resolveInside(root, item.to);
   if (fs.existsSync(to)) return { id: item.id, op: 'scaffold', status: 'skipped (exists)' };
   let body = TEMPLATES[item.template];
   if (item.disabled) {
@@ -61,7 +72,7 @@ function applyScaffold(item, root) {
 }
 
 function applyCommentMarker(item, root) {
-  const file = path.join(root, item.file);
+  const file = resolveInside(root, item.file);
   const content = fs.readFileSync(file, 'utf8');
   if (content.includes(item.text)) {
     return { id: item.id, op: 'comment-marker', status: 'skipped (present)' };

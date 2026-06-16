@@ -10,6 +10,7 @@
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const { writeFileAtomic } = require('./atomic');
 
 const estTok = s => Math.round((s || '').length / 4);
 
@@ -23,10 +24,17 @@ const DEFAULT_CONFIG = {
 };
 
 // Build a "never collapse this line" predicate from cfg.keep (case-insensitive regexes).
+// ReDoS guard: `keep` is user-supplied and runs synchronously in the PostToolUse hot path,
+// so reject non-strings + over-long patterns, and skip pathologically long lines — a
+// catastrophic-backtracking pattern must never be able to stall the Claude Code session.
+const KEEP_MAX_PATTERN = 200;   // chars
+const KEEP_MAX_LINE    = 10000; // chars — don't run user regex on a line longer than this
 function keepMatcher(cfg) {
   const res = ((cfg && cfg.keep) || [])
+    .filter(p => typeof p === 'string' && p.length <= KEEP_MAX_PATTERN)
     .map(p => { try { return new RegExp(p, 'i'); } catch { return null; } }).filter(Boolean);
-  return res.length ? (ln => res.some(re => re.test(ln))) : () => false;
+  if (!res.length) return () => false;
+  return ln => ln.length <= KEEP_MAX_LINE && res.some(re => re.test(ln));
 }
 
 function configPath(root) { return path.join(root, '.claude', 'toolout', 'filter.json'); }
@@ -99,17 +107,17 @@ function compressGit(text, command, cfg) {
   if (sub === 'diff' || sub === 'show') {
     const out = lines.filter(l => /^(diff |index |--- |\+\+\+ |@@ |Binary |rename |new file|deleted)/.test(l)
                                || /\bfiles?\s+changed\b/.test(l));
-    return out.length ? out.join('\n') : dedupLog(text, cfg);
+    return out.length ? out.join('\n') : dedupLog(lines.join('\n'), cfg);
   }
   if (sub === 'status') {
     const out = lines.filter(l => /^(On branch|Your branch|HEAD detached|\s+(modified|new file|deleted|renamed|untracked):|[ MADRCU?!]{1,2}\s\S)/.test(l));
-    return out.length ? out.join('\n') : dedupLog(text, cfg);
+    return out.length ? out.join('\n') : dedupLog(lines.join('\n'), cfg);
   }
   if (sub === 'log') {
     const out = lines.filter(l => /^commit [0-9a-f]{7,}|^\s{4}\S/.test(l));
-    return out.length ? out.join('\n') : dedupLog(text, cfg);
+    return out.length ? out.join('\n') : dedupLog(lines.join('\n'), cfg);
   }
-  return dedupLog(text, cfg);
+  return dedupLog(lines.join('\n'), cfg);
 }
 
 const SIG_RE = /^(?:\s*\d+[\t→|:]\s?)?\s*(export\s+)?(async\s+)?(def|function|class|func|fn|interface|type|struct|impl|module|public|private|protected)\b/;
@@ -198,15 +206,26 @@ function writeSidecar(root, tool, full, nowIso) {
   fs.writeFileSync(path.join(root, rel), full);
   return rel.split(path.sep).join('/');
 }
+// Derive a sidecar's age from the ISO stamp in its filename (survives copy/restore, unlike
+// mtime); fall back to mtime if the name doesn't parse.
+function sidecarAgeMs(dir, f) {
+  const m = f.match(/^(\d{4}-\d\d-\d\d)T(\d\d)-(\d\d)-(\d\d)/);
+  if (m) { const t = Date.parse(`${m[1]}T${m[2]}:${m[3]}:${m[4]}Z`); if (!isNaN(t)) return t; }
+  try { return fs.statSync(path.join(dir, f)).mtimeMs; } catch { return Date.now(); }
+}
 function pruneSidecar(root, days) {
   try {
     const dir = path.join(root, '.claude', 'toolout');
+    // The hook spawns a fresh process per call, so rate-limit via an on-disk sentinel:
+    // prune at most once/day across all invocations instead of scanning the dir every call.
+    const sentinel = path.join(dir, '.last-prune');
+    try { if (Date.now() - fs.statSync(sentinel).mtimeMs < 86400_000) return; } catch { /* never pruned */ }
     const cutoff = Date.now() - days * 86400_000;
     for (const f of fs.readdirSync(dir)) {
       if (!f.endsWith('.log')) continue;
-      const p = path.join(dir, f);
-      try { if (fs.statSync(p).mtimeMs < cutoff) fs.unlinkSync(p); } catch { /* ignore */ }
+      try { if (sidecarAgeMs(dir, f) < cutoff) fs.unlinkSync(path.join(dir, f)); } catch { /* ignore */ }
     }
+    try { fs.writeFileSync(sentinel, ''); } catch { /* best-effort */ }
   } catch { /* dir missing — nothing to prune */ }
 }
 
@@ -227,18 +246,25 @@ function compressPayload(payload, root, nowIso) {
   if (!tools.includes(payload.tool_name || '')) return null;  // tool not in allowlist → pass through
   const full = extractOutput(payload);
   if (full == null) return null;                 // unknown shape → pass through
-  // Baseline measured AFTER noise-strip so the "real gain" check compares like-for-like
-  // (raw CRLF/progress lines don't inflate the baseline and mask a non-compression).
-  const baseLines = stripNoise(full).split('\n').length;
-  if (estTok(full) < cfg.minTokensToCompress && baseLines < cfg.minLines) return null; // small → pass
+  // Measure everything on the noise-stripped text so the baseline, the "real gain" check,
+  // and the recorded savings all compare like-for-like — raw CRLF/ANSI bytes must not
+  // inflate `rawTok` and over-state the reduction shown in `--report`.
+  const stripped  = stripNoise(full);
+  const baseLines = stripped.split('\n').length;
+  // Skip only when the output is small on BOTH axes (few tokens AND few lines); compress
+  // when it's large on either — a token-dense blob or a line-heavy log both qualify.
+  if (estTok(stripped) < cfg.minTokensToCompress && baseLines < cfg.minLines) return null;
   const compressed = classify(payload, cfg)(full).trim();
   const compLines = compressed.split('\n').length;
   if (!compressed || compLines >= baseLines) return null; // no real gain → pass through
-  recordStats(root, { ts: nowIso, tool: payload.tool_name || '', kind: classifyKind(payload),
-                      rawTok: estTok(full), compTok: estTok(compressed) });
-  if ((cfg.mode || 'audit') !== 'active') return null;  // audit (default) → recorded, output left untouched
+  const stat = { ts: nowIso, tool: payload.tool_name || '', kind: classifyKind(payload),
+                 rawTok: estTok(stripped), compTok: estTok(compressed) };
+  if ((cfg.mode || 'audit') !== 'active') { recordStats(root, stat); return null; } // audit → record, no rewrite
+  // Active mode: persist the full output FIRST. If the sidecar write throws (disk full, etc.)
+  // the outer fail-safe preserves the original output AND no misleading stat is recorded.
   pruneSidecar(root, cfg.sidecarRetentionDays);
   const sidecar = writeSidecar(root, payload.tool_name, full, nowIso);
+  recordStats(root, stat);
   const view = `${compressed}\n[token-diet: compressed ${baseLines}→${compLines} lines · full: ${sidecar}]`;
   return JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', updatedToolOutput: view } });
 }
@@ -266,7 +292,7 @@ function runInstall(opts = {}) {
   const base = resolveBase(opts);
   fs.mkdirSync(path.join(base, 'toolout'), { recursive: true });
   const cfgP = path.join(base, 'toolout', 'filter.json');
-  if (!fs.existsSync(cfgP)) fs.writeFileSync(cfgP, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
+  if (!fs.existsSync(cfgP)) writeFileAtomic(cfgP, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
   let cfg = { ...DEFAULT_CONFIG };
   try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(cfgP, 'utf8')) }; } catch { /* default */ }
   const tools   = Array.isArray(cfg.tools) && cfg.tools.length ? cfg.tools : ['Bash'];
@@ -274,7 +300,14 @@ function runInstall(opts = {}) {
 
   const setP = path.join(base, 'settings.json');
   let settings = {};
-  try { settings = JSON.parse(fs.readFileSync(setP, 'utf8')); } catch { /* new file */ }
+  // Distinguish "file absent" (start fresh) from "file present but corrupt" — silently
+  // overwriting a malformed settings.json would wipe the user's other hooks/permissions.
+  try { settings = JSON.parse(fs.readFileSync(setP, 'utf8')); }
+  catch (e) {
+    if (e.code !== 'ENOENT')
+      throw new Error(`${setP} exists but is not valid JSON — refusing to overwrite it. Fix or remove it, then re-run.`);
+    /* ENOENT → new file */
+  }
   settings.hooks = settings.hooks || {};
   settings.hooks.PostToolUse = settings.hooks.PostToolUse || [];
   // Re-sync: drop any prior token-diet entry, then add one with the matcher from config.
@@ -282,7 +315,7 @@ function runInstall(opts = {}) {
     .map(h => ({ ...h, hooks: (h.hooks || []).filter(x => x.command !== HOOK_CMD) }))
     .filter(h => (h.hooks || []).length > 0);
   settings.hooks.PostToolUse.push({ matcher, hooks: [{ type: 'command', command: HOOK_CMD }] });
-  fs.writeFileSync(setP, JSON.stringify(settings, null, 2) + '\n');
+  writeFileAtomic(setP, JSON.stringify(settings, null, 2) + '\n');
 
   console.log(`\ntoken-diet filter installed (DISABLED) at ${base}`);
   console.log(`  hook   : PostToolUse [${matcher}] → ${HOOK_CMD}`);
@@ -302,7 +335,7 @@ function runUninstall(opts = {}) {
       // Leave no empty husks behind — a true inverse of install on a from-scratch file.
       if (settings.hooks.PostToolUse.length === 0) delete settings.hooks.PostToolUse;
       if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
-      fs.writeFileSync(setP, JSON.stringify(settings, null, 2) + '\n');
+      writeFileAtomic(setP, JSON.stringify(settings, null, 2) + '\n');
     }
     console.log(`token-diet filter hook removed from ${setP}`);
   } catch { console.log('No settings.json hook to remove.'); }
@@ -315,7 +348,7 @@ function setState(opts, enabled, mode) {
   cfg.enabled = enabled;
   if (mode) cfg.mode = mode;
   fs.mkdirSync(path.dirname(cfgP), { recursive: true });
-  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
+  writeFileAtomic(cfgP, JSON.stringify(cfg, null, 2) + '\n');
   const state = !enabled ? 'disabled'
     : cfg.mode === 'active' ? 'ACTIVE — compressing output'
     : 'AUDIT — recording what it would save; output UNCHANGED. Review with --report, then --activate';
@@ -391,7 +424,8 @@ function runReport(opts = {}) {
   const fmt = n => Math.round(n).toLocaleString('en-US');
   const pad = (s, w) => String(s).padStart(w);
   const pctStr = p => (p < 0 ? '+' + Math.abs(p) : '-' + p) + '%';   // reduction is "-N%"; growth (rare) is "+N%"
-  console.log('\n=== token-diet filter — measured token reduction (your real sessions) ===\n');
+  console.log('\n=== token-diet filter — measured token reduction (your real sessions) ===');
+  console.log('  Counts are estimates (token ≈ chars/4 on the output string, not API-billed tokens).\n');
   console.log('  type                   |  calls |     before |      after | reduction');
   console.log('  -----------------------+--------+------------+------------+----------');
   for (const r of rows)

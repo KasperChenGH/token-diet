@@ -7,16 +7,24 @@ on:
 
 jobs:
   test:
-    name: test (node ${{ matrix.node }})
-    runs-on: ubuntu-latest
+    name: test (node ${{ matrix.node }} · ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        os: [ubuntu-latest]
         node: [18, 20, 22]
+        include:
+          # Windows is a first-class target (install side-effects, path handling) — smoke it.
+          - os: windows-latest
+            node: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
+      - name: shebang intact (the npm-installed bin depends on it)
+        if: runner.os == 'Linux'
+        run: head -1 bin/token-diet.js | grep -qx '#!/usr/bin/env node'
       # Zero runtime/dev dependencies — nothing to install; run the suite directly.
       - run: npm test

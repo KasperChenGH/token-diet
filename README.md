@@ -26,7 +26,7 @@ Lever 7  Model arbitrage            1 finding   high
 Grade: F
 ```
 
-`review` reads no history and **changes nothing** — it grades your `.claude/` design (CLAUDE.md, commands, agents, skills) A–F and tells you how to cut tokens before you've spent one.
+*(Abbreviated — the real output lists all 8 levers with per-finding evidence and an overhead snapshot.)* `review` reads no history and **changes nothing** — it grades your `.claude/` design (CLAUDE.md, commands, agents, skills) A–F and tells you how to cut tokens before you've spent one.
 
 ## Install the agent
 
@@ -67,7 +67,7 @@ After step 3 it's genuinely set-and-forget. Even when live, the full original ou
 <details>
 <summary>Bonus: <code>setup</code> also adds a commit-time guard</summary>
 
-`setup` drops in a git pre-commit hook that re-grades your `.claude/` design and warns if it regresses. Add `--fail-under C` to make a regression **block** the commit instead of just warning. Purely optional — the filter above works without it.
+`setup` drops in a git pre-commit hook (`token-diet review --dir .`) that re-grades your `.claude/` design and warns if it regresses. To make a regression **block** the commit instead of just warning, edit `.git/hooks/pre-commit` and append `--fail-under C` to that review line. Purely optional — the filter above works without it.
 </details>
 
 <details>
@@ -90,7 +90,7 @@ token-diet init [--global]                         # install the agent + subagen
 token-diet compare --before-days 14 --after-days 7 # per-day deltas across windows; the re-measure bookend
 ```
 
-Usage is deduplicated per API request (`requestId`) — Claude Code writes 2–3 transcript lines per call with repeated usage; naive summing inflates totals ~2–3×. This tool counts each call once. In review mode, levers with ≥ 2 findings are judged by parallel Sonnet specialist sub-agents (each deployed self-contained, with its rubric + private knowledge inlined at install time); clean levers are judged inline.
+Usage is deduplicated per API request (`requestId`) — Claude Code writes 2–3 transcript lines per call with repeated usage; naive summing inflates totals ~2–3×. This tool counts each call once. The CLI `review` is **entirely static** — regex + file-size heuristics, no LLM, no history, returns in milliseconds. LLM judgment (the Sonnet lever specialists, deployed self-contained with inlined rubrics) happens in the **`/token-diet` agent's** review phase, not in the `review` command.
 </details>
 
 ## The 8 levers (the methodology)
@@ -172,9 +172,9 @@ Generic rules can't know what matters in *your* output. Add regexes to `keep`; a
 
 ## How it works
 
-A **zero-dependency CLI** owns every deterministic step — real transcript measurement, overhead quantification, rule-based waste *detection*, the plan/changeset *skeleton*, mechanical edit *application*, and before/after re-measurement. The LLM is never asked to count, compute, or apply. (The one forward projection, `estimate`, is labelled a model — not a measurement.)
+A **zero-dependency CLI** owns every deterministic step — real transcript measurement, overhead quantification (part of `review`), rule-based waste *detection*, the plan/changeset *skeleton*, mechanical edit *application*, and before/after re-measurement. The LLM is never asked to count, compute, or apply. (The one forward projection, `estimate`, is labelled a model — not a measurement.)
 
-The `/token-diet` agent runs in **three tiers**: the orchestrator (Opus) → an analyst (Sonnet) that measures, plans, and spawns specialists → nine lever specialists (Sonnet) that each judge only their flagged files and return KEEP / MOVE / DISPOSE verdicts. Each specialist is deployed **self-contained**: `init` inlines its lever rubric + private professional knowledge + shared contracts into one file, because spawned subagents run in your project dir and can't read companion files at runtime.
+The `/token-diet` agent runs in **three tiers**: the orchestrator (runs as your session model — set it to Opus for synthesis-quality judgment) → an analyst (Sonnet) that measures, plans, and spawns specialists → **eight lever specialists** (Sonnet; Lever 6 adds an opt-in prose-auditor, so nine files in all) that each judge only their flagged files and return KEEP / MOVE / DISPOSE verdicts. Each specialist is deployed **self-contained**: `init` inlines its lever rubric + private professional knowledge + shared contracts into one file, because spawned subagents run in your project dir and can't read companion files at runtime.
 
 <details>
 <summary><b>Project layout</b></summary>

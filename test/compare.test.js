@@ -29,6 +29,8 @@ test('aggregate: undated records do not inflate per-day averages (regression)', 
     { timestamp: undefined,                   input: 0, cacheWrite: 0, cacheRead: 0, output: 100, file: 'f2' },
   ];
   const a = C.aggregate(records);
-  assert.equal(a.numDays, 2);                      // dated + 'unknown' buckets both counted
-  assert.equal(Math.round(a.perDay.output), 100);  // 200/2 — numerator and denominator aligned
+  assert.equal(a.numDays, 1);                      // only the real calendar day counts
+  assert.equal(a.undated, 1);                      // the undated record is excluded + surfaced
+  assert.equal(a.numCalls, 1);                     // dated calls only
+  assert.equal(Math.round(a.perDay.output), 100);  // 100/1 — no phantom day diluting the average
 });

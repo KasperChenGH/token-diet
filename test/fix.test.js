@@ -72,6 +72,38 @@ test('applyCommentMarker: inserts after frontmatter; idempotent', () => {
   rm(dir);
 });
 
+test('runFix: a changeset path escaping the project root is rejected (traversal guard)', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'a\nb\nc');
+  changeset(dir, [{ id: 1, op: 'write', to: '../evil.md', content: 'x' }]);
+  const res = F.runFix({ dir, changeset: path.join(dir, 'diet-changeset.json'), json: true, _silent: true });
+  assert.match(res[0].status, /ERROR/);
+  assert.equal(fs.existsSync(path.join(dir, '..', 'evil.md')), false);   // nothing written outside root
+  rm(dir);
+});
+
+test('applyMove: out-of-range region is an error, not a silent empty/wrong move', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'l1\nl2\nl3');                 // 3 lines
+  const res = F.applyMove({ id: 1, op: 'move', from: 'CLAUDE.md',
+                            region: { fromLine: 5, toLine: 9 }, to: 'ref.md', pointer: 'P' }, dir);
+  assert.match(res.status, /ERROR region out of range/);
+  assert.equal(fs.existsSync(path.join(dir, 'ref.md')), false);   // nothing written
+  assert.equal(fs.readFileSync(path.join(dir, 'CLAUDE.md'), 'utf8'), 'l1\nl2\nl3'); // source untouched
+  rm(dir);
+});
+
+test('applyMove: idempotency uses the first NON-empty pointer line (no double-apply)', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'l1\nl2\nl3\nl4');
+  const item = { id: 1, op: 'move', from: 'CLAUDE.md', region: { fromLine: 2, toLine: 3 },
+                 to: 'ref.md', pointer: '\n<!-- moved to ref.md -->' };   // empty first line
+  assert.equal(F.applyMove(item, dir).status, 'moved');
+  assert.match(F.applyMove(item, dir).status, /skipped/);   // 2nd run must NOT re-append
+  assert.equal((fs.readFileSync(path.join(dir, 'ref.md'), 'utf8').match(/l2/g) || []).length, 1);
+  rm(dir);
+});
+
 function changeset(dir, items) { writeFile(dir, 'diet-changeset.json', JSON.stringify({ items })); }
 
 test('runFix: applies all, --only filters, --dry-run writes nothing', () => {

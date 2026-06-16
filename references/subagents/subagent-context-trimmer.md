@@ -28,4 +28,4 @@ finding in itself — surface it; do not silently keep one.
 ## The line that pays per spawn
 Always-loaded content is re-paid every spawn × every turn. A 1-line trim on a file loaded by 10
 agents is 10× the saving. Prioritize the largest always-loaded blocks first; quote the per-spawn
-token cost from the overhead report.
+token cost from the `token-diet review` overhead snapshot (its Lever 6 section).

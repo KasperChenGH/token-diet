@@ -16,9 +16,9 @@ const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 const { scanAll }     = require('./scan');
-const { runOverhead } = require('./overhead');
 const { buildChangeset } = require('./changeset');
 const { appendRun }      = require('./history');
+const { writeFileAtomic } = require('./atomic');
 
 // ── shared helpers ────────────────────────────────────────────────────────────
 
@@ -223,7 +223,7 @@ async function runPlan(opts = {}) {
   const csHome = os.homedir();
   const changeset = buildChangeset(projectDir, csHome);
   const csPath = path.join(projectDir, 'diet-changeset.json');
-  fs.writeFileSync(csPath, JSON.stringify(changeset, null, 2), 'utf8');
+  writeFileAtomic(csPath, JSON.stringify(changeset, null, 2));
   appendRun(projectDir, { ts: new Date().toISOString(), items: changeset.items.map(i => i.id), n: changeset.items.length });
   console.log(`Changeset skeleton: ${csPath} (${changeset.items.length} items)`);
 
@@ -231,6 +231,7 @@ async function runPlan(opts = {}) {
 
   if (records.length === 0) {
     console.log('No records found for the given filters. Cannot generate plan.');
+    console.log('  (The changeset skeleton above is still written from the static review. Widen with --days N or check --project.)');
     return;
   }
 

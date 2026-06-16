@@ -249,3 +249,31 @@ test('install matcher follows filter.json tools', () => {
   assert.equal(entry.matcher, 'Bash|Read');
   rm(root);
 });
+
+test('keepMatcher: drops over-long patterns and never runs regex on pathological lines (ReDoS guard)', () => {
+  const m = F.keepMatcher({ keep: ['a'.repeat(300), 'KEEP'] });   // 300-char pattern rejected; KEEP kept
+  assert.equal(m('contains KEEP here'), true);
+  assert.equal(m('x'.repeat(10001) + 'KEEP'), false);             // >10k-char line skipped, not tested
+  assert.equal(F.keepMatcher({ keep: [123, null] })('anything'), false);  // non-string entries ignored
+});
+
+test('runInstall refuses to overwrite a present-but-corrupt settings.json (no silent wipe)', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude'), { recursive: true });
+  writeFile(root, '.claude/settings.json', '{ this is not json');
+  assert.throws(() => silence(() => F.runInstall({ dir: root })), /not valid JSON/);
+  assert.equal(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'), '{ this is not json');
+  rm(root);
+});
+
+test('stats rawTok is measured post-noise-strip (ANSI/CRLF does not inflate reported savings)', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, mode: 'audit' }));
+  const big = Array.from({ length: 80 }, (_, i) => `\x1B[32m   Compiling crate_${i} v1.0.0\x1B[0m`).join('\n') + '\nerror[E0001]: boom';
+  F.compressPayload({ tool_name: 'Bash', tool_input: { command: 'cargo build' }, tool_response: big }, root, 'ts');
+  const stat = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'stats.jsonl'), 'utf8').trim());
+  assert.equal(stat.rawTok, Math.round(F.stripNoise(big).length / 4));   // == stripped, not raw
+  assert.ok(stat.rawTok < Math.round(big.length / 4));                    // strictly less than ANSI-inflated raw
+  rm(root);
+});

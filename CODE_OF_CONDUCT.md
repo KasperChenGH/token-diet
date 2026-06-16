@@ -15,6 +15,3 @@ welcoming space for everyone who wants to contribute.
 To report unacceptable behavior, contact the maintainer privately via GitHub —
 [@KasperChenGH](https://github.com/KasperChenGH). All reports are reviewed and handled
 confidentially, following the enforcement guidelines in the Contributor Covenant.
-
-> Maintainer: replace the contact above with a monitored email address if you prefer
-> email-based reports.

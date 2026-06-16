@@ -191,30 +191,26 @@ function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
       const usage = obj.message && obj.message.usage;
       if (!usage) return;
 
-      // Derive stable per-API-call id.
-      // requestId is present on every assistant line in current Claude Code builds.
-      // Fall back to message.id if requestId is absent (older transcripts).
-      // If neither is present, use a sentinel so we still count the line once.
-      const callId = obj.requestId || (obj.message && obj.message.id) || null;
-
-      // Track distinct assistant call ids (for calls_before snapshots above)
-      if (callId !== null) seenRequestIds.add(callId);
-
-      // Timestamp filter — apply on first encounter of this callId
+      // Derive a stable per-API-call id. requestId is on every assistant line in current
+      // Claude Code builds; fall back to message.id (older transcripts). If BOTH are absent,
+      // synthesize a key from timestamp + usage so the 2-3 content-block lines of ONE call
+      // (identical ts+usage) dedup to one, while distinct calls stay distinct — rather than
+      // counting every no-id line separately (which would double-count old transcripts).
       const tsRaw = obj.timestamp || (obj.message && obj.message.timestamp) || null;
+      const callId = obj.requestId || (obj.message && obj.message.id) ||
+        `noid:${tsRaw || ''}|${usage.input_tokens || 0}|${usage.cache_creation_input_tokens || 0}|${usage.cache_read_input_tokens || 0}|${usage.output_tokens || 0}`;
+
       if (!pendingRecords.has(callId)) {
-        // First line for this callId — apply time filter
+        // First line for this callId — apply the time filter once.
         if (cutoffMs && tsRaw) {
           const ms = Date.parse(tsRaw);
           if (!isNaN(ms) && ms < cutoffMs) {
-            // Mark as time-filtered so duplicate lines are also skipped. Skip for a
-            // null callId — it has no stable key and would poison later null lines.
-            if (callId !== null) pendingRecords.set(callId, null);
+            pendingRecords.set(callId, null);   // mark filtered so duplicate lines skip too
             return;
           }
         }
-
-        // Create the record (tokens counted exactly once)
+        // In-window first sighting: count the call exactly once.
+        seenRequestIds.add(callId);   // only in-window calls feed calls_before / totalCalls
         const record = {
           file:        filePath,
           sessionId:   obj.sessionId || path.basename(filePath, '.jsonl'),
@@ -227,8 +223,6 @@ function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
           cacheRead:   +(usage.cache_read_input_tokens || 0),
           output:      +(usage.output_tokens || 0),
           toolCalls:   [],
-          // null callId means no stable id — we will emit immediately (no dedup)
-          _noId:       callId === null,
         };
         pendingRecords.set(callId, record);
       }
@@ -258,21 +252,12 @@ function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
         }
       }
 
-      // For lines without a stable id, emit immediately (no dedup possible)
-      if (record._noId) {
-        delete record._noId;
-        pendingRecords.delete(callId);
-        onRecord(record);
-      }
     });
 
     rl.on('close', () => {
-      // Flush all deduped records in insertion order
+      // Flush all deduped records in insertion order (null = time-filtered → skip)
       for (const [, record] of pendingRecords) {
-        if (record && !record._noId) {
-          delete record._noId;
-          onRecord(record);
-        }
+        if (record) onRecord(record);
       }
       // Deliver per-file tool_result + tool_use data (Lever 8)
       if (onFileDone) {

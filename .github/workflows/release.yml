@@ -1,0 +1,30 @@
+name: Release
+
+# Tagging `vX.Y.Z` gives users a stable anchor for `npm i -g github:…#vX.Y.Z`.
+# This guards that the tag matches package.json and the suite is green before publishing a Release.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: tag matches package.json version
+        run: |
+          PKG=$(node -p "require('./package.json').version")
+          TAG=${GITHUB_REF_NAME#v}
+          if [ "$PKG" != "$TAG" ]; then
+            echo "::error::git tag v$TAG does not match package.json version $PKG"; exit 1
+          fi
+      - run: npm test
+      - name: create GitHub Release
+        run: gh release create "$GITHUB_REF_NAME" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
