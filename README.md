@@ -52,15 +52,23 @@ Run the agent. It **measures** your real token usage, **finds** the structural w
 
 ### Mode 2 · Auto — `token-diet setup`  (set-and-forget)
 
-Want the savings without babysitting? One command wires the **output filter**; then you preview and flip it live:
+**The problem it fixes:** noisy command output — a test run, a `git diff`, a build log — gets re-sent to the model on *every* later turn, quietly inflating your bill. Auto mode runs a filter that compresses that output the moment it appears, so the bloat never piles up. Nothing to review — it just works in the background.
+
+It turns on in **three one-time steps**, so it can never surprise you:
 
 ```bash
-token-diet setup              # installs the filter in safe AUDIT mode (records, changes nothing)
-token-diet filter --report    # preview what it would save on your real output
-token-diet filter --activate  # go live
+token-diet setup              # 1 · install — starts in WATCH-ONLY mode: shows what it would cut, changes nothing
+token-diet filter --report    # 2 · check — the savings it would make on your own real output
+token-diet filter --activate  # 3 · go live — now it actually compresses
 ```
 
-From then on it **automatically** compresses verbose tool output — tests, git, logs, builds — on every call, in the background, with no plans and no approvals. Safe by default: it starts in audit (output untouched) and always keeps the full output in a sidecar even when live. `setup` also wires a git pre-commit *drift reminder* (`token-diet review`; add `--fail-under C` to block commits on regression).
+After step 3 it's genuinely set-and-forget. Even when live, the full original output is always saved to a sidecar file with a pointer back to it — nothing is ever lost — and you can `token-diet filter --disable` anytime. (Step 1's "watch-only" state is the filter's **audit** mode.)
+
+<details>
+<summary>Bonus: <code>setup</code> also adds a commit-time guard</summary>
+
+`setup` drops in a git pre-commit hook that re-grades your `.claude/` design and warns if it regresses. Add `--fail-under C` to make a regression **block** the commit instead of just warning. Purely optional — the filter above works without it.
+</details>
 
 <details>
 <summary><b>Manual CLI</b> — the individual steps the two modes wrap (for power users)</summary>
