@@ -15,8 +15,18 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
   re-reads from your transcripts, measures the re-read token cost, and `--scaffold`
   writes deterministic structure skeletons under `.claude/digests/` for an agent to
   summarize (scripts compute, LLM judges; a digest is a move, not a delete).
-- Continuous integration (GitHub Actions) across Node 18/20/22, plus `CODE_OF_CONDUCT.md`
-  and this changelog.
+- Continuous integration (GitHub Actions, now incl. a Windows runner + shebang check),
+  a tag→version release workflow, `CODE_OF_CONDUCT.md`, and this changelog.
+
+### Fixed
+- **filter never drops a failure line again** — `FAIL_RE` now matches `✖` (the glyph
+  `node --test` uses, which token-diet itself runs) and TAP `not ok`; a real
+  signal-preservation gap caught by replaying live tool output. Plus a batch of
+  review-board fixes: no-id dedup double-count, post-strip `--report` accuracy, ReDoS
+  guard on `keep` regexes, atomic state writes, `fix` path-traversal guard + region
+  bounds, and corrected `review`/`overhead`/`--fail-under` documentation.
+- Signal-preservation test corpus (`test/corpus.test.js`) distilled from real
+  node:test / pytest / cargo / npm output, asserting no error/warning line is collapsed.
 
 ### Changed
 - README rebuilt against a multi-expert authoring framework: value-prop hero,

@@ -58,7 +58,7 @@ function stripNoise(text) {
 }
 
 // ── compressors (pure: string -> string) ──────────────────────────────────────
-const FAIL_RE    = /(fail(ed|ure|s)?|error|assert|traceback|exception|panic|✗|✘|\bFAILED\b|\bERROR\b)/i;
+const FAIL_RE    = /(fail(ed|ure|s)?|error|assert|traceback|exception|panic|✗|✘|✖|\bFAILED\b|\bERROR\b|\bnot ok\b)/i;
 // Summary lines only — the count digit must sit at a token boundary so per-test lines
 // like "test_5 PASSED" (digit inside the name) are collapsed, not kept.
 const SUMMARY_RE = /(?:^|\s)\d+\s+(?:passed|failed|errors?|skipped|deselected|tests?\b)|test result:|\bRan\s+\d+\s+test|={3,}[^=]*\b(?:passed|failed)\b|^\s*OK\b|^\s*FAILED\b/i;
