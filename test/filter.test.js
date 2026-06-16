@@ -32,6 +32,44 @@ test('compressTests collapses per-test lines whose names contain digits (regress
   assert.ok(out.split('\n').length < 10, `expected heavy compression, got ${out.split('\n').length} lines`);
 });
 
+test('compressBuild keeps errors/warnings/summary, collapses progress (cargo)', () => {
+  const input = Array.from({ length: 40 }, (_, i) => `   Compiling crate_${i} v1.0.${i}`).join('\n')
+    + '\nwarning: unused variable: `x`\n  --> src/main.rs:4:9\n'
+    + 'error[E0308]: mismatched types\n  --> src/main.rs:10:5\n'
+    + '   Finished dev [unoptimized + debuginfo] target(s) in 8.21s';
+  const out = F.compressBuild(input, F.DEFAULT_CONFIG);
+  assert.match(out, /error\[E0308\]/);          // error kept
+  assert.match(out, /warning: unused/);          // warning kept
+  assert.match(out, /src\/main\.rs:10:5/);       // indented continuation kept
+  assert.match(out, /Finished dev/);             // terminal summary kept
+  assert.match(out, /progress lines/);           // Compiling run collapsed
+  assert.ok(out.split('\n').length < 10, `expected heavy compression, got ${out.split('\n').length}`);
+});
+
+test('compressBuild keeps the eslint file header above its errors', () => {
+  const input = 'src/app.js\n  12:5  error  \'x\' is assigned but never used  no-unused-vars\n\n'
+    + Array.from({ length: 30 }, () => 'downloading...').join('\n')
+    + '\n✖ 1 problem (1 error, 0 warnings)';
+  const out = F.compressBuild(input, F.DEFAULT_CONFIG);
+  assert.match(out, /src\/app\.js/);             // file-path header preserved
+  assert.match(out, /no-unused-vars/);           // error line kept
+  assert.match(out, /1 problem/);                // summary kept
+  assert.match(out, /progress lines/);           // downloading noise collapsed
+});
+
+test('classifyKind: build commands → build; test commands stay tests', () => {
+  const k = cmd => F.classifyKind({ tool_name: 'Bash', tool_input: { command: cmd } });
+  assert.equal(k('npm install'), 'build');
+  assert.equal(k('cargo build --release'), 'build');
+  assert.equal(k('docker build -t app .'), 'build');
+  assert.equal(k('npx tsc -p .'), 'build');
+  assert.equal(k('npx eslint src'), 'build');
+  assert.equal(k('npm test'), 'tests');          // not build
+  assert.equal(k('cargo test'), 'tests');        // not build
+  assert.equal(k('git status'), 'git');
+  assert.equal(k('echo hi'), 'log');
+});
+
 test('compressGit status keeps branch + changed files', () => {
   const input = 'On branch main\nChanges not staged:\n\tmodified:   a.js\n\tmodified:   b.js\nuse git add';
   const out = F.compressGit(input, 'git status', F.DEFAULT_CONFIG);

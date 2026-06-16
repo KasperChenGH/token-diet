@@ -69,6 +69,30 @@ function compressTests(text, cfg) {
   return kept.join('\n').trim();
 }
 
+// Build/install tool output (npm/cargo/docker/tsc/eslint): keep errors, warnings,
+// deprecations and the terminal summary; collapse the per-package / per-crate /
+// per-layer progress that makes up the bulk. Same shape as compressTests, build vocab.
+const BUILD_KEEP_RE = /(\berror\b|\berror\[|\bwarn(ing)?\b|deprecat|vulnerab|\bfail(ed|ure)?\b|panic|✖|✗|✘|\bFAILED\b|\bERROR\b|cannot |unable to|not found|no such|conflict)/i;
+const BUILD_SUMMARY_RE = /(added|removed|changed|audited)\s+\d+\s+packages?|^\s*Finished\b|Compiled successfully|compiled with \d|Found \d+ error|\b\d+\s+problems?\b|Successfully (built|tagged)|writing image|naming to|\bbuilt in\b|\bdone in\b|\bready in\b|packages? in \d|^\s*Done\b/i;
+// A bare file-path header (eslint/tsc group their errors under one of these — keep it
+// so the errors below it don't lose their file context when the progress collapses).
+const BUILD_CONTEXT_RE = /^(?:\.?[\/\\])?[\w./\\-]+\.(?:[jt]sx?|mjs|cjs|vue|svelte|py|go|rs|java|rb|php|c|cc|cpp|h|css|scss|json|ya?ml|toml)\s*$/i;
+
+function compressBuild(text, cfg) {
+  const protect = keepMatcher(cfg);
+  const lines = stripNoise(text).split('\n');
+  const kept = []; let run = 0; let lastKept = false;
+  const flush = () => { if (run > 0) { kept.push(`  … (${run} progress lines)`); run = 0; } };
+  for (const ln of lines) {
+    const keep = BUILD_KEEP_RE.test(ln) || BUILD_SUMMARY_RE.test(ln) || BUILD_CONTEXT_RE.test(ln)
+              || (lastKept && /^\s+\S/.test(ln)) || protect(ln);
+    if (keep) { flush(); kept.push(ln); lastKept = true; }
+    else { run++; lastKept = false; }
+  }
+  flush();
+  return kept.join('\n').trim();
+}
+
 function compressGit(text, command, cfg) {
   const lines = stripNoise(text).split('\n');
   const sub = ((command || '').match(/git\s+(\w+)/) || [])[1] || '';
@@ -126,6 +150,8 @@ function dedupLog(text, cfg) {
 
 // ── classify (tool + command → compressor) ────────────────────────────────────
 const TEST_CMD_RE = /\b(pytest|jest|vitest|mocha|cargo test|go test|npm (run )?test|yarn test|pnpm test|rspec|phpunit|gradle test|mvn test|unittest)\b/;
+// Build/install commands — checked AFTER tests so `npm test`/`cargo test` stay 'tests'.
+const BUILD_CMD_RE = /\b(npm (ci|i|install|run build)|yarn (install|build)|pnpm (i|install|run build)|cargo (build|check|clippy)|go build|docker build|docker compose build|tsc|eslint|webpack|vite build|next build|gradle build|mvn (package|install|compile))\b/;
 // The compressor "kind" — also the row key in the --report table.
 function classifyKind(payload) {
   const tool = payload.tool_name || '';
@@ -133,6 +159,7 @@ function classifyKind(payload) {
   if (tool === 'Read') return 'read';
   if (tool === 'Bash' && TEST_CMD_RE.test(cmd)) return 'tests';
   if (tool === 'Bash' && /^\s*git\b/.test(cmd)) return 'git';
+  if (tool === 'Bash' && BUILD_CMD_RE.test(cmd)) return 'build';
   return 'log';
 }
 function classify(payload, cfg) {
@@ -141,6 +168,7 @@ function classify(payload, cfg) {
     case 'read':  return (t) => compressRead(t, cfg);
     case 'tests': return (t) => compressTests(t, cfg);
     case 'git':   return (t) => compressGit(t, cmd, cfg);
+    case 'build': return (t) => compressBuild(t, cfg);
     default:      return (t) => dedupLog(t, cfg);
   }
 }
@@ -303,12 +331,17 @@ const FIXTURES = {
   git:   'On branch master\nYour branch is up to date.\nChanges not staged for commit:\n\tmodified:   src/a.js\n\tmodified:   src/b.js\nUntracked files:\n\ttmp.log',
   read:  Array.from({ length: 120 }, (_, i) => `line ${i}`).join('\n'),
   log:   'connecting...\n'.repeat(40) + 'done\nresult: ok',
+  build: Array.from({ length: 40 }, (_, i) => `   Compiling crate_${i} v1.0.${i}`).join('\n') +
+         '\nwarning: unused variable: `x`\n  --> src/main.rs:4:9\n' +
+         'error[E0308]: mismatched types\n  --> src/main.rs:10:5\n' +
+         '   Finished dev [unoptimized + debuginfo] target(s) in 8.21s',
 };
 function runSelfTest() {
   const cfg = { ...DEFAULT_CONFIG, enabled: true };
   const cases = [
     ['tests (pytest)', FIXTURES.tests, t => compressTests(t, cfg)],
     ['git status',     FIXTURES.git,   t => compressGit(t, 'git status', cfg)],
+    ['build (cargo)',  FIXTURES.build, t => compressBuild(t, cfg)],
     ['large read',     FIXTURES.read,  t => compressRead(t, cfg)],
     ['log dedup',      FIXTURES.log,   t => dedupLog(t, cfg)],
   ];
@@ -322,7 +355,7 @@ function runSelfTest() {
 }
 
 // ── report: aggregate recorded stats into a measured reduction table ───────────
-const KIND_LABEL = { tests: 'tests (pytest/jest/…)', git: 'git (status/diff/log)', read: 'large file reads', log: 'logs / other output' };
+const KIND_LABEL = { tests: 'tests (pytest/jest/…)', git: 'git (status/diff/log)', build: 'builds (npm/cargo/…)', read: 'large file reads', log: 'logs / other output' };
 
 function aggregateStats(entries) {
   const agg = {};
@@ -371,7 +404,7 @@ function runReport(opts = {}) {
 
 module.exports = {
   DEFAULT_CONFIG, loadConfig, configPath, stripNoise,
-  compressTests, compressGit, compressRead, dedupLog, classify, classifyKind, extractOutput,
+  compressTests, compressGit, compressBuild, compressRead, dedupLog, classify, classifyKind, extractOutput,
   writeSidecar, pruneSidecar, recordStats, compressPayload, runFilter, keepMatcher,
   runInstall, runUninstall, setEnabled, setState, runSelfTest, aggregateStats, runReport,
 };

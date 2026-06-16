@@ -117,7 +117,7 @@ Eight levers, in leverage order — each shrinks the next:
 2. **Merge sessions** — one per cycle; state in files, never conversations
 3. **Evict compute** — long commands run in drivers between sessions: zero tokens
 4. **Scripts compute, LLM judges** — deterministic kernels emit conclusions
-5. **Tier the knowledge** — living doc → digests → archive
+5. **Tier the knowledge** — living doc → digests → archive (`token-diet digest` finds the candidates)
 6. **Trim the always-loaded** — every spawn pays for it
 7. **Model arbitrage** — big model only where judgment lives
 8. **Filter tool output** — verbose test/build/log stdout compressed at the source, never re-sent every turn
@@ -131,9 +131,11 @@ Full methodology with red flags and common mistakes: [SKILL.md](skills/SKILL.md)
 ```
 token-diet/
 ├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit · agents ·
-│                                  diagnose · overhead · plan · fix · filter · compare · init · setup
+│                                  diagnose · overhead · plan · fix · filter · digest · compare · init · setup
 ├── src/filter.js                  Lever 8 output-compression engine (PostToolUse hook):
 │                                  compresses verbose tool output → context, full output → sidecar
+├── src/digest.js                  Lever 5 read-digest prototype: finds re-read files,
+│                                  measures the cost, scaffolds deterministic skeletons
 ├── src/*.js                       the deterministic engine (zero deps, no LLM): scan,
 │                                  collectors, review, estimate, diagnose, plan,
 │                                  changeset, fix, compare, history, …
@@ -201,6 +203,36 @@ Generic rules can't know what matters in *your* output. Add regexes to `keep` in
 | `minTokensToCompress` / `minLines` | only compress output above this size; smaller output passes through untouched |
 | `headTail` | head/tail lines kept when eliding an oversized middle |
 | `sidecarRetentionDays` | prune full-output sidecar logs older than this |
+
+### Measured reduction
+
+Pooled across **eight production codebases** — every compressible tool call, weighted by token
+volume (not a min–max over a few runs). The **calls** column is the sample size, shown rather than
+hidden. These are **per-call** savings, but each compressed result is what gets re-sent on every
+later turn, so the cut **compounds through `cache_read`** — your dominant cost (~99.6% of token
+volume). For the whole-session effect, use `token-diet compare`.
+
+| tool output | what it keeps · what it collapses | calls | reduction |
+|---|---|---|---|
+| **git** — `status` / `diff` / `log` | branch + changed files + diff hunks · unchanged-tree noise | 30 | **−80%** |
+| **tests** — pytest / jest / vitest / cargo / go | failures, tracebacks, the pass/fail summary · passing runs | 10 | **−88%** |
+| **logs / other** Bash output | dedups repeated lines · head/tail-elides oversized middles | 784 | **−64%** |
+| **Bash total** — the Bash-only safe default | the rows above, blended | **824** | **−65%** |
+| **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | — | **−86%** \* |
+| **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads | — | **~−42%** † |
+
+The **Bash total** is the headline: **−65% across 824 calls** (1.79M → 628k tokens). Structured
+output compresses hardest — tests **−88%**, git **−80%**, meeting or beating a specialized Rust
+command-rewriter's ~−80% headline; the blend lands at −65% only because free-form logs dominate the
+volume and have no schema to exploit. The low-call rows (tests, git) are lightly sampled — these
+codebases run few large suites through Bash — so their numbers are shown with their N, not folded
+into a falsely-precise spread.
+
+\* **builds** — measured on the bundled `--self-test`; none of the eight codebases ran a build big enough to clear the gate, so there's no per-session sample yet (same engine, just unexercised).
+† **file reads** — *not* in the Bash total and *not* an automatic filter win: a separate, opt-in mechanism whose saving is conditional on adopting a tight (≤ ~600-token) digest. It's the bigger pool, though — across the same eight codebases, **4.5M tokens** went to re-reading files vs **1.8M** on Bash. Surface candidates with `token-diet digest`, then `--scaffold` a skeleton for an agent to summarize.
+
+`cache_read` itself is never a row — it's not a kind of output, it's the re-transmission of
+everything above; the filter and digest shrink the *sources* that feed it.
 
 ## Measured impact (originating case)
 

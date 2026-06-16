@@ -15,6 +15,7 @@
  *   token-diet fix       --changeset <file> [--only 1,3] [--dry-run | --verify]
  *   token-diet filter    --install | --self-test | --enable | --disable | --uninstall
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
+ *   token-diet digest    [--days N=7] [--project <slug>] [--min-reads N=3] [--scaffold] [--dir <path>]
  *   token-diet init      [--global] [--dir <path>]
  *   token-diet setup     wire the filter (audit) + a pre-commit drift gate in one command
  *
@@ -36,6 +37,7 @@ const { runEstimate } = require('../src/estimate');
 const { runFix, runVerify } = require('../src/fix');
 const filter          = require('../src/filter');
 const { runSetup }    = require('../src/setup');
+const { runDigest }   = require('../src/digest');
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -64,6 +66,8 @@ function parseArgs(argv) {
     disable:    false,
     report:     false,
     failUnder:  null,
+    scaffold:   false,
+    minReads:   null,
   };
   const positional = [];
 
@@ -131,6 +135,12 @@ function parseArgs(argv) {
       opts.disable = true;
     } else if (a === '--report') {
       opts.report = true;
+    } else if (a === '--scaffold') {
+      opts.scaffold = true;
+    } else if (a === '--min-reads') {
+      opts.minReads = parseInt(args[++i], 10);
+    } else if (a.startsWith('--min-reads=')) {
+      opts.minReads = parseInt(a.split('=')[1], 10);
     } else if (a === '--fail-under') {
       opts.failUnder = args[++i];
     } else if (a.startsWith('--fail-under=')) {
@@ -182,6 +192,10 @@ ACT
               Off by default. Flow: --install [--global] → --self-test → --enable (AUDIT: records
               what it'd save, no changes) → --report → --activate (go live). Also --disable / --uninstall.
               --report [--json] shows the measured reduction table. Tune tools/keep/thresholds in filter.json.
+  digest      Lever 5 read-digest prototype: find files an agent re-reads from your
+              transcripts, measure the re-read token cost, and (--scaffold) write a
+              deterministic structure skeleton per file under .claude/digests/ for an
+              agent to turn into a tight summary. --min-reads N (default 3), --days N.
   init        Install token-diet as a Claude Code skill + agent + command + lever rubrics
               Default: <cwd>/.claude/  |  --global: ~/.claude/
   setup       Wire ongoing protection in one shot: output filter (AUDIT mode — records only,
@@ -204,6 +218,8 @@ OPTIONS
   --after-days B    Compare: boundary between before/after (days ago); "after" = last B days
   --global          init: install to ~/.claude/skills/ instead of project .claude/skills/
   --fail-under <g>  review: exit non-zero if the grade is worse than <g> (A-F) — for CI gates
+  --min-reads N     digest: only list files read at least N times (default 3)
+  --scaffold        digest: write deterministic skeleton digests under .claude/digests/
   --help            Show this help
 
 NOTE: Usage is deduplicated per API request (keyed on requestId). Claude Code
@@ -272,6 +288,10 @@ async function main() {
     }
     case 'setup':
       await runSetup(opts);
+      break;
+    case 'digest':
+      if (opts.days == null) opts.days = 7;
+      await runDigest(opts);
       break;
     case 'estimate':
       await runEstimate(opts);
