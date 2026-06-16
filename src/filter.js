@@ -15,11 +15,12 @@ const { writeFileAtomic } = require('./atomic');
 const estTok = s => Math.round((s || '').length / 4);
 
 const DEFAULT_CONFIG = {
-  // Bash-only by default: compress incidental verbose command output, NOT intentional
-  // retrieval (Read/Grep belong to Lever 5 digests). Opt in by adding them to `tools`.
+  // Shells (Bash + PowerShell) by default: compress incidental verbose command output, NOT
+  // intentional retrieval (Read/Grep → Lever 5 digests) or semantic tool results (Task/Edit).
+  // Opt in to more by adding them to `tools`.
   // mode: 'audit' = record what it would save but leave output untouched; 'active' = compress.
   // keep: regex patterns whose matching lines are NEVER collapsed (protect your own signals).
-  enabled: false, mode: 'audit', tools: ['Bash'], keep: [],
+  enabled: false, mode: 'audit', tools: ['Bash', 'PowerShell'], keep: [],
   minTokensToCompress: 1500, minLines: 60, headTail: 20, sidecarRetentionDays: 7,
 };
 
@@ -157,17 +158,23 @@ function dedupLog(text, cfg) {
 }
 
 // ── classify (tool + command → compressor) ────────────────────────────────────
-const TEST_CMD_RE = /\b(pytest|jest|vitest|mocha|cargo test|go test|npm (run )?test|yarn test|pnpm test|rspec|phpunit|gradle test|mvn test|unittest)\b/;
+const TEST_CMD_RE = /\b(pytest|jest|vitest|mocha|cargo test|go test|npm (run )?test|yarn test|pnpm test|rspec|phpunit|gradle test|mvn test|unittest|Invoke-Pester)\b/;
 // Build/install commands — checked AFTER tests so `npm test`/`cargo test` stay 'tests'.
 const BUILD_CMD_RE = /\b(npm (ci|i|install|run build)|yarn (install|build)|pnpm (i|install|run build)|cargo (build|check|clippy)|go build|docker build|docker compose build|tsc|eslint|webpack|vite build|next build|gradle build|mvn (package|install|compile))\b/;
+// git at the start OR after a separator (catches `cd x && git …`, `… | git …`, `git -C …`).
+const GIT_CMD_RE = /(?:^\s*|[;&|]\s*)git\b/;
+// Shells produce incidental verbose output; everything else (Read/Grep/Task/Edit/…) is
+// intentional retrieval or a semantic result — left to Lever 5 / passed through.
+const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
 // The compressor "kind" — also the row key in the --report table.
 function classifyKind(payload) {
   const tool = payload.tool_name || '';
   const cmd  = (payload.tool_input && payload.tool_input.command) || '';
   if (tool === 'Read') return 'read';
-  if (tool === 'Bash' && TEST_CMD_RE.test(cmd)) return 'tests';
-  if (tool === 'Bash' && /^\s*git\b/.test(cmd)) return 'git';
-  if (tool === 'Bash' && BUILD_CMD_RE.test(cmd)) return 'build';
+  if (!SHELL_TOOLS.has(tool)) return 'log';
+  if (TEST_CMD_RE.test(cmd)) return 'tests';
+  if (GIT_CMD_RE.test(cmd))  return 'git';
+  if (BUILD_CMD_RE.test(cmd)) return 'build';
   return 'log';
 }
 function classify(payload, cfg) {

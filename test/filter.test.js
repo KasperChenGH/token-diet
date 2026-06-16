@@ -57,6 +57,16 @@ test('compressBuild keeps the eslint file header above its errors', () => {
   assert.match(out, /progress lines/);           // downloading noise collapsed
 });
 
+test('classifyKind: PowerShell is a shell; git after a separator; Invoke-Pester is tests', () => {
+  const k = (cmd, tool = 'Bash') => F.classifyKind({ tool_name: tool, tool_input: { command: cmd } });
+  assert.equal(k('Get-ChildItem | Select-Object', 'PowerShell'), 'log');     // PowerShell compressed as a shell
+  assert.equal(k('Invoke-Pester ./tests', 'PowerShell'), 'tests');           // PS test runner
+  assert.equal(k('cd repo && git status'), 'git');                           // git after `cd && `
+  assert.equal(k('git -C /p diff'), 'git');                                  // git -C form
+  assert.equal(k('ls | grep foo', 'Grep'), 'log');                           // non-shell tool → generic (gate excludes by default)
+  assert.equal(k('npm install', 'PowerShell'), 'build');                     // build detection works on PS too
+});
+
 test('classifyKind: build commands → build; test commands stay tests', () => {
   const k = cmd => F.classifyKind({ tool_name: 'Bash', tool_input: { command: cmd } });
   assert.equal(k('npm install'), 'build');

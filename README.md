@@ -110,21 +110,21 @@ Bookends: measure first (this CLI), re-measure + adversarial consistency review 
 
 ## Measured reduction
 
-Pooled across **eight production codebases** — every compressible tool call, weighted by token volume (not a min–max over a few runs). The **calls** column is the sample size, shown rather than hidden. These are **per-call** savings, but each compressed result is what gets re-sent on every later turn, so the cut **compounds through `cache_read`** — your dominant cost (~99.6% of token volume). For the whole-session effect, use `token-diet compare`.
+Pooled across **eight production codebases**, counting only what the default filter actually compresses — **shell output (Bash + PowerShell)**, weighted by token volume (not a min–max over a few runs). The **calls** column is the sample size, shown rather than hidden. These are **per-call** savings, but each compressed result is what gets re-sent on every later turn, so the cut **compounds through `cache_read`** — your dominant cost (~99.6% of token volume). For the whole-session effect, use `token-diet compare`.
 
 | tool output | what it keeps · what it collapses | calls | reduction |
 |---|---|---|---|
-| **git** — `status` / `diff` / `log` | branch + changed files + diff hunks · unchanged-tree noise | 30 | **−80%** |
-| **tests** — pytest / jest / vitest / cargo / go | failures, tracebacks, the pass/fail summary · passing runs | 10 | **−88%** |
-| **logs / other** Bash output | dedups repeated lines · head/tail-elides oversized middles | 809 | **−64%** |
-| **Bash total** — the Bash-only safe default | the rows above, blended | **849** | **−65%** |
+| **git** — `status` / `diff` / `log` | branch + changed files + diff hunks · unchanged-tree noise | 50 | **−81%** |
+| **tests** — pytest / jest / cargo / go / Pester | failures, tracebacks, the pass/fail summary · passing runs | 31 | **−86%** |
+| **logs / other** shell output | dedups repeated lines · head/tail-elides oversized middles | 298 | **−63%** |
+| **shell total** — Bash + PowerShell (the safe default) | the rows above, blended | **379** | **−69%** |
 | **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | — | **−86%** \* |
 | **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads | — | **~−42%** † |
 
-The **Bash total** is the headline: **−65% across 849 calls** (1.86M → 653k tokens). Structured output compresses hardest — tests **−88%**, git **−80%**, meeting or beating a specialized Rust command-rewriter's ~−80% headline; the blend lands at −65% only because free-form logs dominate the volume and have no schema to exploit. The low-call rows (tests, git) are lightly sampled — these codebases run few large suites through Bash — so their numbers are shown with their N, not folded into a falsely-precise spread.
+The **shell total** is the headline: **−69% across 379 calls** (586k → 183k tokens). Structured output compresses hardest — tests **−86%**, git **−81%**, meeting or beating a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs, which dominate the volume and have no schema to exploit. The lower-call rows (tests, git) are lightly sampled — these codebases run few large suites through the shell — so their numbers are shown with their N, not folded into a falsely-precise spread. (Only shell tools are counted: Read/Grep/Task results are excluded because the default filter never touches them — see Lever 5.)
 
 \* **builds** — measured on the bundled `--self-test`; none of the eight codebases ran a build big enough to clear the gate, so there's no per-session sample yet (same engine, just unexercised).
-† **file reads** — *not* in the Bash total and *not* an automatic filter win: a separate, opt-in mechanism conditional on adopting a tight (≤ ~600-token) digest. It's the bigger pool, though — across the same eight codebases, **4.5M tokens** went to re-reading files vs **1.9M** on Bash. Surface candidates with `token-diet digest`, then `--scaffold` a skeleton for an agent to summarize.
+† **file reads** — *not* in the shell total and *not* an automatic filter win: a separate, opt-in mechanism conditional on adopting a tight (≤ ~600-token) digest. It's by far the bigger pool — across the same eight codebases, **4.5M tokens** went to re-reading files vs **586k** on shells. Surface candidates with `token-diet digest`, then `--scaffold` a skeleton for an agent to summarize.
 
 `cache_read` itself is never a row — it's not a kind of output, it's the re-transmission of everything above; the filter and digest shrink the *sources* that feed it.
 
@@ -140,7 +140,7 @@ token-diet filter --activate    # go live (the one switch you flip yourself)
 token-diet filter --disable     # turn it back off anytime
 ```
 
-In **audit** mode the filter runs on every matched call, records the would-be saving to `.claude/toolout/stats.jsonl`, but returns the original output unchanged. You review `--report`, confirm the reductions look right, then `--activate`. Even when live, the full output is always kept in `.claude/toolout/<ts>.log` with a pointer, so nothing is lost. It compresses **Bash output by default** (Read/Grep are opt-in, since those are better handled by Lever 5 digests).
+In **audit** mode the filter runs on every matched call, records the would-be saving to `.claude/toolout/stats.jsonl`, but returns the original output unchanged. You review `--report`, confirm the reductions look right, then `--activate`. Even when live, the full output is always kept in `.claude/toolout/<ts>.log` with a pointer, so nothing is lost. It compresses **shell output (Bash + PowerShell) by default** (Read/Grep are opt-in, since those are better handled by Lever 5 digests; Task/Edit results are left untouched).
 
 <details>
 <summary><b>keep-patterns &amp; config</b> — protect your own signals; tune thresholds (<code>.claude/toolout/filter.json</code>)</summary>
@@ -151,7 +151,7 @@ Generic rules can't know what matters in *your* output. Add regexes to `keep`; a
 {
   "enabled": true,
   "mode": "audit",
-  "tools": ["Bash"],
+  "tools": ["Bash", "PowerShell"],
   "keep": ["WARNING", "DEPRECATION", "your-custom-marker"],
   "minTokensToCompress": 1500,
   "minLines": 60,
@@ -163,7 +163,7 @@ Generic rules can't know what matters in *your* output. Add regexes to `keep`; a
 | field | meaning |
 |---|---|
 | `mode` | `audit` (record only, output unchanged) or `active` (compress for real) |
-| `tools` | which tools to compress — `["Bash"]` by default; add `"Read"`/`"Grep"` to opt in (then re-run `--install` to re-sync the hook matcher) |
+| `tools` | which tools to compress — `["Bash", "PowerShell"]` by default; add `"Read"`/`"Grep"` to opt in (then re-run `--install` to re-sync the hook matcher) |
 | `keep` | regexes whose matching lines are never collapsed |
 | `minTokensToCompress` / `minLines` | only compress output above this size; smaller output passes through untouched |
 | `headTail` | head/tail lines kept when eliding an oversized middle |

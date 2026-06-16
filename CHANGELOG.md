@@ -29,10 +29,17 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
   node:test / pytest / cargo / npm output, asserting no error/warning line is collapsed.
 
 ### Changed
+- **Default now compresses both shells — Bash _and_ PowerShell** (incidental verbose
+  output, like Bash). The git classifier now catches `cd … && git`, `git -C …`, and piped
+  forms, and `Invoke-Pester` counts as tests. Task/Edit/Grep/Glob stay untouched.
+- **Measured table corrected + recomputed.** A bucket audit found the old pooled numbers
+  counted non-shell tools (Task subagent output, Edit, Grep, Glob) the default never
+  compresses — inflating the "Bash total" call count ~2×. The table now reports the honest
+  shell-only figure: **−69% across 379 calls** (git −81%, tests −86%, logs −63%) over eight
+  codebases. Measurement scripts now enforce the `tools` allowlist so this can't recur.
 - README rebuilt against a multi-expert authoring framework: value-prop hero,
-  30-second working example up top, two-mode usage (Review / Auto), pooled measured
-  reduction table (−65% Bash output across 824 calls over eight codebases), progressive
-  disclosure of reference material, and an explicit "who it's for / not for".
+  30-second working example up top, two-mode usage (Review / Auto), the measured reduction
+  table, progressive disclosure of reference material, and an explicit "who it's for / not for".
 
 ## [0.7.0]
 
