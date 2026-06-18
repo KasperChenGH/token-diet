@@ -37,9 +37,13 @@ Run `token-diet fix --changeset diet-changeset.json --only <approved>`, then
 `token-diet fix --changeset diet-changeset.json --verify`. Do NOT hand-edit. Rule: trim = move,
 never delete (enforced and tested in `fix`).
 
-## Phase 5 — Verify + wire ongoing protection (main)
-Run `token-diet review --dir .` for the static delta (it now includes the overhead snapshot). Tell
-the user to run normally for a few days, then `token-diet compare --before-days 14 --after-days 7`.
+## Phase 5 — Verify + report savings + wire ongoing protection (main)
+Run `token-diet review --dir .` for the static delta (it now includes the overhead snapshot), then
+**`token-diet savings --dir .`** to show the user the per-lever / per-section reduction table
+(structural levers projected, filter measured — clearly labelled). Tell the user to run normally for
+a few days, then `token-diet compare --before-days 14 --after-days 7` for the measured whole-session
+delta. Mention they can `token-diet savings --share` to send aggregate-only numbers as feedback
+(opt-in; nothing is sent otherwise — `--dry-run` previews the exact payload).
 Then OFFER (one approval) to run `token-diet setup` — it wires the output filter in AUDIT mode
 (records only, output unchanged) + a pre-commit drift reminder, so future regressions are caught
 automatically. The filter stays in audit until the user runs `filter --activate`; never auto-activate.

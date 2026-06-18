@@ -89,6 +89,7 @@ token-diet init [--global]                         # install the agent + subagen
 
 # VERIFY — did it work?
 token-diet compare --before-days 14 --after-days 7 # per-day deltas across windows; the re-measure bookend
+token-diet savings                                 # per-lever/section reduction table; --share for opt-in feedback
 ```
 
 Usage is deduplicated per API request (`requestId`) — Claude Code writes 2–3 transcript lines per call with repeated usage; naive summing inflates totals ~2–3×. This tool counts each call once. The CLI `review` is **entirely static** — regex + file-size heuristics, no LLM, no history, returns in milliseconds. LLM judgment (the Sonnet lever specialists, deployed self-contained with inlined rubrics) happens in the **`/token-diet` agent's** review phase, not in the `review` command.
@@ -211,6 +212,16 @@ token-diet/
 ## Measured impact (originating case)
 
 23-round autonomous research loop (Claude Code, Opus + Sonnet): ~1.1M tokens/round → ~100–180k/round, subagent useful-work ratio ~9% → ~40%, two recorded LLM-judgment errors eliminated by the script kernel. The domain contributed nothing — the architecture did.
+
+## See your savings
+
+After a run (or anytime), `token-diet savings` prints a per-lever / per-section reduction table — structural levers **projected** from `estimate`, the output filter **measured** from your real sessions, each clearly labelled. The `/token-diet` agent prints it automatically at the end of Phase 5.
+
+## Privacy & feedback
+
+**token-diet runs entirely on your machine and sends nothing by default.** It reads your local Claude Code transcripts and writes to your project — no network calls, no account, no analytics.
+
+The one exception is **strictly opt-in**: if you run **`token-diet savings --share`**, it builds an **aggregate-only** report and prints a pre-filled GitHub issue link you choose to submit (or POSTs it if *you* set `TOKEN_DIET_TELEMETRY_URL`). The payload is *only* numbers — token-diet version, OS, a random anonymous install id, your project grade, projected per-lever reduction %, and measured filter reduction %. It contains **no file names, paths, commands, code, or project names**. Preview the exact bytes first with `token-diet savings --share --dry-run`. Sharing helps tune the tool against real-world usage; not sharing costs you nothing. (Submitted GitHub issues are public.)
 
 ## Fidelity guarantee
 

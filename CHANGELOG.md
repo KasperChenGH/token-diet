@@ -7,6 +7,12 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 ## [Unreleased]
 
 ### Added
+- **`token-diet savings`** — per-lever / per-section token-reduction table (structural levers
+  projected from `estimate`; output filter measured from real stats), auto-printed at the end of
+  the agent's Phase 5. **`--share`** builds a strictly aggregate-only report (version, OS, anon
+  install id, grade, projected/measured reduction % — no paths, names, commands, or content) and
+  prints a pre-filled GitHub issue link the user opts into submitting; `--dry-run` previews the exact
+  payload; nothing is sent unless `--share` is run (or you set `TOKEN_DIET_TELEMETRY_URL`).
 - **Lever 8 build-output compressor** — `compressBuild` + a `build` classifier for
   `npm` / `cargo` / `docker` / `tsc` / `eslint` output: keeps errors, warnings and the
   final summary; collapses per-package / per-layer progress; preserves eslint/tsc

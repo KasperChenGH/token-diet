@@ -16,6 +16,7 @@
  *   token-diet filter    --install | --self-test | --enable | --disable | --uninstall
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
  *   token-diet digest    [--days N=7] [--project <slug>] [--min-reads N=3] [--scaffold] [--dir <path>]
+ *   token-diet savings   [--dir <path>=cwd] [--share] [--dry-run] [--json]
  *   token-diet init      [--global] [--dir <path>]
  *   token-diet setup     wire the filter (audit) + a pre-commit drift gate in one command
  *
@@ -38,6 +39,7 @@ const { runFix, runVerify } = require('../src/fix');
 const filter          = require('../src/filter');
 const { runSetup }    = require('../src/setup');
 const { runDigest }   = require('../src/digest');
+const { runSavings }  = require('../src/savings');
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -68,6 +70,7 @@ function parseArgs(argv) {
     failUnder:  null,
     scaffold:   false,
     minReads:   null,
+    share:      false,
     help:       false,
     _unknown:   [],
   };
@@ -139,6 +142,8 @@ function parseArgs(argv) {
       opts.report = true;
     } else if (a === '--scaffold') {
       opts.scaffold = true;
+    } else if (a === '--share') {
+      opts.share = true;
     } else if (a === '--min-reads') {
       opts.minReads = parseInt(args[++i], 10);
     } else if (a.startsWith('--min-reads=')) {
@@ -210,6 +215,10 @@ ACT
 VERIFY
   compare     Before vs after: per-day averages, delta %, verdict line
               Requires --before-days A --after-days B
+  savings     Per-lever / per-section token-reduction table (structural levers PROJECTED
+              from estimate; output filter MEASURED from real stats). --share builds an
+              aggregate-only report + a pre-filled GitHub issue link (opt-in; --dry-run to
+              preview the exact payload). Nothing is sent unless you run --share.
 
 OPTIONS
   --days N          Only include lines timestamped in the last N days (default varies by subcommand)
@@ -226,6 +235,7 @@ OPTIONS
   --fail-under <g>  review: exit non-zero if the grade is worse than <g> (A-F) — for CI gates
   --min-reads N     digest: only list files read at least N times (default 3)
   --scaffold        digest: write deterministic skeleton digests under .claude/digests/
+  --share           savings: build the aggregate-only report + pre-filled GitHub issue link (opt-in)
   --help            Show this help
 
 NOTE: Usage is deduplicated per API request (keyed on requestId). Claude Code
@@ -301,6 +311,9 @@ async function main() {
     case 'digest':
       if (opts.days == null) opts.days = 7;
       await runDigest(opts);
+      break;
+    case 'savings':
+      await runSavings(opts);
       break;
     case 'estimate':
       await runEstimate(opts);

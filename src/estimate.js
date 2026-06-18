@@ -145,6 +145,20 @@ function flaggedLevers(targetDir, home) {
   return flagged.filter(l => MODELED.includes(l));
 }
 
+// Pure: returns the projection data (no printing) so other commands (savings) can reuse it.
+function computeEstimate(opts = {}) {
+  const targetDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  const home      = opts._home || os.homedir();
+  const inp    = deriveInputs(targetDir, home, opts);
+  const levers  = flaggedLevers(targetDir, home);
+  const usedLevers = levers.length ? levers : [6];
+  const s      = savings(inp, usedLevers, {});
+  const pct    = s.baselineWeighted.total > 0
+    ? Math.round(100 * (s.baselineWeighted.total - s.postfixWeighted.total) / s.baselineWeighted.total)
+    : 0;
+  return { targetDir, inp, levers: usedLevers, s, pct };
+}
+
 function runEstimate(opts = {}) {
   const targetDir = opts.dir ? path.resolve(opts.dir) : process.cwd();
   const home      = opts._home || os.homedir();
@@ -193,4 +207,5 @@ function runEstimate(opts = {}) {
 }
 
 module.exports = { TOOLOUT, OUTPUT_PER_TURN, PRICE,
-  deriveInputs, computeBill, weight, applyFixes, savings, runEstimate };
+  deriveInputs, computeBill, weight, applyFixes, savings, runEstimate,
+  computeEstimate, flaggedLevers };
