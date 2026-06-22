@@ -31,6 +31,7 @@
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const { writeFileAtomic } = require('./atomic');
 
 /**
  * Recursively collect all files under srcDir, returning
@@ -202,7 +203,7 @@ async function runInit(opts = {}) {
 
     try {
       fs.mkdirSync(destDir, { recursive: true });
-      fs.writeFileSync(destPath, data);
+      writeFileAtomic(destPath, data);   // atomic: a kill mid-write never leaves a truncated agent file
     } catch (e) {
       console.error(`  [ERROR] Could not write ${artifact.label} to ${destPath}: ${e.message}`);
       process.exit(1);

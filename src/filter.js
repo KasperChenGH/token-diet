@@ -157,7 +157,8 @@ function dedupLog(text, cfg) {
     const tail = out.slice(-cfg.headTail);
     const mid  = out.slice(cfg.headTail, out.length - cfg.headTail);
     const kept = mid.filter(keep);
-    r = [...head, ...kept, `  … (${mid.length - kept.length} lines elided)`, ...tail];
+    const elided = mid.length - kept.length;   // omit the marker when nothing was actually elided
+    r = elided > 0 ? [...head, ...kept, `  … (${elided} lines elided)`, ...tail] : [...head, ...kept, ...tail];
   }
   return r.join('\n');
 }
@@ -170,7 +171,7 @@ function dedupLog(text, cfg) {
 // never clipped. Not JSON / parse fails → fall back to dedupLog (fail-safe).
 const JSON_KEEP_KEY = /error|err|exception|fail|status|message|msg|reason|code|trace|stack|warn|detail/i;
 function looksLikeJson(text) {
-  const s = (text || '').trim();
+  const s = stripNoise(text || '').trim();   // strip ANSI/CR first so colorized JSON still detects
   if (s.length < 200 || !(s[0] === '{' || s[0] === '[')) return false;   // cheap pre-check
   try { const v = JSON.parse(s); return v !== null && typeof v === 'object'; } catch { return false; }
 }

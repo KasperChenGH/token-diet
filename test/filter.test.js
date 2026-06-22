@@ -106,6 +106,7 @@ test('classifyKind routes JSON content to "json" (content-based, any shell comma
   assert.equal(F.classifyKind({ tool_name: 'Bash', tool_input: { command: 'echo hi' } }, 'plain text not json'), 'log');
   assert.equal(F.classifyKind({ tool_name: 'Bash', tool_input: { command: 'npm test' } }, bigJson), 'tests'); // test cmd wins over json content
   assert.equal(F.looksLikeJson('{"big":"' + 'x'.repeat(300) + '"}'), true);
+  assert.equal(F.looksLikeJson('[32m' + '{"k":"' + 'x'.repeat(300) + '"}' + '[0m'), true);  // ANSI-colored JSON still detects
   assert.equal(F.looksLikeJson('not json at all, just prose here'), false);
 });
 
