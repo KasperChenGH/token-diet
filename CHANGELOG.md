@@ -85,7 +85,8 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
   `token-diet digest --scaffold` when hot re-read files are flagged (the biggest token
   pool: 93% of read volume is re-reads), the digester turns the scaffolds into prose
   digests, and the analyst now asserts every specialist verdict lands (or flags it skipped).
-  Demonstrated end-to-end: a real 775-line file → 625-token digest, −92% per reference read.
+  Measured end-to-end: the deployed digester turned a real 321-line file → a 740-token digest,
+  −77% per reference read (see the later "Fixed" entry — this supersedes an earlier hand-demo).
 - **README repositioned** around *token observability + structural diagnosis* (the real
   savings); the output filter is framed as the automatic quick-win, not the headline.
 - Documented the Claude Code transcript-format dependency as an ADR in `src/scan.js`.
