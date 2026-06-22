@@ -210,7 +210,8 @@ ACT
   init        Install token-diet as a Claude Code skill + agent + command + lever rubrics
               Default: <cwd>/.claude/  |  --global: ~/.claude/
   setup       Wire ongoing protection in one shot: output filter (AUDIT mode — records only,
-              no changes) + a pre-commit drift reminder. Then 'filter --activate' when ready.
+              no changes) + a pre-commit drift reminder. Then 'filter --activate' when ready —
+              or 'setup --activate' to wire AND go live immediately (skip the audit preview).
 
 VERIFY
   compare     Before vs after: per-day averages, delta %, verdict line

@@ -42,16 +42,25 @@ async function runSetup(opts = {}) {
   try {
     if (JSON.parse(fs.readFileSync(path.join(base, '.claude', 'toolout', 'filter.json'), 'utf8')).mode === 'active') mode = 'active';
   } catch { /* no config yet → audit */ }
+  // `--activate` is the opt-in one-command path: wire + go live immediately (skip the audit
+  // preview). Default stays AUDIT (records only) so the gate is never crossed silently.
+  if (opts.activate) mode = 'active';
   filter.runInstall(opts);             // install the hook (disabled)
-  filter.setState(opts, true, mode);   // record in AUDIT (or keep ACTIVE if already live)
+  filter.setState(opts, true, mode);   // AUDIT by default, or ACTIVE with --activate / if already live
 
   const pc = installPreCommit(root);
   console.log(`  pre-commit drift reminder: ${pc.ok ? pc.status : 'skipped — ' + pc.reason}`);
 
-  console.log('\nWired. The filter is RECORDING in audit mode — your output is unchanged.');
-  console.log('  • measured savings : token-diet filter --report');
-  console.log('  • go live (1 switch): token-diet filter --activate');
-  console.log('  • full audit anytime: /token-diet\n');
+  if (mode === 'active') {
+    console.log('\nWired + LIVE. The filter will COMPRESS verbose tool output automatically.');
+    console.log('  • reload Claude Code to start  •  measured savings: token-diet filter --report');
+    console.log('  • turn off anytime: token-diet filter --disable  •  full output kept in .claude/toolout/\n');
+  } else {
+    console.log('\nWired. The filter is RECORDING in audit mode — your output is unchanged.');
+    console.log('  • preview savings  : token-diet filter --report');
+    console.log('  • go live (1 switch): token-diet filter --activate   (or re-run: token-diet setup --activate)');
+    console.log('  • full audit anytime: /token-diet\n');
+  }
 }
 
 module.exports = { runSetup, installPreCommit, HOOK_MARK };

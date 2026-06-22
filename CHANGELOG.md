@@ -7,6 +7,10 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 ## [Unreleased]
 
 ### Added
+- **`token-diet setup --activate`** — one-command path to the auto filter: wires the hook AND
+  goes live immediately (skip the audit preview). Default `setup` still starts in audit; the
+  agent never auto-activates. README Mode 2 rewritten so the minimal path (one command + reload)
+  is obvious and the audit-preview is clearly the optional, cautious alternative.
 - **`token-diet savings`** — per-lever / per-section token-reduction table (structural levers
   projected from `estimate`; output filter measured from real stats), auto-printed at the end of
   the agent's Phase 5. **`--share`** builds a strictly aggregate-only report (version, OS, anon

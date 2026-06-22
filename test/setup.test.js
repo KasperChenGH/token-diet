@@ -53,6 +53,16 @@ test('runSetup wires the filter in AUDIT mode + the pre-commit hook', async () =
   rm(root);
 });
 
+test('runSetup --activate wires the filter LIVE in one command (mode: active)', async () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.git'), { recursive: true });
+  await silent(() => S.runSetup({ dir: root, activate: true }));
+  const cfg = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'filter.json'), 'utf8'));
+  assert.equal(cfg.enabled, true);
+  assert.equal(cfg.mode, 'active');          // --activate goes straight live
+  rm(root);
+});
+
 test('gradeWorseThan gates the --fail-under CI check', () => {
   assert.equal(R.gradeWorseThan('D', 'C'), true);     // D is worse than C → fail
   assert.equal(R.gradeWorseThan('B', 'C'), false);    // B is better → pass

@@ -54,16 +54,25 @@ Run the agent. It **measures** your real token usage, **finds** the structural w
 
 **The problem it fixes:** noisy command output — a test run, a `git diff`, a build log — gets re-sent to the model on *every* later turn, quietly inflating your bill. Auto mode runs a filter that compresses that output the moment it appears, so the bloat never piles up. Nothing to review — it just works in the background.
 
-It turns on in **three one-time steps**, so it can never surprise you:
+**Fastest — one command, then reload:**
 
 ```bash
-token-diet setup              # 1 · install — WATCH-ONLY mode: records what it would cut, changes nothing
-# → reload Claude Code, then use it normally for a bit — the hook records as you go
-token-diet filter --report    # 2 · check — what it would have saved on YOUR real output
-token-diet filter --activate  # 3 · go live — now it actually compresses
+token-diet setup --activate   # wires the filter AND turns compression on
+# → reload Claude Code — it now compresses verbose tool output automatically
 ```
 
-(Steps 2–3 come after you've used Claude Code a little, so `--report` has real data to show.) After step 3 it's genuinely set-and-forget. Even when live, the full original output is always saved to a sidecar file with a pointer back to it — nothing is ever lost — and you can `token-diet filter --disable` anytime. (Step 1's "watch-only" state is the filter's **audit** mode.)
+That's the whole thing. Turn it off anytime with `token-diet filter --disable`; the full original output is always kept in `.claude/toolout/` so nothing is ever lost.
+
+**Cautious — preview before you trust it** (optional 3 steps): if you'd rather *see* what it would cut before it changes anything, drop the `--activate` and add a preview:
+
+```bash
+token-diet setup              # wires the filter in WATCH-ONLY (audit) mode — changes nothing
+# → reload Claude Code, use it normally for a bit so the hook records
+token-diet filter --report    # see what it WOULD have saved on your real output
+token-diet filter --activate  # happy with it? go live
+```
+
+Either way it's set-and-forget once active. Even when live, the full original output is always saved to a sidecar file with a pointer back to it — nothing is ever lost — and you can `token-diet filter --disable` anytime. (Step 1's "watch-only" state is the filter's **audit** mode.)
 
 <details>
 <summary>Bonus: <code>setup</code> also adds a commit-time guard</summary>
