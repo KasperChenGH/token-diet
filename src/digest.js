@@ -74,9 +74,11 @@ function scaffoldOne(root, cand) {
     `<!-- TO FINISH (one paste): give everything below to an LLM, or run /token-diet (its digester\n` +
     `     subagent does this automatically). Replace the "Digest" section with the model's output. -->\n\n` +
     `## Authoring prompt\n\n` +
-    `Write a tight prose digest (≤ ~600 tokens) of \`${rel}\` from the structure below: its purpose,\n` +
-    `its public API/entry points, and the gotchas a reader needs — so they never re-read the full file.\n` +
-    `End with \`> Source: ${rel}\`. Keep exact signatures/flags verbatim; summarize the rest.\n\n` +
+    `Write a tight prose digest of \`${rel}\` from the structure below: its purpose, its public\n` +
+    `API/entry points, and the gotchas a reader needs — so they never re-read the full file.\n` +
+    `**Hard budget: ≤ 600 tokens (~2,400 chars).** If it won't fit, keep the API + the single most\n` +
+    `important gotcha and cut the rest — do NOT exceed the budget (an over-budget digest defeats the\n` +
+    `purpose). Keep exact signatures/flags verbatim; summarize everything else. End with \`> Source: ${rel}\`.\n\n` +
     `### Structure (extracted signatures / headings)\n\n` +
     '```\n' + (skeleton || '(no signatures detected — summarize by hand)') + '\n```\n\n' +
     `## Digest (replace this line with the authored summary)\n`;
@@ -85,6 +87,30 @@ function scaffoldOne(root, cand) {
 }
 
 const shorten = fp => fp.split(/[\\/]/).slice(-3).join('/');
+
+// ── routing (fix for "a digest nobody reads saves nothing") ────────────────────
+// Write a discoverable index that ROUTES future reads to the digest, and emit the one-line
+// CLAUDE.md pointer that makes the routing always-loaded. Without this, a digest is only
+// *potential* savings; with it, the agent prefers the digest → the reduction actually happens
+// and `token-diet compare` can measure it.
+const CLAUDE_POINTER = '> **Hot-file digests:** before re-reading a large source file, check `.claude/digests/INDEX.md` — read the digest there instead of the full file; pull the full file only for an exact detail.';
+
+function writeDigestIndex(root, hot) {
+  const dir = path.join(root, '.claude', 'digests');
+  fs.mkdirSync(dir, { recursive: true });
+  const rows = hot.map(s => {
+    const rel = path.relative(root, s.file);
+    const name = rel.replace(/[\\/]/g, '__').replace(/[^\w.-]/g, '_') + '.md';
+    return `| \`${rel.split(path.sep).join('/')}\` | [${name}](${name}) | ${s.count}× · ~${fmt(s.tokens)} tok |`;
+  }).join('\n');
+  const body =
+    `# Digest index — read these BEFORE re-reading the full files\n\n` +
+    `These files are read repeatedly. **Read the digest, not the full file**, unless you need an\n` +
+    `exact detail (then open the source). The full files are unchanged — this only adds a faster path.\n\n` +
+    `| source file | digest | re-read cost |\n|---|---|---|\n${rows}\n`;
+  fs.writeFileSync(path.join(dir, 'INDEX.md'), body);
+  return path.join('.claude', 'digests', 'INDEX.md').split(path.sep).join('/');
+}
 
 async function runDigest(opts = {}) {
   const minReads = opts.minReads != null ? +opts.minReads : 3;
@@ -111,19 +137,22 @@ async function runDigest(opts = {}) {
 
   if (opts.scaffold) {
     console.log(`\nScaffolding deterministic skeletons under .claude/digests/ …`);
-    let n = 0;
+    const placed = [];
     for (const s of hot) {
       const rel = scaffoldOne(root, s);
-      if (rel) { n++; console.log(`  wrote ${rel}`); }
+      if (rel) { placed.push(s); console.log(`  wrote ${rel}`); }
     }
-    console.log(`\n${n} scaffold(s) written — each is a ready-to-use authoring prompt. To finish:`);
+    const idx = writeDigestIndex(root, placed);   // routing: makes the digests discoverable
+    console.log(`\n${placed.length} scaffold(s) + ${idx} written — each scaffold is a ready-to-use authoring prompt. To finish:`);
     console.log('  • run /token-diet — its digester subagent writes the prose digests automatically, or');
     console.log('  • paste each .claude/digests/*.md into any LLM and drop its output into the "Digest" section.');
-    console.log('  Then point readers at the digest instead of the full file (the Lever 5 win).\n');
+    console.log('\nThen ROUTE reads to the digests (so the saving actually happens) — add this line to CLAUDE.md:');
+    console.log('  ' + CLAUDE_POINTER);
+    console.log('  ( /token-diet does this for you. Re-measure the realized drop with `token-diet compare`. )\n');
   } else {
     console.log('  Re-run with --scaffold to write skeleton digests you (or an agent) then summarize.\n');
   }
   return hot;
 }
 
-module.exports = { runDigest, collectReadStats, extractSkeleton, scaffoldOne };
+module.exports = { runDigest, collectReadStats, extractSkeleton, scaffoldOne, writeDigestIndex, CLAUDE_POINTER };

@@ -21,7 +21,11 @@ You own the read-heavy Phase 2. The main agent passes you its `review`+`estimate
    it lists the top re-read files (by token cost) and writes deterministic structure skeletons under
    `.claude/digests/` for the digester to turn into prose. This is the biggest pool — don't skip it.
 3. For each FLAGGED lever (≥2 findings), spawn its role-named specialist (or draft inline). For
-   Lever 5, give the digester the `digest` candidate list + the scaffold paths under `.claude/digests/`.
+   Lever 5 this is **not optional and never a manual hand-off**: spawn `subagent-digester` with the
+   `digest` candidate list + the scaffold paths, collect its authored prose, and put a `write` op per
+   digest into the changeset. Also add a `comment-marker` op that inserts the CLAUDE.md routing
+   pointer (printed by `digest --scaffold`) — without it the digests are written but never read, so
+   the saving never lands. The `.claude/digests/INDEX.md` was already written by the scaffold step.
 4. Merge skeleton + specialist content into `diet-changeset.json`. Read `diet-history.json`; drop
    previously-rejected items. **Assert every spawned specialist's verdict is reflected in the
    changeset (a concrete op or an explicit KEEP). If a verdict didn't land, list it as

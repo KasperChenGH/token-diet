@@ -95,3 +95,18 @@ test('runDigest with no candidates prints guidance and returns []', async () => 
   assert.deepEqual(r, []);
   assert.match(out, /nothing worth a digest/i);
 });
+
+test('writeDigestIndex creates a routing index that points reads at digests', () => {
+  const root = tmpDir();
+  const idx = D.writeDigestIndex(root, [
+    { file: path.join(root, 'src', 'scan.js'), count: 5, tokens: 3218 },
+    { file: path.join(root, 'src', 'filter.js'), count: 8, tokens: 6000 },
+  ]);
+  assert.equal(idx, '.claude/digests/INDEX.md');
+  const body = fs.readFileSync(path.join(root, '.claude', 'digests', 'INDEX.md'), 'utf8');
+  assert.match(body, /Read the digest, not the full file/i);   // the routing instruction
+  assert.match(body, /src\/scan\.js/);                          // lists the source
+  assert.match(body, /src__scan\.js\.md/);                      // links the digest
+  assert.match(body, /5× · ~3,218 tok/);                        // re-read cost shown
+  rm(root);
+});

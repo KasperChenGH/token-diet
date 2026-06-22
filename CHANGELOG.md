@@ -48,6 +48,12 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
   a tag→version release workflow, `CODE_OF_CONDUCT.md`, and this changelog.
 
 ### Fixed
+- **Lever 5 digests now actually get read (routing).** Creating a digest saved nothing if the agent
+  kept reading the full file. `digest --scaffold` now writes `.claude/digests/INDEX.md` and prints a
+  one-line CLAUDE.md pointer; `/token-diet` adds that pointer as a changeset item — so future reads
+  route to the digest and `token-diet compare` can measure the realized drop. Digester is folded into
+  the agent end-to-end (no manual run) and capped at a **hard ≤600-token budget** (it overshot before).
+  README corrected to the real deployed-subagent result: **−77% per reference read** (was a −92% hand-demo).
 - **Pre-commit hook upgrades in place.** `setup` now detects a stale (pre-vendoring) single-line
   drift hook and rewrites it to the smart resolver (vendored → global → node_modules → npx),
   preserving any foreign hook content — so a project that ran `setup` on an older version picks up

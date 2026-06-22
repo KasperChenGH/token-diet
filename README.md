@@ -139,7 +139,7 @@ These are **different mechanisms in different units** — don't read them as one
 | 2 · Merge sessions | one cycle's re-sent context per merge | restructure |
 | 3 · Evict compute | the idle / compute-adjacent tokens of babysat commands | restructure |
 | 4 · Scripts compute | the tokens the LLM spends **re-deriving** deterministic results | model |
-| 5 · Tier knowledge (digests) | **−92% per reference read** (~−42% blended) | demonstrated |
+| 5 · Tier knowledge (digests) | **−77% per reference read** (~−42% blended) | measured |
 | 6 · Trim always-loaded | per-spawn overhead **× every spawn** — often the single largest saver | model |
 | 7 · Model arbitrage | **$-cost only** — routes mechanical work to a cheaper model (not raw tokens) | model |
 | 8 · Filter tool output | **−69% of shell output** across 388 calls (git −82 · tests −86 · JSON −40 · logs −63) | measured |
@@ -160,13 +160,13 @@ Pooled across **eight production codebases** (≈388 shell calls), counting only
 | **logs / other** shell output | dedups repeats · head/tail-elides middles (errors/warnings always kept) | **−63%** |
 | **shell total** — Bash + PowerShell (the safe default) | the rows above, blended | **−69%** |
 | **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | **−86…−98%** \* |
-| **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads (demonstrated) | **~−42%** † |
+| **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads | **~−42%** † |
 
 The **shell total** is the headline: **−69% across 388 calls** (600k → 189k tokens). Structured output compresses hardest — tests **−86%**, git **−82%**, meeting or beating a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs, which dominate the volume and have no schema to exploit. The lower-call rows (tests, git, JSON) are lightly sampled — these codebases run few large suites or API calls through the shell. (Only shell tools are counted: Read/Grep/Task results are excluded because the default filter never touches them — see Lever 5.) These are **per-call** figures; on a heavy real session the per-call saving is a rounding error, but **compounded through `cache_read`** (a compressed output is re-sent every later turn) it is the dominant effect — measure the whole-session result with `token-diet compare`.
 
 \* **builds** — **−98%** on a real verbose `npm install` (823 → 15 lines); the eight pooled codebases show none because modern build tools are quiet by default, so verbose build output (cargo, webpack, docker, `npm --verbose`) is where the **−86…−98%** lands.
 ‡ **JSON** — parses the output and shrinks it structurally (truncate long arrays to head+tail+count, clip long string values, re-serialize compact) while keeping every key and never clipping `error`/`status`/`message` values. The −40% here is small because these codebases rarely emit JSON; on real API/devops output it lands **−41% (`npm view react`) to −95%** (array-heavy API responses). Inspired by [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, done the zero-dependency way.
-† **file reads** — *not* in the shell total and *not* an automatic filter win: a separate, opt-in mechanism. It's by far the bigger pool — **5.4M read tokens**, of which **93% are re-reads** (the same files pulled 100–300×) that digests address, vs only 584k on shells. **Demonstrated end-to-end:** a real 775-line source file (7,361 tok) was compressed to a **625-token digest** that carries its purpose, API, and gotchas — **−92% per reference read**. The ~42% headline is the conservative blend, since some reads (e.g. editing) still need the full source. Surface candidates with `token-diet digest`, then `--scaffold` a skeleton for an agent to summarize.
+† **file reads** — *not* in the shell total and *not* an automatic filter win: a separate, opt-in mechanism. It's by far the bigger pool — **5.4M read tokens**, of which **93% are re-reads** (the same files pulled 100–300×) that digests address, vs only 584k on shells. **Measured end-to-end:** the deployed `subagent-digester` authored a digest of a real 321-line source file (3,218 tok) → a **740-token digest** carrying its purpose, full API, and gotchas — **−77% per reference read**. The ~42% headline is the conservative blend, since some reads (e.g. editing) still need the full source. `/token-diet` runs this automatically (find → author → apply → add a CLAUDE.md pointer that routes future reads to the digest); `token-diet compare` measures the realized drop over your next sessions.
 
 `cache_read` itself is never a row — it's not a kind of output, it's the re-transmission of everything above; the filter and digest shrink the *sources* that feed it.
 

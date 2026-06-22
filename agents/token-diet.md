@@ -30,8 +30,10 @@ enough to decide the next step. No history is a full deliverable, not just a gra
 The analyst reads all project files, runs `token-diet plan` (emits the `diet-changeset.json`
 skeleton) plus `token-diet digest --scaffold` when Lever 5 (hot re-read files) is flagged — the
 biggest token pool — spawns the role-named lever specialists for flagged levers (or drafts inline if
-nested spawning is unavailable), and merges their drafted content into `diet-changeset.json`. It
-returns a compact summary, flagging any specialist verdict it couldn't land rather than dropping it.
+nested spawning is unavailable), and merges their drafted content into `diet-changeset.json`. **The
+Lever 5 digest is authored end-to-end by the `subagent-digester` here — the user never runs it
+manually — and the analyst also adds the CLAUDE.md routing pointer so the digests actually get read.**
+It returns a compact summary, flagging any specialist verdict it couldn't land rather than dropping it.
 The main agent never holds the raw file reads.
 
 ## Phase 3 — Approval gate (HARD STOP)
