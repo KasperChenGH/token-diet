@@ -129,6 +129,23 @@ In leverage order — each shrinks the next:
 7. **Model arbitrage** — big model only where judgment lives
 8. **Filter tool output** — verbose test/build/log stdout compressed at the source, never re-sent every turn
 
+### Estimated saving per lever
+
+These are **different mechanisms in different units** — don't read them as one stackable %. Each row marks its **basis**: *measured* (real data), *demonstrated* (a worked example), *model* (a forward projection from `token-diet estimate` — run it for your own numbers), or *restructure* (project-specific, not token-modeled).
+
+| Lever | Typical saving | Basis |
+|---|---|---|
+| 1 · Delete agents | ~20–40k tokens per **removed ceremonial spawn** | model |
+| 2 · Merge sessions | one cycle's re-sent context per merge | restructure |
+| 3 · Evict compute | the idle / compute-adjacent tokens of babysat commands | restructure |
+| 4 · Scripts compute | the tokens the LLM spends **re-deriving** deterministic results | model |
+| 5 · Tier knowledge (digests) | **−92% per reference read** (~−42% blended) | demonstrated |
+| 6 · Trim always-loaded | per-spawn overhead **× every spawn** — often the single largest saver | model |
+| 7 · Model arbitrage | **$-cost only** — routes mechanical work to a cheaper model (not raw tokens) | model |
+| 8 · Filter tool output | **−69% of shell output** across 388 calls (git −82 · tests −86 · JSON −40 · logs −63) | measured |
+
+On a representative heavy project, `estimate` projects **−41% of the per-run bill** from the flagged levers combined (top savers: L6, L1, L4). On the originating 23-round loop, the full set took **~1.1M → ~100–180k tokens/round (~85%)**. Your mileage is project-specific — run `token-diet estimate --dir .` for a projection and `token-diet compare` for the measured result.
+
 Bookends: measure first (this CLI), re-measure + adversarial consistency review after. Full methodology with red flags and common mistakes: **[SKILL.md](skills/SKILL.md)**.
 
 ## Measured reduction
