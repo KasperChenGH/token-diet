@@ -166,7 +166,7 @@ The **shell total** is the headline: **−69% across 388 calls** (600k → 189k 
 
 \* **builds** — **−98%** on a real verbose `npm install` (823 → 15 lines); the eight pooled codebases show none because modern build tools are quiet by default, so verbose build output (cargo, webpack, docker, `npm --verbose`) is where the **−86…−98%** lands.
 ‡ **JSON** — parses the output and shrinks it structurally (truncate long arrays to head+tail+count, clip long string values, re-serialize compact) while keeping every key and never clipping `error`/`status`/`message` values. The −40% here is small because these codebases rarely emit JSON; on real API/devops output it lands **−41% (`npm view react`) to −95%** (array-heavy API responses). Inspired by [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, done the zero-dependency way.
-† **file reads** — *not* in the shell total and *not* an automatic filter win: a separate, opt-in mechanism. It's by far the bigger pool — **5.4M read tokens**, of which **93% are re-reads** (the same files pulled 100–300×) that digests address, vs only 584k on shells. **Measured end-to-end:** the deployed `subagent-digester` authored a digest of a real 321-line source file (3,218 tok) → a **740-token digest** carrying its purpose, full API, and gotchas — **−77% per reference read**. The ~42% headline is the conservative blend, since some reads (e.g. editing) still need the full source. `/token-diet` runs this automatically (find → author → apply → add a CLAUDE.md pointer that routes future reads to the digest); `token-diet compare` measures the realized drop over your next sessions.
+† **file reads** — *not* in the shell total and *not* an automatic filter win: a separate, opt-in mechanism. It's by far the bigger pool — **5.4M read tokens**, of which **93% are re-reads** (the same files pulled 100–300×) that digests address, vs only 584k on shells. **The full chain is proven end-to-end:** the deployed `subagent-digester` authored a digest of a real 321-line source file (3,218 tok) → a **740-token digest** with its purpose, full API, and gotchas — **−77% per reference read** (one file measured so far); and `fix` deterministically applies both the digest *and* a CLAUDE.md routing pointer so future reads prefer it (verified). `/token-diet` runs find → author → apply → route automatically. The remaining proof is the **realized multi-session drop**, which `token-diet compare` measures once you've used it for a few days — that part is yours to generate. The ~42% headline is the conservative blend (some reads, e.g. editing, still need the full source).
 
 `cache_read` itself is never a row — it's not a kind of output, it's the re-transmission of everything above; the filter and digest shrink the *sources* that feed it.
 
@@ -226,7 +226,7 @@ token-diet/
 ├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit · agents ·
 │                                  diagnose · overhead · plan · fix · filter · digest · compare · init · setup
 ├── src/filter.js                  Lever 8 output-compression engine (PostToolUse hook)
-├── src/digest.js                  Lever 5 read-digest prototype: finds re-read files, scaffolds skeletons
+├── src/digest.js                  Lever 5 read-digests: finds re-read files, scaffolds, routes (INDEX + pointer)
 ├── src/*.js                       the deterministic engine (zero deps, no LLM): scan, collectors,
 │                                  review, estimate, diagnose, plan, changeset, fix, compare, history, …
 ├── skills/

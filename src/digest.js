@@ -1,6 +1,6 @@
 'use strict';
 /**
- * digest.js — Lever 5 (tier the knowledge) prototype: the deterministic half.
+ * digest.js — Lever 5 (tier the knowledge): the deterministic half + routing.
  *
  * Dogfood rule: scripts compute, LLM judges. This module does the COMPUTE —
  *   1. find which files an agent re-reads (the digest candidates) from transcripts,
