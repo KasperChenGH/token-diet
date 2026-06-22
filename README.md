@@ -150,17 +150,17 @@ Bookends: measure first (this CLI), re-measure + adversarial consistency review 
 
 ## Measured reduction
 
-Pooled across **eight production codebases**, counting only what the default filter actually compresses — **shell output (Bash + PowerShell)**, weighted by token volume (not a min–max over a few runs). The **calls** column is the sample size, shown rather than hidden. These are **per-call** savings, but each compressed result is what gets re-sent on every later turn, so the cut **compounds through `cache_read`** — your dominant cost (~99.6% of token volume). For the whole-session effect, use `token-diet compare`.
+Pooled across **eight production codebases** (≈388 shell calls), counting only what the default filter actually compresses — **shell output (Bash + PowerShell)**, weighted by token volume (not a min–max over a few runs). These are **per-call** savings, but each compressed result is what gets re-sent on every later turn, so the cut **compounds through `cache_read`** — your dominant cost (~99.6% of token volume). For the whole-session effect, use `token-diet compare`.
 
-| tool output | what it keeps · what it collapses | calls | reduction |
-|---|---|---|---|
-| **git** — `status` / `diff` / `log` | branch + changed files + diff hunks · unchanged-tree noise | 55 | **−82%** |
-| **tests** — pytest / jest / cargo / go / Pester | failures, tracebacks, the pass/fail summary · passing runs | 32 | **−86%** |
-| **JSON** — `curl` / `jq` / `--output json` / API | every key + error/status values · truncates long arrays, clips long strings | 9 | **−40%** ‡ |
-| **logs / other** shell output | dedups repeats · head/tail-elides middles (errors/warnings always kept) | 292 | **−63%** |
-| **shell total** — Bash + PowerShell (the safe default) | the rows above, blended | **388** | **−69%** |
-| **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | — | **−86…−98%** \* |
-| **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads (demonstrated) | — | **~−42%** † |
+| tool output | what it keeps · what it collapses | reduction |
+|---|---|---|
+| **git** — `status` / `diff` / `log` | branch + changed files + diff hunks · unchanged-tree noise | **−82%** |
+| **tests** — pytest / jest / cargo / go / Pester | failures, tracebacks, the pass/fail summary · passing runs | **−86%** |
+| **JSON** — `curl` / `jq` / `--output json` / API | every key + error/status values · truncates long arrays, clips long strings | **−40%** ‡ |
+| **logs / other** shell output | dedups repeats · head/tail-elides middles (errors/warnings always kept) | **−63%** |
+| **shell total** — Bash + PowerShell (the safe default) | the rows above, blended | **−69%** |
+| **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | **−86…−98%** \* |
+| **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads (demonstrated) | **~−42%** † |
 
 The **shell total** is the headline: **−69% across 388 calls** (600k → 189k tokens). Structured output compresses hardest — tests **−86%**, git **−82%**, meeting or beating a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs, which dominate the volume and have no schema to exploit. The lower-call rows (tests, git, JSON) are lightly sampled — these codebases run few large suites or API calls through the shell. (Only shell tools are counted: Read/Grep/Task results are excluded because the default filter never touches them — see Lever 5.) These are **per-call** figures; on a heavy real session the per-call saving is a rounding error, but **compounded through `cache_read`** (a compressed output is re-sent every later turn) it is the dominant effect — measure the whole-session result with `token-diet compare`.
 
