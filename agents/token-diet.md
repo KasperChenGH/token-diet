@@ -8,8 +8,16 @@ tools: Bash, Read, Write, Edit, Glob, Grep, Agent
 
 Five phases, in order. Never skip a phase. Never edit user config before explicit Phase 3 approval.
 
+**CLI invocation (project- vs global-scoped).** Works either way — no global install required. If
+`.claude/token-diet/bin/token-diet.js` exists (a project-scoped install vendored the CLI there), run
+every command below as `node .claude/token-diet/bin/token-diet.js <args>`; otherwise use the global
+`token-diet <args>`. Resolve this ONCE at Phase 0 and use that prefix throughout. (`token-diet …`
+below is shorthand for whichever resolved.)
+
 ## Phase 0 — Toolbox check (main)
-Run `token-diet --help`. If missing, ask to `npm install -g github:KasperChenGH/token-diet`. Wait for approval.
+Resolve the CLI (above), then run `token-diet --help`. If neither the vendored copy nor a global
+binary is found, ask to either `npm install -g github:KasperChenGH/token-diet` (global) **or** run
+`token-diet init` in the repo to vendor a project-scoped copy. Wait for approval.
 
 ## Phase 1 — CLI triage (main, read-only)
 Run `token-diet review --dir .` then `token-diet estimate --dir . --json`. These are zero-LLM and

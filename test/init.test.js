@@ -49,3 +49,25 @@ test('runInit is idempotent — composed output is byte-stable across runs', asy
   assert.equal(first, second);
   rm(dir);
 });
+
+test('project init VENDORS the zero-dep CLI (self-contained, no global needed)', async () => {
+  const dir = tmpDir();
+  await silentInit({ dir });                                   // project mode (no --global)
+  const cli = path.join(dir, '.claude', 'token-diet', 'bin', 'token-diet.js');
+  assert.ok(fs.existsSync(cli), 'bin vendored');
+  assert.ok(fs.existsSync(path.join(dir, '.claude', 'token-diet', 'src', 'review.js')), 'src vendored');
+  assert.ok(fs.existsSync(path.join(dir, '.claude', 'token-diet', 'package.json')), 'package.json vendored');
+  // the vendored CLI must actually run standalone
+  const { execFileSync } = require('node:child_process');
+  const out = execFileSync('node', [cli, '--help'], { encoding: 'utf8' });
+  assert.match(out, /token-diet/);
+  rm(dir);
+});
+
+test('global init does NOT vendor the CLI (relies on the global binary)', async () => {
+  const dir = tmpDir();
+  await silentInit({ dir, global: true, _home: dir });        // global mode
+  // --global installs under homedir/.claude, not dir/.claude; either way, no vendored CLI dir
+  assert.ok(!fs.existsSync(path.join(dir, '.claude', 'token-diet', 'bin')), 'global must not vendor');
+  rm(dir);
+});

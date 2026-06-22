@@ -91,6 +91,29 @@ function composeSubagentBody(srcPath, pkgRoot) {
   return body + '\n';
 }
 
+// Recursively copy a directory tree (files only — zero-dep, no node_modules to worry about).
+function copyTree(srcDir, destDir) {
+  fs.mkdirSync(destDir, { recursive: true });
+  for (const e of fs.readdirSync(srcDir, { withFileTypes: true })) {
+    const s = path.join(srcDir, e.name), d = path.join(destDir, e.name);
+    if (e.isDirectory()) copyTree(s, d);
+    else if (e.isFile()) fs.copyFileSync(s, d);
+  }
+}
+
+// Project mode: vendor the (zero-dependency) CLI into <base>/token-diet/ so the project is
+// fully self-contained — the pre-commit hook and the agent can run `node
+// .claude/token-diet/bin/token-diet.js` with NO global install, NO npx, NO PATH, in ANY
+// project type (incl. non-Node). Global mode skips this and relies on the global binary.
+function vendorCli(base, pkgRoot) {
+  const dest = path.join(base, 'token-diet');
+  copyTree(path.join(pkgRoot, 'bin'), path.join(dest, 'bin'));
+  copyTree(path.join(pkgRoot, 'src'), path.join(dest, 'src'));
+  if (fs.existsSync(path.join(pkgRoot, 'scripts'))) copyTree(path.join(pkgRoot, 'scripts'), path.join(dest, 'scripts'));
+  fs.copyFileSync(path.join(pkgRoot, 'package.json'), path.join(dest, 'package.json'));
+  return dest;
+}
+
 async function runInit(opts = {}) {
   const pkgRoot = path.join(__dirname, '..');
 
@@ -144,7 +167,8 @@ async function runInit(opts = {}) {
   }
 
   // ── Resolve install base (precedence: --global > --dir > cwd) ─────────────────
-  const installRoot = opts.global ? os.homedir()
+  // _home is an override for tests so a --global install never touches the real ~/.claude.
+  const installRoot = opts.global ? (opts._home || os.homedir())
                     : (opts.dir ? path.resolve(opts.dir) : process.cwd());
   const base  = path.join(installRoot, '.claude');
   const scope = opts.global ? `global (${base})` : `project (${base})`;
@@ -187,6 +211,18 @@ async function runInit(opts = {}) {
     console.log(`  [installed] ${artifact.label}`);
     console.log(`              ${destPath}`);
     anyWritten = true;
+  }
+
+  // Project mode → vendor the CLI so the project needs NO global install.
+  if (!opts.global) {
+    try {
+      const dest = vendorCli(base, pkgRoot);
+      console.log(`  [vendored]  self-contained CLI → ${path.join(dest, 'bin', 'token-diet.js')}`);
+      console.log(`              (project runs with NO global install: node .claude/token-diet/bin/token-diet.js)`);
+      anyWritten = true;
+    } catch (e) {
+      console.error(`  [warn] could not vendor the CLI (${e.message}); project will fall back to a global token-diet`);
+    }
   }
 
   console.log('');

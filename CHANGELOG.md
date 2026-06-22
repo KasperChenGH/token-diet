@@ -7,6 +7,12 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 ## [Unreleased]
 
 ### Added
+- **Project-scoped install needs no global binary.** `token-diet init` (project mode) now
+  **vendors the zero-dependency CLI into `.claude/token-diet/`**, so the agent and the pre-commit
+  drift gate run via `node .claude/token-diet/bin/token-diet.js` — no global install, no npx, no
+  PATH, in any project type (incl. Python). The pre-commit hook auto-resolves whichever exists:
+  vendored project copy → global → `node_modules` → `npx`. `init --global` is unchanged (no
+  vendoring; relies on the global binary). Global and project modes are fully separate — your pick.
 - **Structural-drift detection** — structural waste regrows as you work, so a one-time
   `/token-diet` decays. `setup` now records a **drift baseline** (your grade), and `review`
   (run by the pre-commit gate on every commit) nudges loudly if the grade regressed *since your

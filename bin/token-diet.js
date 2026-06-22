@@ -213,7 +213,9 @@ ACT
               deterministic structure skeleton per file under .claude/digests/ for an
               agent to turn into a tight summary. --min-reads N (default 3), --days N.
   init        Install token-diet as a Claude Code skill + agent + command + lever rubrics
-              Default: <cwd>/.claude/  |  --global: ~/.claude/
+              Default (project): <cwd>/.claude/ — also VENDORS the zero-dep CLI into
+              .claude/token-diet/ so the project runs with NO global install (any project type).
+              --global: ~/.claude/ (no vendoring; relies on the global token-diet binary)
   setup       Wire ongoing protection in one shot: output filter (AUDIT mode — records only,
               no changes) + a pre-commit drift reminder. Then 'filter --activate' when ready —
               or 'setup --activate' to wire AND go live immediately (skip the audit preview).

@@ -28,19 +28,29 @@ Grade: F
 
 *(Abbreviated — the real output lists all 8 levers with per-finding evidence and an overhead snapshot.)* `review` reads no history and **changes nothing** — it grades your `.claude/` design (CLAUDE.md, commands, agents, skills) A–F and tells you how to cut tokens before you've spent one.
 
-## Install the agent
+## Install the agent — global or project-scoped (your choice)
 
-The CLI is the engine; the `/token-diet` agent drives it. Deploy the agent + subagents + `/token-diet` command + skill into Claude Code — pick a scope:
+The CLI is the engine; the `/token-diet` agent drives it. Pick the scope that fits — they're fully separate, and **project-scoped needs no global install at all**:
+
+**A) Global** — one install serves every project on the machine (best for polyglot setups):
 
 ```bash
-token-diet init --global          # all projects   → ~/.claude/
-# or, inside one repo:
-cd your-repo && token-diet init   # this repo only  → ./.claude/
+npm install -g github:KasperChenGH/token-diet   # the CLI, on your PATH
+token-diet init --global                        # agent + subagents + command + skill → ~/.claude/
 ```
 
-Reload Claude Code, then run **`/token-diet`** (or just say *"put this project on a token diet"*).
+**B) Project-scoped — fully self-contained, no global anything** (works in any project, including non-Node like Python):
 
-> `npm install -g` installs only the CLI. What makes token-diet global vs. project-scoped is where `init` places the Claude Code artifacts (`--global` or not). The project `.claude/` files are plain text — **commit** them to share the setup with your team, or **gitignore** them to keep it personal.
+```bash
+npx github:KasperChenGH/token-diet init   # one-shot: vendors a zero-dep CLI copy into ./.claude/token-diet/
+                                          #           + installs the agent into ./.claude/
+```
+
+In project mode, `init` **vendors the whole (zero-dependency) CLI into `.claude/token-diet/`**, so the agent and the pre-commit drift gate run it via `node .claude/token-diet/bin/token-diet.js` — no global binary, no `npx` per call, no PATH. The pre-commit hook auto-resolves whichever you have: **vendored project copy → global → `node_modules` → `npx`**.
+
+Either way, reload Claude Code, then run **`/token-diet`** (or just say *"put this project on a token diet"*).
+
+> The project `.claude/` files (artifacts **and** the vendored CLI) are plain text — **commit** them to give your whole team the exact same setup with zero install, or **gitignore** them to keep it personal. Global vs. project is decided purely by whether you pass `--global` to `init`.
 
 ## How to use it — two modes
 

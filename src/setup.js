@@ -14,9 +14,18 @@ const review  = require('./review');
 const history = require('./history');
 
 const HOOK_MARK = '# token-diet review (drift reminder)';
-// Guard the command so a missing token-diet on PATH (GUI git clients, nvm shells) degrades
-// to a no-op instead of blocking the commit; with --fail-under it still gates when present.
-const HOOK_CMD = 'command -v token-diet >/dev/null 2>&1 && token-diet review --dir .   # add --fail-under C to BLOCK commits when the grade regresses';
+// Resolve token-diet however it was installed — works global OR project-scoped, no global
+// required. Priority: a vendored project copy (.claude/token-diet, the explicit "this project
+// is project-scoped" signal) → global PATH → node_modules → npx. If none resolve (e.g. a GUI
+// git client with no PATH), it degrades to a no-op instead of blocking the commit.
+const HOOK_CMD = [
+  'if   [ -f .claude/token-diet/bin/token-diet.js ]; then TD="node .claude/token-diet/bin/token-diet.js"',
+  'elif command -v token-diet >/dev/null 2>&1;       then TD="token-diet"',
+  'elif [ -x node_modules/.bin/token-diet ];         then TD="node_modules/.bin/token-diet"',
+  'elif command -v npx >/dev/null 2>&1;              then TD="npx --no token-diet"',
+  'else TD=""; fi',
+  '[ -n "$TD" ] && $TD review --dir .   # add --fail-under C to BLOCK commits when the grade regresses',
+].join('\n');
 
 function installPreCommit(root) {
   if (!fs.existsSync(path.join(root, '.git'))) return { ok: false, reason: 'not a git repo' };
