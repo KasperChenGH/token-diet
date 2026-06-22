@@ -7,6 +7,14 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 ## [Unreleased]
 
 ### Added
+- **JSON output compressor (Lever 8).** A new `json` content kind: shell output that parses as
+  JSON (curl/jq/`--output json`/API responses) is now shrunk *structurally* — long arrays
+  truncated to head+tail+count, long string values clipped, re-serialized compact — while every
+  key and all `error`/`status`/`message` values are preserved. Validated on real output: **−41%**
+  on `npm view react` (80k tok) to **−95%** on array-heavy API responses. Content-based routing
+  (the command alone is too varied), fail-safe to `dedupLog` on non-JSON. Also switched the
+  filter's no-gain guard from line-count to **token-count** (compact JSON is one line). Inspired by
+  [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, kept zero-dependency.
 - **Project-scoped install needs no global binary.** `token-diet init` (project mode) now
   **vendors the zero-dependency CLI into `.claude/token-diet/`**, so the agent and the pre-commit
   drift gate run via `node .claude/token-diet/bin/token-diet.js` — no global install, no npx, no

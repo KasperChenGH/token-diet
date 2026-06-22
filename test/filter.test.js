@@ -80,6 +80,48 @@ test('classifyKind: build commands → build; test commands stay tests', () => {
   assert.equal(k('echo hi'), 'log');
 });
 
+test('compressJson truncates long arrays + clips long strings, keeps error/status keys', () => {
+  const input = JSON.stringify({
+    status: 'error', code: 503, message: 'upstream timeout after 30s ' + 'x'.repeat(300),
+    items: Array.from({ length: 100 }, (_, i) => ({ id: i, note: 'n'.repeat(400) })),
+  }, null, 2);
+  const out = F.compressJson(input, F.DEFAULT_CONFIG);
+  assert.match(out, /"status":"error"/);                 // signal key kept
+  assert.match(out, /"code":503/);                       // signal key kept
+  assert.match(out, /"message":"upstream timeout after 30s x/);  // message NEVER clipped (signal)
+  assert.match(out, /more items/);                       // long array truncated
+  assert.match(out, /…\(\+\d+ chars\)/);                 // long non-signal string clipped
+  assert.ok(out.length < input.length / 2, 'should at least halve');
+});
+
+test('compressJson falls back to dedupLog on non-JSON (fail-safe)', () => {
+  const notJson = 'connecting...\n'.repeat(40) + 'done';
+  const out = F.compressJson(notJson, F.DEFAULT_CONFIG);
+  assert.match(out, /connecting\.\.\.\s+\(×40\)/);       // dedupLog behavior, not a crash
+});
+
+test('classifyKind routes JSON content to "json" (content-based, any shell command)', () => {
+  const bigJson = JSON.stringify({ a: 1, items: Array.from({ length: 50 }, (_, i) => ({ id: i, name: 'item ' + i })) });
+  assert.equal(F.classifyKind({ tool_name: 'Bash', tool_input: { command: 'curl https://api/x' } }, bigJson), 'json');
+  assert.equal(F.classifyKind({ tool_name: 'Bash', tool_input: { command: 'echo hi' } }, 'plain text not json'), 'log');
+  assert.equal(F.classifyKind({ tool_name: 'Bash', tool_input: { command: 'npm test' } }, bigJson), 'tests'); // test cmd wins over json content
+  assert.equal(F.looksLikeJson('{"big":"' + 'x'.repeat(300) + '"}'), true);
+  assert.equal(F.looksLikeJson('not json at all, just prose here'), false);
+});
+
+test('compressPayload records a json stat and uses the token-based no-gain guard (1-line JSON)', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, mode: 'audit' }));
+  // a single-LINE minified JSON blob: line-based guard would have wrongly skipped it
+  const blob = JSON.stringify({ rows: Array.from({ length: 200 }, (_, i) => ({ id: i, v: 'z'.repeat(50) })) });
+  F.compressPayload({ tool_name: 'Bash', tool_input: { command: 'curl x' }, tool_response: blob }, root, 'ts');
+  const stat = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'stats.jsonl'), 'utf8').trim());
+  assert.equal(stat.kind, 'json');
+  assert.ok(stat.compTok < stat.rawTok, 'token saving recorded despite single-line input');
+  rm(root);
+});
+
 test('compressGit status keeps branch + changed files', () => {
   const input = 'On branch main\nChanges not staged:\n\tmodified:   a.js\n\tmodified:   b.js\nuse git add';
   const out = F.compressGit(input, 'git status', F.DEFAULT_CONFIG);

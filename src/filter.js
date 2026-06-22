@@ -162,6 +162,49 @@ function dedupLog(text, cfg) {
   return r.join('\n');
 }
 
+// ── JSON compressor (SmartCrusher-style, deterministic, zero-dep) ──────────────
+// JSON tool output (curl/API responses, `aws --output json`, `jq`, config dumps) compresses
+// poorly as plain text (mostly-unique lines → low dedup). Parse it and shrink STRUCTURALLY:
+// truncate long arrays (keep head+tail + a count), clip long string values, re-serialize
+// compact. Signal preserved: every key is kept, and values under error/status-like keys are
+// never clipped. Not JSON / parse fails → fall back to dedupLog (fail-safe).
+const JSON_KEEP_KEY = /error|err|exception|fail|status|message|msg|reason|code|trace|stack|warn|detail/i;
+function looksLikeJson(text) {
+  const s = (text || '').trim();
+  if (s.length < 200 || !(s[0] === '{' || s[0] === '[')) return false;   // cheap pre-check
+  try { const v = JSON.parse(s); return v !== null && typeof v === 'object'; } catch { return false; }
+}
+function crushJson(node, key, o, protect) {
+  if (Array.isArray(node)) {
+    if (node.length > o.maxArr) {
+      const head = Math.ceil(o.maxArr / 2), tail = o.maxArr - head;
+      return [
+        ...node.slice(0, head).map(x => crushJson(x, key, o, protect)),
+        `… (${node.length - head - tail} more items)`,
+        ...node.slice(node.length - tail).map(x => crushJson(x, key, o, protect)),
+      ];
+    }
+    return node.map(x => crushJson(x, key, o, protect));
+  }
+  if (node && typeof node === 'object') {
+    const out = {};
+    for (const k of Object.keys(node)) out[k] = crushJson(node[k], k, o, protect);  // keep ALL keys
+    return out;
+  }
+  if (typeof node === 'string' && node.length > o.maxStr) {
+    if (JSON_KEEP_KEY.test(key || '') || protect(node)) return node;   // never clip signal-bearing values
+    return node.slice(0, o.maxStr) + `…(+${node.length - o.maxStr} chars)`;
+  }
+  return node;
+}
+function compressJson(text, cfg) {
+  let data;
+  try { data = JSON.parse(stripNoise(text).trim()); } catch { return dedupLog(text, cfg); }
+  const protect = keepMatcher(cfg);
+  const crushed = crushJson(data, '', { maxArr: 8, maxStr: 200 }, protect);
+  return JSON.stringify(crushed);   // compact re-serialization (drops pretty-print whitespace too)
+}
+
 // ── classify (tool + command → compressor) ────────────────────────────────────
 const TEST_CMD_RE = /\b(pytest|jest|vitest|mocha|cargo test|go test|npm (run )?test|yarn test|pnpm test|rspec|phpunit|gradle test|mvn test|unittest|Invoke-Pester)\b/;
 // Build/install commands — checked AFTER tests so `npm test`/`cargo test` stay 'tests'.
@@ -171,26 +214,33 @@ const GIT_CMD_RE = /(?:^\s*|[;&|]\s*)git\b/;
 // Shells produce incidental verbose output; everything else (Read/Grep/Task/Edit/…) is
 // intentional retrieval or a semantic result — left to Lever 5 / passed through.
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
-// The compressor "kind" — also the row key in the --report table.
-function classifyKind(payload) {
+// The compressor "kind" — also the row key in the --report table. `text` is optional: when
+// given, a generic-shell output whose body parses as JSON is classified 'json' (content-based,
+// since the command alone — curl/jq/aws — is too varied to detect reliably by name).
+function classifyKind(payload, text) {
   const tool = payload.tool_name || '';
   const cmd  = (payload.tool_input && payload.tool_input.command) || '';
   if (tool === 'Read') return 'read';
-  if (!SHELL_TOOLS.has(tool)) return 'log';
+  if (!SHELL_TOOLS.has(tool)) return text != null && looksLikeJson(text) ? 'json' : 'log';
   if (TEST_CMD_RE.test(cmd)) return 'tests';
   if (GIT_CMD_RE.test(cmd))  return 'git';
   if (BUILD_CMD_RE.test(cmd)) return 'build';
+  if (text != null && looksLikeJson(text)) return 'json';
   return 'log';
 }
 function classify(payload, cfg) {
   const cmd = (payload.tool_input && payload.tool_input.command) || '';
-  switch (classifyKind(payload)) {
-    case 'read':  return (t) => compressRead(t, cfg);
-    case 'tests': return (t) => compressTests(t, cfg);
-    case 'git':   return (t) => compressGit(t, cmd, cfg);
-    case 'build': return (t) => compressBuild(t, cfg);
-    default:      return (t) => dedupLog(t, cfg);
-  }
+  // Routing is content-aware (json detection needs the text), so decide inside the returned fn.
+  return (t) => {
+    switch (classifyKind(payload, t)) {
+      case 'read':  return compressRead(t, cfg);
+      case 'tests': return compressTests(t, cfg);
+      case 'git':   return compressGit(t, cmd, cfg);
+      case 'build': return compressBuild(t, cfg);
+      case 'json':  return compressJson(t, cfg);
+      default:      return dedupLog(t, cfg);
+    }
+  };
 }
 
 // ── output extraction (defensive across hook payload shapes) ───────────────────
@@ -268,8 +318,10 @@ function compressPayload(payload, root, nowIso) {
   if (estTok(stripped) < cfg.minTokensToCompress && baseLines < cfg.minLines) return null;
   const compressed = classify(payload, cfg)(full).trim();
   const compLines = compressed.split('\n').length;
-  if (!compressed || compLines >= baseLines) return null; // no real gain → pass through
-  const stat = { ts: nowIso, tool: payload.tool_name || '', kind: classifyKind(payload),
+  // No-gain guard is TOKEN-based (not line-based): JSON compresses to one compact line, so a
+  // line-count check would wrongly reject a big token saving. Tokens are what we're cutting.
+  if (!compressed || estTok(compressed) >= estTok(stripped)) return null;
+  const stat = { ts: nowIso, tool: payload.tool_name || '', kind: classifyKind(payload, full),
                  rawTok: estTok(stripped), compTok: estTok(compressed) };
   if ((cfg.mode || 'audit') !== 'active') { recordStats(root, stat); return null; } // audit → record, no rewrite
   // Active mode: persist the full output FIRST. If the sidecar write throws (disk full, etc.)
@@ -380,6 +432,8 @@ const FIXTURES = {
          '\nwarning: unused variable: `x`\n  --> src/main.rs:4:9\n' +
          'error[E0308]: mismatched types\n  --> src/main.rs:10:5\n' +
          '   Finished dev [unoptimized + debuginfo] target(s) in 8.21s',
+  json:  JSON.stringify({ status: 'ok', count: 50,
+           items: Array.from({ length: 50 }, (_, i) => ({ id: i, name: 'item ' + i, note: 'x'.repeat(300) })) }, null, 2),
 };
 function runSelfTest() {
   const cfg = { ...DEFAULT_CONFIG, enabled: true };
@@ -387,6 +441,7 @@ function runSelfTest() {
     ['tests (pytest)', FIXTURES.tests, t => compressTests(t, cfg)],
     ['git status',     FIXTURES.git,   t => compressGit(t, 'git status', cfg)],
     ['build (cargo)',  FIXTURES.build, t => compressBuild(t, cfg)],
+    ['json (api)',     FIXTURES.json,  t => compressJson(t, cfg)],
     ['large read',     FIXTURES.read,  t => compressRead(t, cfg)],
     ['log dedup',      FIXTURES.log,   t => dedupLog(t, cfg)],
   ];
@@ -400,7 +455,7 @@ function runSelfTest() {
 }
 
 // ── report: aggregate recorded stats into a measured reduction table ───────────
-const KIND_LABEL = { tests: 'tests (pytest/jest/…)', git: 'git (status/diff/log)', build: 'builds (npm/cargo/…)', read: 'large file reads', log: 'logs / other output' };
+const KIND_LABEL = { tests: 'tests (pytest/jest/…)', git: 'git (status/diff/log)', build: 'builds (npm/cargo/…)', json: 'JSON (curl/jq/api)', read: 'large file reads', log: 'logs / other output' };
 
 function aggregateStats(entries) {
   const agg = {};
@@ -450,7 +505,7 @@ function runReport(opts = {}) {
 
 module.exports = {
   DEFAULT_CONFIG, loadConfig, configPath, stripNoise,
-  compressTests, compressGit, compressBuild, compressRead, dedupLog, classify, classifyKind, extractOutput,
+  compressTests, compressGit, compressBuild, compressJson, compressRead, dedupLog, looksLikeJson, classify, classifyKind, extractOutput,
   writeSidecar, pruneSidecar, recordStats, compressPayload, runFilter, keepMatcher,
   runInstall, runUninstall, setEnabled, setState, runSelfTest, aggregateStats, runReport,
 };
