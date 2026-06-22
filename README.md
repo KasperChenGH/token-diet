@@ -138,7 +138,7 @@ These are **different mechanisms in different units** — don't read them as one
 | 1 · Delete agents | ~20–40k tokens per **removed ceremonial spawn** | model |
 | 2 · Merge sessions | one cycle's re-sent context per merge | restructure |
 | 3 · Evict compute | the idle / compute-adjacent tokens of babysat commands | restructure |
-| 4 · Scripts compute | the tokens the LLM spends **re-deriving** deterministic results | model |
+| 4 · Scripts compute | halves the LLM's re-derivation (output ×0.5) — **~−3k weighted tok/run** on a representative project | model |
 | 5 · Tier knowledge (digests) | **−77% per reference read** (~−42% blended) | measured |
 | 6 · Trim always-loaded | reference bulk → a pointer: **−80% of the always-loaded file**, **× every spawn** (the largest compounding saver) | demonstrated ‖ |
 | 7 · Model arbitrage | **$-cost only** — routes mechanical work to a cheaper model (not raw tokens) | model |
