@@ -15,6 +15,15 @@ function appendRun(root, record) {
   writeFileAtomic(historyPath(root), JSON.stringify(h, null, 2));
   return h;
 }
+// Baseline = the grade at the last optimization/setup, used to detect later structural drift.
+function getBaseline(root) { return readHistory(root).baseline || null; }
+function setBaseline(root, baseline) {
+  const h = readHistory(root);
+  h.baseline = baseline;
+  writeFileAtomic(historyPath(root), JSON.stringify(h, null, 2));
+  return h;
+}
+
 function rejectedItemKeys(history) {
   const keys = new Set();
   for (const r of history.runs) for (const k of (r.rejected || [])) keys.add(k);
@@ -28,4 +37,4 @@ function regrowth(history, file, currentLines) {
   return false;
 }
 
-module.exports = { historyPath, readHistory, appendRun, rejectedItemKeys, regrowth };
+module.exports = { historyPath, readHistory, appendRun, rejectedItemKeys, regrowth, getBaseline, setBaseline };

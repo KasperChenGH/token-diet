@@ -14,6 +14,18 @@ test('appendRun + readHistory round-trip', () => {
   rm(dir);
 });
 
+test('baseline get/set round-trips and coexists with runs', () => {
+  const dir = tmpDir();
+  assert.equal(H.getBaseline(dir), null);                         // none yet
+  H.appendRun(dir, { ts: 't1', items: [1] });
+  H.setBaseline(dir, { grade: 'B', findings: 3, ts: 't1' });
+  assert.deepEqual(H.getBaseline(dir), { grade: 'B', findings: 3, ts: 't1' });
+  assert.equal(H.readHistory(dir).runs.length, 1);                // runs preserved
+  H.setBaseline(dir, { grade: 'A', findings: 0, ts: 't2' });      // overwrites
+  assert.equal(H.getBaseline(dir).grade, 'A');
+  rm(dir);
+});
+
 test('rejectedItemKeys collects across runs; regrowth detects a re-grown file', () => {
   const dir = tmpDir();
   H.appendRun(dir, { ts: 't1', rejected: ['L6:CLAUDE.md'], trimmed: { 'CLAUDE.md': 90 } });

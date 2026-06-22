@@ -5,7 +5,10 @@ const path     = require('path');
 const { tmpDir, writeFile, rm } = require('./helpers');
 const R = require('../src/review');
 
+const fs = require('fs');
+const H  = require('../src/history');
 const NO_HOME = p => path.join(p, 'NO_HOME');
+const capture = async fn => { let out = ''; const o = console.log; console.log = (...a) => { out += a.join(' ') + '\n'; }; try { await fn(); } finally { console.log = o; } return out; };
 
 function bigClaude(lines) { return Array.from({ length: lines }, (_, i) => `line ${i}`).join('\n'); }
 
@@ -83,4 +86,25 @@ test('Lever 6 severity boundary: 250 lines → med, 251 → high', () => {
   const d251 = tmpDir(); writeFile(d251, 'CLAUDE.md', bigClaude(251));
   assert.equal(sizeFinding(R.analyze(d251, NO_HOME(d251))).severity, 'high');
   rm(d251);
+});
+
+test('drift nudge: --record stamps a baseline; a later regression nudges; no false positive', async () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', 'short');                 // lean → good grade
+  await capture(() => R.runReview({ dir, record: true }));
+  const base = H.getBaseline(dir);
+  assert.ok(base && /^[A-F]$/.test(base.grade), 'baseline recorded with a real grade');
+
+  // regress the project hard, then a PLAIN review must nudge
+  writeFile(dir, 'CLAUDE.md', bigClaude(300));
+  writeFile(dir, '.claude/commands/x.md', '---\n---\nSpawn 5 subagents.\n## Step 1\n## Step 2\nrun the test suite, build, docker');
+  const out = await capture(() => R.runReview({ dir }));
+  assert.match(out, /Structural drift: grade regressed/);
+  assert.match(out, /Run `\/token-diet`/);
+
+  // re-record at the worse grade → no further nudge
+  await capture(() => R.runReview({ dir, record: true }));
+  const out2 = await capture(() => R.runReview({ dir }));
+  assert.doesNotMatch(out2, /Structural drift/);
+  rm(dir);
 });

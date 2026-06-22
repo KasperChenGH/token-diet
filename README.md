@@ -75,9 +75,11 @@ token-diet filter --activate  # happy with it? go live
 Either way it's set-and-forget once active. Even when live, the full original output is always saved to a sidecar file with a pointer back to it — nothing is ever lost — and you can `token-diet filter --disable` anytime. (Step 1's "watch-only" state is the filter's **audit** mode.)
 
 <details>
-<summary>Bonus: <code>setup</code> also adds a commit-time guard</summary>
+<summary>Bonus: <code>setup</code> also catches structural <b>drift</b> over time</summary>
 
-`setup` drops in a git pre-commit hook (`token-diet review --dir .`) that re-grades your `.claude/` design and warns if it regresses. To make a regression **block** the commit instead of just warning, edit `.git/hooks/pre-commit` and append `--fail-under C` to that review line. Purely optional — the filter above works without it.
+Structural waste *regrows* as you work — you add an agent, CLAUDE.md creeps up, new files get re-read — so a one-time `/token-diet` decays. You shouldn't have to *remember* to re-run it. So `setup` records a **drift baseline** (your current grade) and drops a git pre-commit hook (`token-diet review --dir .`) that re-grades on every commit. If the grade **regresses since your last token-diet run**, the commit prints one loud line — *"⚠ Structural drift: grade regressed B → C … run /token-diet to re-optimize"* — otherwise it stays quiet. So you re-optimize **when told**, not on a guess. (Add `--fail-under C` to the hook line to **block** the commit instead of warning.)
+
+The fix itself stays manual by design: re-optimizing means an LLM editing your files with judgment, so it always goes through `/token-diet`'s approval gate. token-diet auto-*detects* the drift; you approve the *fix*.
 </details>
 
 <details>

@@ -20,6 +20,7 @@
 const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
+const history = require('./history');
 
 // ── small helpers ─────────────────────────────────────────────────────────────
 
@@ -618,6 +619,13 @@ async function runReview(opts = {}) {
   // Detect whether any project-level Claude Code artifacts exist
   const hasProjectArtifacts = fs.existsSync(path.join(targetDir, 'CLAUDE.md')) || fs.existsSync(path.join(targetDir, '.claude'));
 
+  // --record stamps the current grade as the drift baseline (used by the agent's Phase 5 and
+  // `setup`). Plain `review` later compares against it and nudges if the structure regressed.
+  if (opts.record && grade !== 'N/A') {
+    try { history.setBaseline(targetDir, { grade, findings: projectFindings.length, ts: new Date().toISOString() }); }
+    catch { /* history is best-effort — never break review */ }
+  }
+
   // ── Build per-lever scorecard (project scope only) ───────────────────────
   const leverFindings = {};
   for (let i = 1; i <= 8; i++) leverFindings[i] = [];
@@ -753,6 +761,18 @@ async function runReview(opts = {}) {
       console.log(`    N=${String(n).padEnd(3)} ${fmt(perSpawnTotal * n).padStart(10)} tokens`);
     }
     console.log('');
+  }
+
+  // Regrowth nudge: if the structure regressed since the last token-diet optimization, say so
+  // loudly and point at the one fix. This is what makes the pre-commit drift gate self-reminding —
+  // the user re-runs /token-diet because they're told to, not on a guess. Read-only.
+  if (!opts.record && grade !== 'N/A') {
+    const base = history.getBaseline(targetDir);
+    if (base && base.grade && base.grade !== 'N/A' && gradeWorseThan(grade, base.grade)) {
+      console.log('⚠  Structural drift: grade regressed ' + base.grade + ' → ' + grade +
+        ' since your last token-diet run (' + projectFindings.length + ' findings now).');
+      console.log('   Run `/token-diet` to re-optimize.\n');
+    }
   }
 
   console.log('─'.repeat(72));

@@ -7,6 +7,11 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 ## [Unreleased]
 
 ### Added
+- **Structural-drift detection** — structural waste regrows as you work, so a one-time
+  `/token-diet` decays. `setup` now records a **drift baseline** (your grade), and `review`
+  (run by the pre-commit gate on every commit) nudges loudly if the grade regressed *since your
+  last token-diet run* — so you re-optimize when told, not on a guess. `review --record` stamps
+  the baseline (the agent's Phase 5 uses it); detection is automatic, the fix stays gated.
 - **`token-diet setup --activate`** — one-command path to the auto filter: wires the hook AND
   goes live immediately (skip the audit preview). Default `setup` still starts in audit; the
   agent never auto-activates. README Mode 2 rewritten so the minimal path (one command + reload)

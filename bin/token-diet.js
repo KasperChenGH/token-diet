@@ -71,6 +71,7 @@ function parseArgs(argv) {
     scaffold:   false,
     minReads:   null,
     share:      false,
+    record:     false,
     help:       false,
     _unknown:   [],
   };
@@ -144,6 +145,8 @@ function parseArgs(argv) {
       opts.scaffold = true;
     } else if (a === '--share') {
       opts.share = true;
+    } else if (a === '--record') {
+      opts.record = true;
     } else if (a === '--min-reads') {
       opts.minReads = parseInt(args[++i], 10);
     } else if (a.startsWith('--min-reads=')) {
@@ -179,6 +182,8 @@ REVIEW (static, no history)
               Emits per-lever scorecard + findings + overall grade (A-F).
               No transcript history needed — run before your first session.
               --fail-under <grade> exits non-zero on regression (CI / pre-commit gate)
+              --record stamps the current grade as the drift baseline; a later plain
+              review nudges if the structure regressed (the pre-commit gate uses this)
   estimate    Forward token projection (a MODEL, not a measurement): per-run bill
               (write/read/output, raw + price-weighted), post-fix re-projection, per-lever
               savings ranking. Inputs derived from structure; override --spawns/--turns/--toolout.

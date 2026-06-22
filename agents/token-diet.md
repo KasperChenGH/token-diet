@@ -38,7 +38,9 @@ Run `token-diet fix --changeset diet-changeset.json --only <approved>`, then
 never delete (enforced and tested in `fix`).
 
 ## Phase 5 — Verify + report savings + wire ongoing protection (main)
-Run `token-diet review --dir .` for the static delta (it now includes the overhead snapshot), then
+Run `token-diet review --dir . --record` for the static delta (it includes the overhead snapshot;
+`--record` stamps the post-optimization grade as the drift baseline, so future commits warn if the
+structure regresses), then
 **`token-diet savings --dir .`** to show the user the per-lever / per-section reduction table
 (structural levers projected, filter measured — clearly labelled). Tell the user to run normally for
 a few days, then `token-diet compare --before-days 14 --after-days 7` for the measured whole-session

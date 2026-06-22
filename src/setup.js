@@ -6,10 +6,12 @@
  * The only thing left for the user is one switch — `filter --activate` — once they've
  * eyeballed `filter --report`. High-blast-radius things are never silently enabled.
  */
-const fs     = require('fs');
-const path   = require('path');
-const os     = require('os');
-const filter = require('./filter');
+const fs      = require('fs');
+const path    = require('path');
+const os      = require('os');
+const filter  = require('./filter');
+const review  = require('./review');
+const history = require('./history');
 
 const HOOK_MARK = '# token-diet review (drift reminder)';
 // Guard the command so a missing token-diet on PATH (GUI git clients, nvm shells) degrades
@@ -50,6 +52,16 @@ async function runSetup(opts = {}) {
 
   const pc = installPreCommit(root);
   console.log(`  pre-commit drift reminder: ${pc.ok ? pc.status : 'skipped — ' + pc.reason}`);
+
+  // Seed a drift baseline so the pre-commit gate can warn when the structure regresses later,
+  // even for users who only run `setup` and never the full agent. /token-diet Phase 5 updates it.
+  try {
+    const r = review.analyze(root, os.homedir());
+    if (r.grade !== 'N/A') {
+      history.setBaseline(root, { grade: r.grade, findings: r.projectFindings.length, ts: new Date().toISOString() });
+      console.log(`  drift baseline: grade ${r.grade} recorded — commits warn if it regresses`);
+    }
+  } catch { /* best-effort */ }
 
   if (mode === 'active') {
     console.log('\nWired + LIVE. The filter will COMPRESS verbose tool output automatically.');
