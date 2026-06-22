@@ -140,9 +140,11 @@ These are **different mechanisms in different units** — don't read them as one
 | 3 · Evict compute | the idle / compute-adjacent tokens of babysat commands | restructure |
 | 4 · Scripts compute | the tokens the LLM spends **re-deriving** deterministic results | model |
 | 5 · Tier knowledge (digests) | **−77% per reference read** (~−42% blended) | measured |
-| 6 · Trim always-loaded | per-spawn overhead **× every spawn** — often the single largest saver | model |
+| 6 · Trim always-loaded | reference bulk → a pointer: **−80% of the always-loaded file**, **× every spawn** (the largest compounding saver) | demonstrated ‖ |
 | 7 · Model arbitrage | **$-cost only** — routes mechanical work to a cheaper model (not raw tokens) | model |
 | 8 · Filter tool output | **−69% of shell output** across 389 calls (git −83 · tests −86 · JSON −40 · logs −62) | measured |
+
+‖ **Lever 6** — the deployed `subagent-context-trimmer` trimmed a representative `CLAUDE.md` (524 always-loaded tokens) to **104** by moving the reference bulk (script catalog, definitions, layout) to a pointer + a companion file — **−80% of what every spawn pays**, compounding to **−4,200 tok/round at 10 agents** (move-not-delete; the moved content loads on demand). The exact % tracks how much of your file is living state vs. reference.
 
 On a representative heavy project, `estimate` projects **−41% of the per-run bill** from the flagged levers combined (top savers: L6, L1, L4). On the originating 23-round loop, the full set took **~1.1M → ~100–180k tokens/round (~85%)**. Your mileage is project-specific — run `token-diet estimate --dir .` for a projection and `token-diet compare` for the measured result.
 
