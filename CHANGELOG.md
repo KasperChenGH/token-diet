@@ -48,6 +48,16 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
   a tag→version release workflow, `CODE_OF_CONDUCT.md`, and this changelog.
 
 ### Fixed
+- **Pre-commit hook upgrades in place.** `setup` now detects a stale (pre-vendoring) single-line
+  drift hook and rewrites it to the smart resolver (vendored → global → node_modules → npx),
+  preserving any foreign hook content — so a project that ran `setup` on an older version picks up
+  the project-scoped fallback instead of silently skipping when there's no global binary.
+- **`savings --share` warns before the link.** It now prints "this opens a PUBLIC GitHub issue"
+  *at the moment of action*, not just in the README, so no one submits without realizing it's public.
+- **`digest --scaffold` is now one-paste-finishable.** Each scaffold is a ready-to-use authoring
+  prompt: paste it into any LLM (or run `/token-diet`, whose digester subagent does it automatically)
+  and drop the output into the file's `Digest` section. token-diet still never calls an LLM itself.
+
 - **`dedupLog` no longer elides error/warning lines from the middle** — auditing real
   shell logs found it silently dropped a critical line (Python tracebacks, `FutureWarning`,
   `FAIL`) in **14% of elided calls**; the log compressor now always keeps error/warning

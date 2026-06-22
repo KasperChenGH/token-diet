@@ -53,6 +53,23 @@ test('runSetup wires the filter in AUDIT mode + the pre-commit hook', async () =
   rm(root);
 });
 
+test('installPreCommit upgrades a stale single-line hook to the smart resolver (regression)', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.git', 'hooks'), { recursive: true });
+  const hookP = path.join(root, '.git', 'hooks', 'pre-commit');
+  // the pre-vendoring single-line form
+  fs.writeFileSync(hookP, '#!/bin/sh\nnpm test\n# token-diet review (drift reminder)\ncommand -v token-diet >/dev/null 2>&1 && token-diet review --dir .\n');
+  const r = S.installPreCommit(root);
+  assert.match(r.status, /upgraded/);
+  const after = fs.readFileSync(hookP, 'utf8');
+  assert.match(after, /npm test/);                                   // foreign content preserved
+  assert.match(after, /\.claude\/token-diet\/bin\/token-diet\.js/);  // smart resolver now present
+  assert.equal((after.match(/drift reminder/g) || []).length, 1);    // not duplicated
+  assert.doesNotMatch(after, /command -v token-diet >\/dev\/null 2>&1 && token-diet review --dir \.\n/);  // old line gone
+  assert.equal(S.installPreCommit(root).status, 'already present');  // idempotent after upgrade
+  rm(root);
+});
+
 test('runSetup --activate wires the filter LIVE in one command (mode: active)', async () => {
   const root = tmpDir();
   fs.mkdirSync(path.join(root, '.git'), { recursive: true });

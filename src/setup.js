@@ -27,6 +27,24 @@ const HOOK_CMD = [
   '[ -n "$TD" ] && $TD review --dir .   # add --fail-under C to BLOCK commits when the grade regresses',
 ].join('\n');
 
+// Remove any existing token-diet block (the HOOK_MARK line + the command lines that follow it,
+// up to the next blank line or EOF). Handles every past form — old single-line and the current
+// multi-line resolver — so an upgrade replaces a stale block instead of duplicating/skipping it.
+function stripStaleHook(body) {
+  if (!body.includes(HOOK_MARK)) return body;
+  const lines = body.split('\n'); const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].includes(HOOK_MARK)) {
+      let j = i + 1;
+      while (j < lines.length && lines[j].trim() !== '') j++;   // skip the block's command lines
+      i = j - 1;                                                 // loop ++ lands on the blank (kept)
+      continue;
+    }
+    out.push(lines[i]);
+  }
+  return out.join('\n').replace(/\n{3,}/g, '\n\n');
+}
+
 function installPreCommit(root) {
   if (!fs.existsSync(path.join(root, '.git'))) return { ok: false, reason: 'not a git repo' };
   const hooksDir = path.join(root, '.git', 'hooks');
@@ -34,12 +52,19 @@ function installPreCommit(root) {
   const hookP = path.join(hooksDir, 'pre-commit');
   let body = '';
   try { body = fs.readFileSync(hookP, 'utf8'); } catch { /* none yet */ }
-  if (body.includes(HOOK_MARK)) return { ok: true, status: 'already present' };
   const block = `${HOOK_MARK}\n${HOOK_CMD}\n`;
-  if (body) fs.appendFileSync(hookP, '\n' + block);
-  else      fs.writeFileSync(hookP, '#!/bin/sh\n' + block);
+  if (body.includes(block)) return { ok: true, status: 'already present' };   // exact current form
+  const stale = body.includes(HOOK_MARK);                                      // an older block exists
+  const cleaned = stripStaleHook(body);
+  if (!cleaned.trim()) {
+    fs.writeFileSync(hookP, '#!/bin/sh\n' + block);
+  } else {
+    const base = cleaned.startsWith('#!') ? cleaned : '#!/bin/sh\n' + cleaned;
+    fs.writeFileSync(hookP, base.replace(/\s*$/, '') + '\n\n' + block);
+  }
   try { fs.chmodSync(hookP, 0o755); } catch { /* no-op on Windows */ }
-  return { ok: true, status: body ? 'appended to existing pre-commit' : 'created pre-commit' };
+  return { ok: true, status: stale ? 'upgraded existing pre-commit to the current resolver'
+                                    : (body ? 'appended to existing pre-commit' : 'created pre-commit') };
 }
 
 async function runSetup(opts = {}) {

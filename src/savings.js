@@ -144,9 +144,11 @@ async function runSavings(opts = {}) {
     console.log(`\nPOSTed to TOKEN_DIET_TELEMETRY_URL → ${code == null ? 'failed (offline?) — nothing lost' : 'HTTP ' + code}`);
   } else {
     console.log('\nNo TOKEN_DIET_TELEMETRY_URL set — nothing was sent automatically.');
-    console.log('To share these aggregate numbers, open this pre-filled GitHub issue and submit:\n');
+    console.log('\n⚠  This opens a PUBLIC GitHub issue. The aggregate payload above is all that goes in it');
+    console.log('   (no paths, names, or content) — but it will be world-readable. Edit or cancel before submitting.');
+    console.log('\nTo share these numbers, open this pre-filled issue and submit:\n');
     console.log('  ' + githubIssueUrl(payload));
-    console.log('\n(GitHub issues are PUBLIC; the payload above is all that goes in it.)\n');
+    console.log('');
   }
 }
 

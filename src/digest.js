@@ -64,14 +64,22 @@ function scaffoldOne(root, cand) {
   const dir = path.join(root, '.claude', 'digests');
   fs.mkdirSync(dir, { recursive: true });
   const name = rel.replace(/[\\/]/g, '__').replace(/[^\w.-]/g, '_') + '.md';
+  // The scaffold IS a ready-to-use authoring prompt: paste this whole file into any LLM (or let
+  // the /token-diet digester subagent handle it) and it returns the finished digest. Zero-dep —
+  // token-diet never calls an LLM itself (scripts compute, LLM judges).
   const body =
-    `# Digest: ${rel}  (auto-skeleton — replace with a tight prose summary)\n\n` +
+    `# Digest: ${rel}\n\n` +
     `> Source: \`${rel}\` · read ${cand.count}× (~${fmt(cand.tokens)} tok over the window).\n` +
-    `> This is a deterministic structure extract. An agent should rewrite it into a tight\n` +
-    `> summary (≤ ~600 tok) capturing what a reader needs, then point readers here instead\n` +
-    `> of re-reading the full file. The full file stays — this is a move, not a delete.\n\n` +
-    `## Structure (extracted signatures / headings)\n\n` +
-    '```\n' + (skeleton || '(no signatures detected — summarize by hand)') + '\n```\n';
+    `> The full file stays — this is a move, not a delete.\n\n` +
+    `<!-- TO FINISH (one paste): give everything below to an LLM, or run /token-diet (its digester\n` +
+    `     subagent does this automatically). Replace the "Digest" section with the model's output. -->\n\n` +
+    `## Authoring prompt\n\n` +
+    `Write a tight prose digest (≤ ~600 tokens) of \`${rel}\` from the structure below: its purpose,\n` +
+    `its public API/entry points, and the gotchas a reader needs — so they never re-read the full file.\n` +
+    `End with \`> Source: ${rel}\`. Keep exact signatures/flags verbatim; summarize the rest.\n\n` +
+    `### Structure (extracted signatures / headings)\n\n` +
+    '```\n' + (skeleton || '(no signatures detected — summarize by hand)') + '\n```\n\n' +
+    `## Digest (replace this line with the authored summary)\n`;
   fs.writeFileSync(path.join(dir, name), body);
   return path.join('.claude', 'digests', name).split(path.sep).join('/');
 }
@@ -108,8 +116,10 @@ async function runDigest(opts = {}) {
       const rel = scaffoldOne(root, s);
       if (rel) { n++; console.log(`  wrote ${rel}`); }
     }
-    console.log(`\n${n} skeleton(s) written. Now have an agent turn each into a tight prose digest`);
-    console.log('(scripts found + measured + extracted structure; the agent writes the summary).\n');
+    console.log(`\n${n} scaffold(s) written — each is a ready-to-use authoring prompt. To finish:`);
+    console.log('  • run /token-diet — its digester subagent writes the prose digests automatically, or');
+    console.log('  • paste each .claude/digests/*.md into any LLM and drop its output into the "Digest" section.');
+    console.log('  Then point readers at the digest instead of the full file (the Lever 5 win).\n');
   } else {
     console.log('  Re-run with --scaffold to write skeleton digests you (or an agent) then summarize.\n');
   }
