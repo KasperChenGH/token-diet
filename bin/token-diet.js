@@ -26,20 +26,12 @@
  * See skills/SKILL.md for the full reference guide and optimization levers.
  */
 
-const { runAudit }    = require('../src/audit');
-const { runAgents }   = require('../src/agents');
-const { runDiagnose } = require('../src/diagnose');
-const { runOverhead } = require('../src/overhead');
-const { runPlan }     = require('../src/plan');
-const { runCompare }  = require('../src/compare');
-const { runInit }     = require('../src/init');
-const { runReview, gradeWorseThan } = require('../src/review');
-const { runEstimate } = require('../src/estimate');
-const { runFix, runVerify } = require('../src/fix');
-const filter          = require('../src/filter');
-const { runSetup }    = require('../src/setup');
-const { runDigest }   = require('../src/digest');
-const { runSavings }  = require('../src/savings');
+// Subcommand modules are require()d LAZILY inside each switch case (below), not eagerly
+// here. This matters for the hot path: the Lever 8 filter runs as a PostToolUse hook
+// (`token-diet filter`) on every Bash/PowerShell call — a fresh Node process each time.
+// Loading only src/filter.js (+ its tiny deps) instead of all ~13 subcommand modules and
+// their transitive graph (scan, review, estimate, diagnose, plan, compare, …) trims the
+// per-call startup cost. Each case below pulls in exactly what it needs.
 
 // ── arg parser ────────────────────────────────────────────────────────────────
 function parseArgs(argv) {
@@ -280,32 +272,33 @@ async function main() {
 
   switch (subcommand) {
     case 'audit':
-      await runAudit(opts);
+      await require('../src/audit').runAudit(opts);
       break;
     case 'agents':
-      await runAgents(opts);
+      await require('../src/agents').runAgents(opts);
       break;
     case 'diagnose':
-      await runDiagnose(opts);
+      await require('../src/diagnose').runDiagnose(opts);
       break;
     case 'overhead':
-      await runOverhead(opts);
+      await require('../src/overhead').runOverhead(opts);
       break;
     case 'plan':
       if (opts.days == null) opts.days = 7;
-      await runPlan(opts);
+      await require('../src/plan').runPlan(opts);
       break;
     case 'compare':
-      await runCompare(opts);
+      await require('../src/compare').runCompare(opts);
       break;
     case 'init':
-      await runInit(opts);
+      await require('../src/init').runInit(opts);
       break;
     case 'review': {
       if (opts.failUnder && !['A', 'B', 'C', 'D', 'F'].includes(String(opts.failUnder).toUpperCase())) {
         console.error(`token-diet: --fail-under must be one of A B C D F (got "${opts.failUnder}")`);
         process.exit(2);
       }
+      const { runReview, gradeWorseThan } = require('../src/review');
       const grade = await runReview(opts);
       if (opts.failUnder && gradeWorseThan(grade, opts.failUnder)) {
         console.error(`token-diet: grade ${grade} is below --fail-under ${opts.failUnder}`);
@@ -314,19 +307,20 @@ async function main() {
       break;
     }
     case 'setup':
-      await runSetup(opts);
+      await require('../src/setup').runSetup(opts);
       break;
     case 'digest':
       if (opts.days == null) opts.days = 7;
-      await runDigest(opts);
+      await require('../src/digest').runDigest(opts);
       break;
     case 'savings':
-      await runSavings(opts);
+      await require('../src/savings').runSavings(opts);
       break;
     case 'estimate':
-      await runEstimate(opts);
+      await require('../src/estimate').runEstimate(opts);
       break;
-    case 'fix':
+    case 'fix': {
+      const { runFix, runVerify } = require('../src/fix');
       if (opts.verify) {
         const problems = runVerify(opts);
         if (problems.length) process.exit(1);
@@ -336,7 +330,9 @@ async function main() {
         if (Array.isArray(results) && results.some(r => /^ERROR/.test(r.status || ''))) process.exit(1);
       }
       break;
-    case 'filter':
+    }
+    case 'filter': {
+      const filter = require('../src/filter');
       if (opts.selfTest)       filter.runSelfTest();
       else if (opts.install)   filter.runInstall(opts);
       else if (opts.uninstall) filter.runUninstall(opts);
@@ -346,6 +342,7 @@ async function main() {
       else if (opts.report)    filter.runReport(opts);   // measured reduction table
       else                     filter.runFilter(opts);   // hook mode — reads stdin
       break;
+    }
     default:
       console.error(`Unknown subcommand: ${subcommand}`);
       showHelp();

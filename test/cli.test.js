@@ -72,6 +72,32 @@ test('audit --json and agents --json run end-to-end on a fixture transcript', ()
   rm(home);
 });
 
+test('filter hook path lazy-loads only filter+atomic, not the heavy subcommand modules', () => {
+  // The PostToolUse hook (`token-diet filter`) is a fresh Node process per Bash/PowerShell
+  // call, so its require graph is per-call latency. A probe requires the bin with argv set
+  // to `filter`, then on exit reports which src/*.js modules ended up in require.cache.
+  const dir = tmpDir();
+  const probe = `
+process.argv = [process.argv[0], ${JSON.stringify(BIN)}, 'filter'];
+require(${JSON.stringify(BIN)});
+process.on('exit', () => {
+  const names = Object.keys(require.cache)
+    .filter(p => p.endsWith('.js') && /[\\\\/]src[\\\\/]/.test(p))
+    .map(p => p.split(/[\\\\/]/).pop()).sort();
+  require('fs').writeSync(1, names.join(','));
+});
+`;
+  const probePath = writeFile(dir, 'probe.js', probe);
+  // Non-allowlisted tool → filter returns nothing on stdout, so stdout is just our module list.
+  const out = execFileSync('node', [probePath], { input: '{"tool_name":"Read"}', encoding: 'utf8' });
+  const mods = out.split(',').filter(Boolean);
+  assert.ok(mods.includes('filter.js'), `filter.js must load (got: ${out})`);
+  for (const heavy of ['scan.js', 'review.js', 'diagnose.js', 'estimate.js', 'plan.js', 'compare.js', 'audit.js']) {
+    assert.ok(!mods.includes(heavy), `filter path must NOT load ${heavy} (got: ${out})`);
+  }
+  rm(dir);
+});
+
 test('plan emits diet-changeset.json even with no history', () => {
   const dir = tmpDir();
   const home = tmpDir();                          // empty home -> scanAll finds no records
