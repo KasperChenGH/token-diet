@@ -93,6 +93,63 @@ test('no-id lines sharing ts+usage count ONCE (not per content block)', () => {
   rm(home);
 });
 
+// ── Phase 1: file-level mtime window-skip (perf; must stay behaviour-identical) ──
+const fs = require('fs');
+
+test('window-skip: a file whose mtime predates (cutoff - skew) is not opened', () => {
+  // Artificial on purpose: the record is in-window, but the file's mtime is set
+  // older than cutoff - 24h skew. Real append-only transcripts can't be in this
+  // state; the test proves the mtime fast-skip actually fires (the in-window record
+  // is excluded because the file was never opened).
+  const home = tmpDir();
+  const f = writeFile(home, '.claude/projects/proj/sess.jsonl',
+    rec({ requestId: 'r1', output: 50, ts: isoNow() }) + '\n');
+  const cutoff = Date.now() - 7 * 86400_000;
+  const oldMtime = new Date(cutoff - 48 * 3600_000);   // 24h beyond the skew floor
+  fs.utimesSync(f, oldMtime, oldMtime);
+  // Skipped → zero records → agents prints its "No records" notice rather than JSON.
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const out = execFileSync('node', [BIN, 'agents', '--json', '--days', '7'], { encoding: 'utf8', env });
+  assert.match(out, /No records/, 'old-mtime file should be skipped without opening');
+  rm(home);
+});
+
+test('window-skip: a file within the skew margin is still opened + line-filtered', () => {
+  const home = tmpDir();
+  const f = writeFile(home, '.claude/projects/proj/sess.jsonl',
+    rec({ requestId: 'r1', output: 50, ts: isoNow() }) + '\n');
+  const cutoff = Date.now() - 7 * 86400_000;
+  const edgeMtime = new Date(cutoff - 1 * 3600_000);   // 1h past cutoff, inside 24h skew
+  fs.utimesSync(f, edgeMtime, edgeMtime);
+  const agents = agentsJson(home, ['--days', '7']);
+  assert.equal(agents.length, 1, 'file inside skew margin must still be read');
+  assert.equal(agents[0].output, 50);
+  rm(home);
+});
+
+// ── Phase 2: bounded-parallel reads must stay deterministic across many files ─────
+test('parallel reads: many files across projects → deterministic + correct totals', () => {
+  const home = tmpDir();
+  let expected = 0;
+  for (let p = 0; p < 4; p++) {
+    for (let s = 0; s < 6; s++) {           // 24 files total — exercises the pool + reassembly
+      const out = p * 100 + s + 1;
+      expected += out;
+      writeFile(home, `.claude/projects/proj${p}/sess${s}.jsonl`,
+        rec({ requestId: `r${p}-${s}`, output: out, ts: isoNow() }) + '\n');
+    }
+  }
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const runs = Array.from({ length: 3 }, () =>
+    execFileSync('node', [BIN, 'agents', '--json'], { encoding: 'utf8', env }));
+  assert.equal(runs[0], runs[1]);            // identical across repeated concurrent runs
+  assert.equal(runs[1], runs[2]);
+  const parsed = JSON.parse(runs[0]);
+  assert.equal(parsed.length, 24);
+  assert.equal(parsed.reduce((s, a) => s + a.output, 0), expected);  // nothing lost/double-counted
+  rm(home);
+});
+
 // ── determinism ──────────────────────────────────────────────────────────────────
 test('scan is deterministic: identical fixture → identical output', () => {
   const home = tmpDir();

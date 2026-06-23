@@ -82,9 +82,23 @@ function resolveProjectDirs(projectFilter) {
   return allDirs.filter(d => path.basename(d).toLowerCase().includes(lower));
 }
 
-/** Collect all .jsonl files (including in immediate subdirs like agent sub-dirs) */
-function collectJsonlFiles(projectDirs) {
+/**
+ * Collect all .jsonl files (including in immediate subdirs like agent sub-dirs).
+ * Returns an array of absolute file paths.
+ *
+ * `withStats: true` returns `{ path, mtimeMs, size }` objects instead, so scanAll
+ * can window-skip files older than the cutoff without opening them (mtime of an
+ * append-only transcript is >= every record's timestamp). statSync failures fall
+ * back to mtimeMs = Infinity (never skipped — opened and line-filtered).
+ */
+function collectJsonlFiles(projectDirs, opts = {}) {
+  const withStats = opts.withStats === true;
   const files = [];
+  const push = (p) => {
+    if (!withStats) { files.push(p); return; }
+    let st; try { st = fs.statSync(p); } catch { st = null; }
+    files.push({ path: p, mtimeMs: st ? st.mtimeMs : Infinity, size: st ? st.size : 0 });
+  };
   for (const dir of projectDirs) {
     // Direct .jsonl files in the project dir
     let entries;
@@ -93,7 +107,7 @@ function collectJsonlFiles(projectDirs) {
 
     for (const e of entries) {
       if (e.isFile() && e.name.endsWith('.jsonl')) {
-        files.push(path.join(dir, e.name));
+        push(path.join(dir, e.name));
       } else if (e.isDirectory()) {
         // One level down — agent sub-session dirs
         let sub;
@@ -101,7 +115,7 @@ function collectJsonlFiles(projectDirs) {
         catch { continue; }
         for (const se of sub) {
           if (se.isFile() && se.name.endsWith('.jsonl')) {
-            files.push(path.join(dir, e.name, se.name));
+            push(path.join(dir, e.name, se.name));
           }
         }
       }
@@ -291,28 +305,78 @@ function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
  *   fileMeta — Map<filePath, { toolResults, toolCallsById, totalCalls }>
  *              (Lever 8 data; only populated for files that had at least one line)
  */
+// Margin (ms) subtracted from the cutoff before window-skipping a file by mtime:
+// covers clock skew and files whose mtime was bumped (e.g. restore/copy) without
+// new content. Generous on purpose — a wrongly-OPENED old file is just filtered
+// line-by-line (correct, slightly slower); a wrongly-SKIPPED file would be a bug.
+const SKEW_MS = 24 * 3600_000;
+
+// Read at most this many transcript files concurrently. The work is I/O-bound, so
+// a small pool collapses wall-clock from sum-of-files to ~max/concurrency without
+// risking file-descriptor exhaustion on a project with hundreds of sessions.
+function readConcurrency() {
+  let cpus = 4;
+  try { cpus = os.cpus().length || 4; } catch { /* keep default */ }
+  return Math.max(1, Math.min(cpus, 8));
+}
+
 async function scanAll(opts = {}) {
   const days     = opts.days != null ? +opts.days : 2;
   const project  = opts.project || null;
   const cutoffMs = days > 0 ? Date.now() - days * 86400_000 : null;
 
   const dirs  = resolveProjectDirs(project);
-  const files = collectJsonlFiles(dirs);
+  let files   = collectJsonlFiles(dirs, { withStats: true });
+
+  // ── Phase 1: window-skip ────────────────────────────────────────────────────
+  // Transcripts are append-only, so a file's mtime >= every record's timestamp.
+  // A file last modified before (cutoff - skew) therefore cannot hold an in-window
+  // record — skip it WITHOUT opening it. This is byte-identical to what the per-line
+  // Date.parse filter in streamFile would drop anyway. cutoffMs == null → no skip;
+  // statSync failures recorded mtimeMs = Infinity above → never skipped.
+  if (cutoffMs != null) {
+    const floor = cutoffMs - SKEW_MS;
+    files = files.filter(f => f.mtimeMs >= floor);
+  }
+  // Preserve readdir collection order (NOT a re-sort): record/aggregation order then
+  // matches the previous sequential implementation exactly, so parallelizing below
+  // cannot shift any equal-key tie-break in the consumers.
+  const paths = files.map(f => f.path);
+
+  // ── Phase 2: bounded-concurrency reads, deterministic reassembly ─────────────
+  // Each file streams into its OWN slot (indexed by collection order); slots are
+  // merged in order afterwards, so the result is independent of which read finishes
+  // first — same records, same order, as the old `for…await` loop.
+  const perFile = new Array(paths.length);
+  let next = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= paths.length) return;
+      const slot = { records: [], meta: null };
+      perFile[i] = slot;
+      await streamFile(
+        paths[i],
+        cutoffMs,
+        r => slot.records.push(r),
+        meta => { slot.meta = {
+          toolResults:   meta.toolResults,
+          toolCallsById: meta.toolCallsById,
+          totalCalls:    meta.totalCalls,
+        }; },
+      );
+    }
+  };
+  const poolSize = Math.min(readConcurrency(), paths.length || 1);
+  await Promise.all(Array.from({ length: poolSize }, worker));
 
   const records  = [];
   const fileMeta = new Map(); // filePath → { toolResults, toolCallsById, totalCalls }
-
-  for (const f of files) {
-    await streamFile(
-      f,
-      cutoffMs,
-      r => records.push(r),
-      meta => fileMeta.set(meta.file, {
-        toolResults:  meta.toolResults,
-        toolCallsById: meta.toolCallsById,
-        totalCalls:   meta.totalCalls,
-      }),
-    );
+  for (let i = 0; i < paths.length; i++) {
+    const slot = perFile[i];
+    if (!slot) continue;
+    for (const r of slot.records) records.push(r);
+    if (slot.meta) fileMeta.set(paths[i], slot.meta);
   }
   return { records, fileMeta };
 }
