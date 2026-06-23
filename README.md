@@ -149,7 +149,9 @@ These are **different mechanisms in different units** — don't read them as one
 | 7 · Model arbitrage | **$-cost only** — routes mechanical work to a cheaper model (not raw tokens) | model |
 | 8 · Filter tool output | **−69% of shell output** across 389 calls (git −83 · tests −86 · JSON −40 · logs −62) | measured |
 
-‖ **Lever 6** — the deployed `subagent-context-trimmer` cut a representative `CLAUDE.md` from **524 → 104** always-loaded tokens by moving the reference bulk (script catalog, definitions, layout) to a pointer + companion file — **−80% of what every spawn pays**, compounding to **−4,200 tok/round at 10 agents** (move-not-delete; loads on demand).
+- **‖ Lever 6** — `subagent-context-trimmer` cut a representative `CLAUDE.md` from **524 → 104** always-loaded tokens (moved the reference bulk — script catalog, definitions, layout — to a pointer + companion file).
+  - **−80% of what every spawn pays**, compounding to **−4,200 tok/round at 10 agents**.
+  - Move-not-delete; the moved content loads on demand.
 
 - On a representative heavy project, `estimate` projects **−41% of the per-run bill** from the flagged levers combined (top savers: L6, L1, L4).
 - Project-specific — run `token-diet estimate --dir .` for your projection, `token-diet compare` for the measured result.
@@ -174,9 +176,14 @@ Pooled across **twelve production codebases** (≈389 shell calls), counting onl
 - Only shell tools are counted — Read/Grep/Task are excluded (see Lever 5).
 - **Per-call, but compounding:** each compressed output is re-sent every later turn, so the real effect compounds through `cache_read` — your dominant cost (~99.6% of token volume). Measure the whole-session result with `token-diet compare`.
 
-\* **builds** — **−98%** on a real verbose `npm install` (823 → 15 lines); the pooled codebases show none because modern build tools are quiet by default — verbose build output (cargo, webpack, docker, `npm --verbose`) is where the **−86…−98%** lands.
-‡ **JSON** — shrinks structurally (truncate long arrays to head+tail+count, clip long strings, re-serialize compact) while keeping every key and all `error`/`status`/`message` values. The −40% here is small because these codebases rarely emit JSON; on real API/devops output it lands **−41% (`npm view react`) to −95%** (array-heavy responses). Inspired by [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, zero-dependency.
-† **file reads** — *not* in the shell total: a separate, opt-in mechanism, and by far the bigger pool (**5.4M read tokens, 93% re-reads** vs 584k on shells). Proven end-to-end: the deployed `subagent-digester` turned a real 321-line file into a **740-token digest** (**−77% per read**, one file measured), and `fix` applies the digest **plus** a CLAUDE.md routing pointer so future reads prefer it. The **−77%/read is measured**; the **~−42% blended figure is a projection** (it assumes some reads still need the full source) — `token-diet compare` gives your real multi-session number once you've run it a few days.
+- **\* builds** — **−98%** on a real verbose `npm install` (823 → 15 lines).
+  - Pooled codebases show none: modern build tools are quiet by default — verbose output (cargo, webpack, docker, `npm --verbose`) is where the **−86…−98%** lands.
+- **‡ JSON** — shrinks structurally (truncate long arrays to head+tail+count, clip long strings, re-serialize compact); keeps every key and all `error`/`status`/`message` values.
+  - The −40% here is small because these codebases rarely emit JSON; on real API/devops output it lands **−41% (`npm view react`) to −95%** (array-heavy responses).
+  - Inspired by [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, zero-dependency.
+- **† file reads** — *not* in the shell total: a separate, opt-in mechanism, and by far the bigger pool (**5.4M read tokens, 93% re-reads** vs 584k on shells).
+  - Proven end-to-end: `subagent-digester` turned a real 321-line file into a **740-token digest** (**−77% per read**, one file measured); `fix` applies the digest **plus** a CLAUDE.md routing pointer so future reads prefer it.
+  - The **−77%/read is measured**; the **~−42% blended figure is a projection** (assumes some reads still need the full source) — `token-diet compare` gives your real multi-session number once you've run it a few days.
 
 `cache_read` itself is never a row — it's not a kind of output, it's the re-transmission of everything above; the filter and digest shrink the *sources* that feed it.
 
