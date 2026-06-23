@@ -157,7 +157,7 @@ These are **different mechanisms in different units** — don't read them as one
 
 ## Measured reduction
 
-Pooled across **twelve production codebases** (≈389 shell calls), counting only what the default filter actually compresses — **shell output (Bash + PowerShell)**, weighted by token volume (not a min–max over a few runs). These are **per-call** savings, but each compressed result is what gets re-sent on every later turn, so the cut **compounds through `cache_read`** — your dominant cost (~99.6% of token volume). For the whole-session effect, use `token-diet compare`.
+Pooled across **twelve production codebases** (≈389 shell calls), counting only what the default filter actually compresses — **shell output (Bash + PowerShell)**, weighted by token volume (not a min–max over a few runs).
 
 | tool output | what it keeps · what it collapses | reduction |
 |---|---|---|
@@ -169,7 +169,10 @@ Pooled across **twelve production codebases** (≈389 shell calls), counting onl
 | **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | **−86…−98%** \* |
 | **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads | **−77%/read** † (−42% blend is a projection) |
 
-Structured output compresses hardest — tests and git meet or beat a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs, which dominate the volume and have no schema to exploit. The low-call rows (tests, git, JSON) are lightly sampled. Only shell tools are counted — Read/Grep/Task are excluded (see Lever 5). These are **per-call** figures, but each compressed output is re-sent every later turn, so the real effect **compounds through `cache_read`** — measure the whole-session result with `token-diet compare`.
+- Structured output compresses hardest — tests and git meet or beat a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs (they dominate the volume and have no schema to exploit).
+- The low-call rows (tests, git, JSON) are lightly sampled.
+- Only shell tools are counted — Read/Grep/Task are excluded (see Lever 5).
+- **Per-call, but compounding:** each compressed output is re-sent every later turn, so the real effect compounds through `cache_read` — your dominant cost (~99.6% of token volume). Measure the whole-session result with `token-diet compare`.
 
 \* **builds** — **−98%** on a real verbose `npm install` (823 → 15 lines); the pooled codebases show none because modern build tools are quiet by default — verbose build output (cargo, webpack, docker, `npm --verbose`) is where the **−86…−98%** lands.
 ‡ **JSON** — shrinks structurally (truncate long arrays to head+tail+count, clip long strings, re-serialize compact) while keeping every key and all `error`/`status`/`message` values. The −40% here is small because these codebases rarely emit JSON; on real API/devops output it lands **−41% (`npm view react`) to −95%** (array-heavy responses). Inspired by [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, zero-dependency.
