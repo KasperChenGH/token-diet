@@ -14,10 +14,7 @@
  *   token-diet compare --before-days A --after-days B [--project <slug>] [--json]
  */
 
-const fs   = require('fs');
-const path = require('path');
-const os   = require('os');
-const { scanAll, resolveProjectDirs, collectJsonlFiles } = require('./scan');
+const { scanAll } = require('./scan');
 
 function fmt(n)     { return Math.round(n).toLocaleString('en-US'); }
 function padL(s, w) { return String(s).padEnd(w); }
@@ -47,70 +44,26 @@ function volumeChangedPct(beforeCalls, afterCalls) {
   return Math.abs(afterCalls - beforeCalls) / beforeCalls * 100;
 }
 
-/** Scan records for a specific time window [fromMs, toMs) */
-async function scanWindow(fromMs, toMs, projectFilter) {
-  const dirs  = resolveProjectDirs(projectFilter);
-  const files = collectJsonlFiles(dirs);
-
-  // We implement a custom window scan since scanAll only supports "last N days"
-  const records = [];
-
-  const readline = require('readline');
-
-  for (const filePath of files) {
-    await new Promise((resolve) => {
-      let stream;
-      try { stream = fs.createReadStream(filePath, { encoding: 'utf8' }); }
-      catch { return resolve(); }
-
-      const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-      const pending = new Map();
-
-      rl.on('line', (line) => {
-        if (!line.trim()) return;
-        let obj;
-        try { obj = JSON.parse(line); } catch { return; }
-        if (obj.type !== 'assistant') return;
-        const usage = obj.message && obj.message.usage;
-        if (!usage) return;
-
-        const tsRaw   = obj.timestamp || (obj.message && obj.message.timestamp) || null;
-        // Same synthetic-key dedup as scan.js: no-id lines key on ts+usage so the 2-3
-        // content-block lines of one call dedup, but distinct calls stay distinct.
-        const callId  = obj.requestId || (obj.message && obj.message.id) ||
-          `noid:${tsRaw || ''}|${usage.input_tokens || 0}|${usage.cache_creation_input_tokens || 0}|${usage.cache_read_input_tokens || 0}|${usage.output_tokens || 0}`;
-
-        if (!pending.has(callId)) {
-          if (tsRaw) {
-            const ms = Date.parse(tsRaw);
-            if (!isNaN(ms) && (ms < fromMs || ms >= toMs)) {
-              pending.set(callId, null);   // outside window — mark so duplicate lines skip
-              return;
-            }
-          }
-          pending.set(callId, {
-            file:        filePath,
-            sessionKind: path.basename(filePath).startsWith('agent-') ? 'subagent' : 'session',
-            timestamp:   tsRaw,
-            input:       +(usage.input_tokens || 0),
-            cacheWrite:  +(usage.cache_creation_input_tokens || 0),
-            cacheRead:   +(usage.cache_read_input_tokens || 0),
-            output:      +(usage.output_tokens || 0),
-          });
-        }
-      });
-
-      rl.on('close', () => {
-        for (const [, record] of pending) {
-          if (record) records.push(record);
-        }
-        resolve();
-      });
-      rl.on('error', () => resolve());
-    });
+/**
+ * Split a single [beforeMs, now) scan into the before/after windows by `splitMs`.
+ * Replaces the old double scanWindow() — we now scan ONCE via scanAll (which brings
+ * the bounded-parallel reads + window-skip) and bucket here.
+ *
+ * Parity with the previous two-window scan:
+ *   • dated record: before = [beforeMs, splitMs), after = [splitMs, now) (== boundary → after)
+ *   • undated / unparseable-timestamp record: the old code, lacking a usable ms, left it
+ *     UNFILTERED in BOTH windows — so it lands in both here too (aggregate() then excludes
+ *     it from per-day math and reports the count). Real transcripts have none of these.
+ */
+function bucketByWindow(records, splitMs) {
+  const before = [];
+  const after  = [];
+  for (const r of records) {
+    const ms = r.timestamp ? Date.parse(r.timestamp) : NaN;
+    if (isNaN(ms)) { before.push(r); after.push(r); continue; }
+    (ms < splitMs ? before : after).push(r);
   }
-
-  return records;
+  return { before, after };
 }
 
 /** Aggregate per-day stats from a record array */
@@ -176,13 +129,11 @@ async function runCompare(opts = {}) {
   }
 
   const now      = Date.now();
-  const beforeMs = now - beforeDays * 86400_000;
   const splitMs  = now - afterDays  * 86400_000;
 
-  const [beforeRecords, afterRecords] = await Promise.all([
-    scanWindow(beforeMs, splitMs, opts.project || null),
-    scanWindow(splitMs,  now,     opts.project || null),
-  ]);
+  // Scan ONCE over the whole [beforeMs, now) range (days = beforeDays), then split.
+  const { records } = await scanAll({ days: beforeDays, project: opts.project || null });
+  const { before: beforeRecords, after: afterRecords } = bucketByWindow(records, splitMs);
 
   const before = aggregate(beforeRecords);
   const after  = aggregate(afterRecords);
@@ -278,4 +229,4 @@ async function runCompare(opts = {}) {
   console.log('');
 }
 
-module.exports = { runCompare, perCallMetrics, volumeChangedPct, pct, pctNum, aggregate };
+module.exports = { runCompare, perCallMetrics, volumeChangedPct, pct, pctNum, aggregate, bucketByWindow };

@@ -3,6 +3,20 @@ const { test } = require('node:test');
 const assert   = require('node:assert/strict');
 const C = require('../src/compare');
 
+test('bucketByWindow: boundary (==splitMs → after), undated/unparseable → both windows', () => {
+  const splitMs = Date.parse('2026-06-10T00:00:00.000Z');
+  const recs = [
+    { timestamp: '2026-06-09T23:59:59.000Z', tag: 'before' },
+    { timestamp: '2026-06-10T00:00:00.000Z', tag: 'edge' },     // == splitMs → after
+    { timestamp: '2026-06-11T00:00:00.000Z', tag: 'after' },
+    { timestamp: null,        tag: 'undated' },                 // → both
+    { timestamp: 'not-a-date', tag: 'bad' },                    // unparseable → both
+  ];
+  const { before, after } = C.bucketByWindow(recs, splitMs);
+  assert.deepEqual(before.map(r => r.tag).sort(), ['bad', 'before', 'undated']);
+  assert.deepEqual(after.map(r => r.tag).sort(),  ['after', 'bad', 'edge', 'undated']);
+});
+
 test('perCallMetrics: divides totals by calls', () => {
   const m = C.perCallMetrics({ fresh_in: 1000, cache_write: 2000, cache_read: 8000, output: 500 }, 100);
   assert.equal(m.cache_read, 80);
