@@ -131,7 +131,12 @@ In leverage order — each shrinks the next:
 
 ### Estimated saving per lever
 
-These are **different mechanisms in different units** — don't read them as one stackable %. Each row marks its **basis**: *measured* (real data), *demonstrated* (a worked example), *model* (a forward projection from `token-diet estimate` — run it for your own numbers), or *restructure* (project-specific, not token-modeled).
+These are **different mechanisms in different units** — don't read them as one stackable %. Each row marks its **basis**:
+
+- *measured* — real data
+- *demonstrated* — a worked example
+- *model* — a forward projection from `token-diet estimate` (run it for your own numbers)
+- *restructure* — project-specific, not token-modeled
 
 | Lever | Typical saving | Basis |
 |---|---|---|
@@ -146,9 +151,9 @@ These are **different mechanisms in different units** — don't read them as one
 
 ‖ **Lever 6** — the deployed `subagent-context-trimmer` cut a representative `CLAUDE.md` from **524 → 104** always-loaded tokens by moving the reference bulk (script catalog, definitions, layout) to a pointer + companion file — **−80% of what every spawn pays**, compounding to **−4,200 tok/round at 10 agents** (move-not-delete; loads on demand).
 
-On a representative heavy project, `estimate` projects **−41% of the per-run bill** from the flagged levers combined (top savers: L6, L1, L4). Your mileage is project-specific — run `token-diet estimate --dir .` for a projection and `token-diet compare` for the measured result.
-
-Bookends: measure first (this CLI), re-measure + adversarial consistency review after. Full methodology with red flags and common mistakes: **[SKILL.md](skills/SKILL.md)**.
+- On a representative heavy project, `estimate` projects **−41% of the per-run bill** from the flagged levers combined (top savers: L6, L1, L4).
+- Project-specific — run `token-diet estimate --dir .` for your projection, `token-diet compare` for the measured result.
+- **Bookends:** measure first (this CLI), re-measure + adversarial consistency review after. Full methodology with red flags and common mistakes: **[SKILL.md](skills/SKILL.md)**.
 
 ## Measured reduction
 
