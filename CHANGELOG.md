@@ -47,6 +47,21 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 - Continuous integration (GitHub Actions, now incl. a Windows runner + shebang check),
   a tag→version release workflow, `CODE_OF_CONDUCT.md`, and this changelog.
 
+### Performance
+- **Faster transcript scanning (byte-identical output).** The CLI measurement path
+  (`audit`/`agents`/`diagnose`/`compare`/`plan`) was re-profiled on a real ~459 MB / 1,119-file
+  corpus and made markedly leaner without changing a single computed number: (1) **file-level
+  `--days` window-skip** — files whose mtime predates the cutoff (minus a 24h skew) are skipped
+  without opening (append-only transcripts can't hold newer records); (2) **bounded-parallel
+  reads** across files; (3) a **substring pre-filter** that skips `JSON.parse` on lines lacking
+  `"usage"`/`"tool_result"` (~58% of lines in a real 97 MB session); (4) **bulk async read** in
+  place of `readline` (~25% faster on large files). `compare` now scans **once** and buckets by
+  window instead of re-implementing the scan and parsing every file twice. Determinism is
+  preserved (records reassembled in collection order); verified byte-identical on real data.
+- **Leaner filter hot path.** `token-diet filter` (the PostToolUse hook, a fresh process per
+  Bash/PowerShell call) now **lazy-loads only `filter.js` + `atomic.js`** instead of eagerly
+  requiring all 13 subcommand modules and their transitive graph — trimming per-call startup.
+
 ### Fixed
 - **Lever 5 digests now actually get read (routing).** Creating a digest saved nothing if the agent
   kept reading the full file. `digest --scaffold` now writes `.claude/digests/INDEX.md` and prints a
