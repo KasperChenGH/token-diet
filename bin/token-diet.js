@@ -17,6 +17,7 @@
  *   token-diet readgate  --install | --self-test | --enable | --activate | --disable | --report | --uninstall
  *   token-diet route     --classify "<task>" | --scaffold | --self-test [--json]
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
+ *   token-diet burn      [--days N=2] [--project <slug>] [--json]
  *   token-diet digest    [--days N=7] [--project <slug>] [--min-reads N=3] [--scaffold] [--dir <path>]
  *   token-diet savings   [--dir <path>=cwd] [--share] [--dry-run] [--json]
  *   token-diet init      [--global] [--dir <path>]
@@ -232,6 +233,9 @@ ACT
 VERIFY
   compare     Before vs after: per-day averages, delta %, verdict line
               Requires --before-days A --after-days B
+  burn        Billing-window view: bucket recent activity into 5-hour blocks (the
+              usage-limit reset unit), raw + price-weighted tokens per block, plus a
+              projection of the current block to its reset. Reconcilable with ccusage.
   savings     Per-lever / per-section token-reduction table (structural levers PROJECTED
               from estimate; output filter MEASURED from real stats). --share builds an
               aggregate-only report + a pre-filled GitHub issue link (opt-in; --dry-run to
@@ -308,6 +312,10 @@ async function main() {
       break;
     case 'compare':
       await require('../src/compare').runCompare(opts);
+      break;
+    case 'burn':
+      if (opts.days == null) opts.days = 2;
+      await require('../src/burn').runBurn(opts);
       break;
     case 'init':
       await require('../src/init').runInit(opts);
