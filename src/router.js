@@ -41,11 +41,18 @@ const DEFAULT_RULES = [
     '\\btranslate\\b', 'rewrite', 'explain', 'classif(y|ication)', 'triage', 'rubric' ] },
 ];
 
+// Compile each rule's any[] into one case-insensitive alternation. rules.json is user-editable,
+// so a bad pattern must never crash classification: a rule that fails to compile gets a
+// never-matching sentinel (\\b\\B) and is effectively skipped, not thrown.
+const NEVER = /\b\B/;
 function compileRules(rules) {
-  return (rules || []).map(r => ({
-    ...r,
-    _re: new RegExp('(' + (r.any || []).join('|') + ')', 'i'),
-  }));
+  return (rules || []).map(r => {
+    let _re = NEVER;
+    if ((r.any || []).length) {
+      try { _re = new RegExp('(' + r.any.join('|') + ')', 'i'); } catch { _re = NEVER; }
+    }
+    return { ...r, _re };
+  });
 }
 
 // Pure: task text + rules → { tier, pin, label, escalate, matched }. No rule matched → opus, escalate.
@@ -93,7 +100,8 @@ function runScaffold(opts = {}) {
   const dir  = path.join(root, '.claude', 'router');
   fs.mkdirSync(dir, { recursive: true });
   const p = path.join(dir, 'rules.json');
-  if (fs.existsSync(p) && !opts.scaffold) { console.log(`router rules already exist: ${p}`); return p; }
+  // Never clobber an edited rule table — scaffold creates, it does not reset.
+  if (fs.existsSync(p)) { console.log(`\nrouter rules already exist (left untouched): ${p}\n  Delete the file to regenerate the defaults.\n`); return p; }
   const body = {
     _comment: 'token-diet Lever 7 router rules. Ordered: first rule whose any[] matches the task wins. '
             + 'Patterns are case-insensitive regex sources. The high-stakes rule is first so it is never '

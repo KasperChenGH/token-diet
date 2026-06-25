@@ -54,6 +54,16 @@ test('first-match-wins ordering: a custom rule table is honored', () => {
   assert.equal(R.classifyTask('zzz', rules).tier, 'sonnet');        // catch-all second
 });
 
+test('a malformed regex in a user rule is skipped, never throws (fail-safe)', () => {
+  const rules = [
+    { tier: 'haiku', label: 'broken', any: ['(unclosed'] },   // invalid regex
+    { tier: 'sonnet', label: 'ok', any: ['report'] },
+  ];
+  assert.doesNotThrow(() => R.classifyTask('write the report', rules));
+  assert.equal(R.classifyTask('write the report', rules).tier, 'sonnet'); // broken rule skipped, next matches
+  assert.equal(R.classifyTask('nothing here', rules).tier, 'opus');       // unmatched default
+});
+
 test('runScaffold writes an editable rule table that loadRules reads back', () => {
   const root = tmpDir();
   // isolate global ~/.claude
@@ -66,6 +76,9 @@ test('runScaffold writes an editable rule table that loadRules reads back', () =
   // a project rules.json overrides the defaults
   writeFile(root, '.claude/router/rules.json', JSON.stringify({ rules: [{ tier: 'haiku', label: 'x', any: ['anything'] }] }));
   assert.equal(R.classifyTask('say anything', R.loadRules(root)).tier, 'haiku');
+  // re-scaffold must NOT clobber the user's edited table
+  silence(() => R.runScaffold({ dir: root }));
+  assert.equal(R.loadRules(root)[0].any[0], 'anything');   // still the user's rule
   rm(root); rm(HOME);
 });
 
