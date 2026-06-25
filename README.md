@@ -30,6 +30,8 @@ Grade: F
 
 ## Install the agent — global or project-scoped (your choice)
 
+> **Distribution:** token-diet is installed straight from GitHub (it's not on the npm registry) — the `github:KasperChenGH/token-diet` form below is intentional, not a typo. Pin a release with `#v0.9.0`.
+
 The CLI is the engine; the `/token-diet` agent drives it. Pick the scope that fits — they're fully separate, and **project-scoped needs no global install at all**:
 
 **A) Global** — one install serves every project on the machine (best for polyglot setups):
