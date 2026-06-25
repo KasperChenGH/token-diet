@@ -14,6 +14,7 @@
  *   token-diet plan      [--days N=7] [--project <slug>] [--out diet-plan.md]
  *   token-diet fix       --changeset <file> [--only 1,3] [--dry-run | --verify]
  *   token-diet filter    --install | --self-test | --enable | --disable | --uninstall
+ *   token-diet readgate  --install | --self-test | --enable | --activate | --disable | --report | --uninstall
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
  *   token-diet digest    [--days N=7] [--project <slug>] [--min-reads N=3] [--scaffold] [--dir <path>]
  *   token-diet savings   [--dir <path>=cwd] [--share] [--dry-run] [--json]
@@ -200,6 +201,11 @@ ACT
               Off by default. Flow: --install [--global] → --self-test → --enable (AUDIT: records
               what it'd save, no changes) → --report → --activate (go live). Also --disable / --uninstall.
               --report [--json] shows the measured reduction table. Tune tools/keep/thresholds in filter.json.
+  readgate    Lever 3 read-path dedup (PreToolUse hook). Detects within-session re-reads of an
+              UNCHANGED file and (active) denies them with a recoverable reason; full file stays on
+              disk. Off by default. Flow: --install [--global] → --self-test → --enable (AUDIT:
+              records what it'd save, denies nothing) → --report → --activate (go live). Also
+              --disable / --uninstall. Tune minTokens/ttlMinutes in .claude/readgate/config.json.
   digest      Lever 5 read-digest prototype: find files an agent re-reads from your
               transcripts, measure the re-read token cost, and (--scaffold) write a
               deterministic structure skeleton per file under .claude/digests/ for an
@@ -341,6 +347,18 @@ async function main() {
       else if (opts.disable)   filter.setState(opts, false, 'audit');   // off + reset to safe default
       else if (opts.report)    filter.runReport(opts);   // measured reduction table
       else                     filter.runFilter(opts);   // hook mode — reads stdin
+      break;
+    }
+    case 'readgate': {
+      const rg = require('../src/readgate');
+      if (opts.selfTest)       rg.runSelfTest();
+      else if (opts.install)   rg.runInstall(opts);
+      else if (opts.uninstall) rg.runUninstall(opts);
+      else if (opts.enable)    rg.setState(opts, true, 'audit');   // safe: records, denies nothing
+      else if (opts.activate)  rg.setState(opts, true, 'active');  // go live
+      else if (opts.disable)   rg.setState(opts, false, 'audit');  // off
+      else if (opts.report)    rg.runReport(opts);                 // measured table
+      else                     rg.runHook(opts);                   // hook mode — reads stdin
       break;
     }
     default:

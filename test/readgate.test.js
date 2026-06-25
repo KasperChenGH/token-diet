@@ -268,3 +268,28 @@ test('runReport --json emits the aggregate', () => {
   assert.equal(j.total.tok, 500);
   rm(root);
 });
+
+// ── Task 5: CLI dispatch (runs the real binary) ────────────────────────────────
+const { execFileSync } = require('node:child_process');
+const BIN = path.join(__dirname, '..', 'bin', 'token-diet.js');
+
+test('CLI: `readgate --install` registers the hook end-to-end', () => {
+  const root = tmpDir();
+  execFileSync(process.execPath, [BIN, 'readgate', '--install', '--dir', root],
+    { env: { ...process.env, HOME, USERPROFILE: HOME }, stdio: 'ignore' });
+  const set = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
+  assert.ok(set.hooks.PreToolUse.some(h => h.hooks.some(x => x.command === 'token-diet readgate')));
+  rm(root);
+});
+
+test('CLI: `readgate` (no flag) hook mode denies a redundant read via stdin', () => {
+  const root = tmpDir(); cfg(root, { enabled: true, mode: 'active' });
+  writeFile(root, 'big.txt', 'x'.repeat(2000));
+  const fp = path.join(root, 'big.txt');
+  const payload = JSON.stringify({ session_id: 's1', tool_name: 'Read', cwd: root, tool_input: { file_path: fp } });
+  const run = () => execFileSync(process.execPath, [BIN, 'readgate'],
+    { input: payload, env: { ...process.env, HOME, USERPROFILE: HOME } }).toString();
+  assert.equal(run().trim(), '');                       // first read allowed
+  assert.match(run(), /"permissionDecision":"deny"/);   // redundant read denied
+  rm(root);
+});
