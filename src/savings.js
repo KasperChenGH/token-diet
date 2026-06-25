@@ -74,7 +74,7 @@ function printTable(d) {
     console.log('\nOutput filter (MEASURED — your real sessions):');
     console.log('  type                   |  calls |    before |     after | reduction');
     console.log('  -----------------------+--------+-----------+-----------+----------');
-    const KIND = { tests: 'tests', git: 'git', build: 'builds', read: 'large reads', log: 'logs / other' };
+    const KIND = { tests: 'tests', git: 'git', build: 'builds', list: 'listings', json: 'JSON', mcp: 'MCP responses', read: 'large reads', log: 'logs / other' };
     for (const r of stats.rows)
       console.log(`  ${(KIND[r.kind] || r.kind).padEnd(22)} | ${String(r.count).padStart(6)} | ${fmt(r.raw).padStart(9)} | ${fmt(r.comp).padStart(9)} | ${('-' + r.pct + '%').padStart(8)}`);
     console.log(`  ${'TOTAL'.padEnd(22)} | ${String(stats.total.count).padStart(6)} | ${fmt(stats.total.raw).padStart(9)} | ${fmt(stats.total.comp).padStart(9)} | ${('-' + stats.total.pct + '%').padStart(8)}`);

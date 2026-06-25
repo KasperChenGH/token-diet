@@ -59,7 +59,7 @@ test('compressBuild keeps the eslint file header above its errors', () => {
 
 test('classifyKind: PowerShell is a shell; git after a separator; Invoke-Pester is tests', () => {
   const k = (cmd, tool = 'Bash') => F.classifyKind({ tool_name: tool, tool_input: { command: cmd } });
-  assert.equal(k('Get-ChildItem | Select-Object', 'PowerShell'), 'log');     // PowerShell compressed as a shell
+  assert.equal(k('Get-ChildItem | Select-Object', 'PowerShell'), 'list');    // PS dir-listing → list rubric
   assert.equal(k('Invoke-Pester ./tests', 'PowerShell'), 'tests');           // PS test runner
   assert.equal(k('cd repo && git status'), 'git');                           // git after `cd && `
   assert.equal(k('git -C /p diff'), 'git');                                  // git -C form
@@ -316,6 +316,76 @@ test('runInstall refuses to overwrite a present-but-corrupt settings.json (no si
   writeFile(root, '.claude/settings.json', '{ this is not json');
   assert.throws(() => silence(() => F.runInstall({ dir: root })), /not valid JSON/);
   assert.equal(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'), '{ this is not json');
+  rm(root);
+});
+
+test('compressList collapses a long listing, keeps head/tail + error lines', () => {
+  const input = Array.from({ length: 120 }, (_, i) => `-rw-r--r-- 1 u u 10 file_${i}.txt`).join('\n')
+    + '\nls: cannot open directory \'locked\': Permission denied';
+  const out = F.compressList(input, F.DEFAULT_CONFIG);
+  assert.match(out, /file_0\.txt/);                 // head kept
+  assert.match(out, /file_119\.txt/);               // tail kept
+  assert.match(out, /Permission denied/);           // error line never elided
+  assert.match(out, /entries elided/);              // middle collapsed
+  assert.ok(out.split('\n').length < input.split('\n').length / 2);
+});
+
+test('classifyKind: directory-listing commands → list (after build/git)', () => {
+  const k = cmd => F.classifyKind({ tool_name: 'Bash', tool_input: { command: cmd } });
+  assert.equal(k('ls -laR /repo'), 'list');
+  assert.equal(k('tree -L 3'), 'list');
+  assert.equal(k('find . -name "*.js"'), 'list');
+  assert.equal(k('du -sh *'), 'list');
+  assert.equal(k('lsof -i :3000'), 'log');          // \bls\b must NOT fire inside lsof
+  assert.equal(k('mkdir -p a/b'), 'log');           // \bdir\b must NOT fire inside mkdir
+  assert.equal(k('git ls-files'), 'git');           // git wins (checked first)
+});
+
+test('classifyKind: MCP tools route to the mcp category', () => {
+  const k = (tool, text) => F.classifyKind({ tool_name: tool, tool_input: {} }, text);
+  assert.equal(k('mcp__github__list_issues', '{"a":1}'), 'mcp');
+  assert.equal(k('mcp__slack__send', 'plain text reply'), 'mcp');   // labeled mcp even when not JSON
+  assert.equal(k('Bash', '{"a":1}'), 'log');                        // non-mcp unaffected
+});
+
+test('mcp classification compresses JSON bodies and falls back to dedupLog otherwise', () => {
+  const cfg = F.DEFAULT_CONFIG;
+  const bigJson = JSON.stringify({ status: 'ok', items: Array.from({ length: 60 }, (_, i) => ({ id: i, blob: 'x'.repeat(300) })) });
+  const compressed = F.classify({ tool_name: 'mcp__srv__call', tool_input: {} }, cfg)(bigJson);
+  assert.match(compressed, /more items/);           // JSON-style structural crush applied
+  assert.ok(compressed.length < bigJson.length / 2);
+  const proseOut = F.classify({ tool_name: 'mcp__srv__call', tool_input: {} }, cfg)('connecting...\n'.repeat(40) + 'done');
+  assert.match(proseOut, /connecting\.\.\.\s+\(×40\)/); // dedupLog fallback for non-JSON
+});
+
+test('toolAllowed supports a trailing-* glob (mcp__*) plus exact names', () => {
+  assert.equal(F.toolAllowed('mcp__github__x', ['Bash', 'mcp__*']), true);
+  assert.equal(F.toolAllowed('mcp__github__x', ['Bash']), false);
+  assert.equal(F.toolAllowed('Bash', ['Bash', 'mcp__*']), true);
+  assert.equal(F.toolAllowed('Read', ['Bash', 'mcp__*']), false);
+});
+
+test('compressPayload gates an MCP tool when mcp__* is in the allowlist', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ enabled: true, mode: 'active', tools: ['Bash', 'mcp__*'] }));
+  const blob = JSON.stringify({ status: 'ok', items: Array.from({ length: 200 }, (_, i) => ({ id: i, v: 'z'.repeat(50) })) });
+  const out = F.compressPayload({ tool_name: 'mcp__github__list', tool_input: {}, tool_response: blob }, root, 'ts');
+  assert.ok(out, 'MCP response should be compressed when mcp__* is allowlisted');
+  const stat = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'stats.jsonl'), 'utf8').trim());
+  assert.equal(stat.kind, 'mcp');
+  rm(root);
+});
+
+test('runInstall translates an mcp__* glob into a regex matcher in settings.json', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'toolout'), { recursive: true });
+  writeFile(root, '.claude/toolout/filter.json', JSON.stringify({ ...F.DEFAULT_CONFIG, tools: ['Bash', 'mcp__*'] }));
+  silence(() => F.runInstall({ dir: root }));
+  const settings = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
+  const entry = settings.hooks.PostToolUse.find(h => (h.hooks || []).some(x => x.command === 'token-diet filter'));
+  assert.match(entry.matcher, /mcp__\.\*/);   // glob → regex
+  assert.match(entry.matcher, /Bash/);
   rm(root);
 });
 

@@ -140,6 +140,24 @@ function compressRead(text, cfg) {
 // Error/warning lines a generic log compressor must NEVER elide from the middle — extends
 // the "never drop a failure line" contract (which tests/build have) to plain log output.
 const CRITICAL_RE = /\b(error|fail(ed|ure)?|exception|traceback|panic|fatal|critical)\b|✗|✘|✖|\bwarn(ing)?\b|deprecat/i;
+
+// Directory-listing output (ls -R / tree / find / du / Get-ChildItem) is a long flat list of
+// near-identical entries — head+tail + a count carries the shape; the bulk is noise. Keep any
+// error/permission line (CRITICAL_RE) and user keep-patterns from the middle. RTK-style: a
+// per-command rubric tuned to the listing shape rather than the generic dedup pass.
+function compressList(text, cfg) {
+  const protect = keepMatcher(cfg);
+  const lines = stripNoise(text).split('\n');
+  const n = cfg.headTail;
+  if (lines.length <= n * 2 + 5) return lines.join('\n');
+  const head = lines.slice(0, n);
+  const tail = lines.slice(-n);
+  const mid  = lines.slice(n, -n);
+  const kept = mid.filter(ln => CRITICAL_RE.test(ln) || protect(ln));
+  const elided = mid.length - kept.length;
+  const marker = elided > 0 ? [`  … (${elided} entries elided)`] : [];
+  return [...head, ...kept, ...marker, ...tail].join('\n');
+}
 function dedupLog(text, cfg) {
   const lines = stripNoise(text).split('\n');
   const out = []; let prev = null, count = 0;
@@ -212,6 +230,9 @@ const TEST_CMD_RE = /\b(pytest|jest|vitest|mocha|cargo test|go test|npm (run )?t
 const BUILD_CMD_RE = /\b(npm (ci|i|install|run build)|yarn (install|build)|pnpm (i|install|run build)|cargo (build|check|clippy)|go build|docker build|docker compose build|tsc|eslint|webpack|vite build|next build|gradle build|mvn (package|install|compile))\b/;
 // git at the start OR after a separator (catches `cd x && git …`, `… | git …`, `git -C …`).
 const GIT_CMD_RE = /(?:^\s*|[;&|]\s*)git\b/;
+// Directory-listing commands — checked AFTER tests/git/build so e.g. `git ls-files` stays git.
+// \bls\b won't fire inside `lsof`; \bdir\b won't fire inside `mkdir` (no word boundary).
+const LIST_CMD_RE = /\b(ls|tree|find|fd|du|dir|Get-ChildItem|gci)\b/;
 // Shells produce incidental verbose output; everything else (Read/Grep/Task/Edit/…) is
 // intentional retrieval or a semantic result — left to Lever 5 / passed through.
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
@@ -222,10 +243,14 @@ function classifyKind(payload, text) {
   const tool = payload.tool_name || '';
   const cmd  = (payload.tool_input && payload.tool_input.command) || '';
   if (tool === 'Read') return 'read';
+  // MCP server responses (mcp__<server>__<tool>) are an unserved token sink — own the category
+  // with its own row. Mostly JSON-shaped, but label as 'mcp' regardless so --report attributes it.
+  if (tool.startsWith('mcp__')) return 'mcp';
   if (!SHELL_TOOLS.has(tool)) return text != null && looksLikeJson(text) ? 'json' : 'log';
   if (TEST_CMD_RE.test(cmd)) return 'tests';
   if (GIT_CMD_RE.test(cmd))  return 'git';
   if (BUILD_CMD_RE.test(cmd)) return 'build';
+  if (LIST_CMD_RE.test(cmd)) return 'list';
   if (text != null && looksLikeJson(text)) return 'json';
   return 'log';
 }
@@ -238,10 +263,20 @@ function classify(payload, cfg) {
       case 'tests': return compressTests(t, cfg);
       case 'git':   return compressGit(t, cmd, cfg);
       case 'build': return compressBuild(t, cfg);
+      case 'list':  return compressList(t, cfg);
       case 'json':  return compressJson(t, cfg);
+      // MCP responses are usually JSON; fall back to dedupLog for prose/SSE-style bodies.
+      case 'mcp':   return looksLikeJson(t) ? compressJson(t, cfg) : dedupLog(t, cfg);
       default:      return dedupLog(t, cfg);
     }
   };
+}
+
+// Allowlist membership with a trailing-`*` glob (so `mcp__*` gates every MCP tool without
+// listing each server). Exact match otherwise. Used by compressPayload's tool gate.
+function toolAllowed(tool, tools) {
+  return (tools || []).some(t =>
+    t === tool || (typeof t === 'string' && t.endsWith('*') && tool.startsWith(t.slice(0, -1))));
 }
 
 // ── output extraction (defensive across hook payload shapes) ───────────────────
@@ -306,7 +341,7 @@ function compressPayload(payload, root, nowIso) {
   const cfg = loadConfig(root);
   if (!cfg.enabled) return null;                 // gate: disabled → pass through
   const tools = Array.isArray(cfg.tools) && cfg.tools.length ? cfg.tools : ['Bash'];
-  if (!tools.includes(payload.tool_name || '')) return null;  // tool not in allowlist → pass through
+  if (!toolAllowed(payload.tool_name || '', tools)) return null;  // tool not in allowlist → pass through
   const full = extractOutput(payload);
   if (full == null) return null;                 // unknown shape → pass through
   // Measure everything on the noise-stripped text so the baseline, the "real gain" check,
@@ -361,7 +396,9 @@ function runInstall(opts = {}) {
   let cfg = { ...DEFAULT_CONFIG };
   try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(cfgP, 'utf8')) }; } catch { /* default */ }
   const tools   = Array.isArray(cfg.tools) && cfg.tools.length ? cfg.tools : ['Bash'];
-  const matcher = tools.join('|');
+  // Settings matchers are regexes: translate the config's trailing-`*` glob (e.g. `mcp__*`)
+  // into `mcp__.*` so the hook actually fires on MCP tools. Exact names pass through unchanged.
+  const matcher = tools.map(t => (typeof t === 'string' && t.endsWith('*')) ? t.slice(0, -1) + '.*' : t).join('|');
 
   const setP = path.join(base, 'settings.json');
   let settings = {};
@@ -428,6 +465,8 @@ const FIXTURES = {
          'test_x.py::b FAILED\n    assert 1 == 2\nE   AssertionError\n===== 1 failed, 8 passed in 0.4s =====',
   git:   'On branch master\nYour branch is up to date.\nChanges not staged for commit:\n\tmodified:   src/a.js\n\tmodified:   src/b.js\nUntracked files:\n\ttmp.log',
   read:  Array.from({ length: 120 }, (_, i) => `line ${i}`).join('\n'),
+  list:  Array.from({ length: 80 }, (_, i) => `drwxr-xr-x  2 user  staff   64 Jan  1 00:00 dir_${i}`).join('\n') +
+         '\nls: cannot access \'locked\': Permission denied',
   log:   'connecting...\n'.repeat(40) + 'done\nresult: ok',
   build: Array.from({ length: 40 }, (_, i) => `   Compiling crate_${i} v1.0.${i}`).join('\n') +
          '\nwarning: unused variable: `x`\n  --> src/main.rs:4:9\n' +
@@ -442,6 +481,7 @@ function runSelfTest() {
     ['tests (pytest)', FIXTURES.tests, t => compressTests(t, cfg)],
     ['git status',     FIXTURES.git,   t => compressGit(t, 'git status', cfg)],
     ['build (cargo)',  FIXTURES.build, t => compressBuild(t, cfg)],
+    ['listing (ls)',   FIXTURES.list,  t => compressList(t, cfg)],
     ['json (api)',     FIXTURES.json,  t => compressJson(t, cfg)],
     ['large read',     FIXTURES.read,  t => compressRead(t, cfg)],
     ['log dedup',      FIXTURES.log,   t => dedupLog(t, cfg)],
@@ -456,7 +496,7 @@ function runSelfTest() {
 }
 
 // ── report: aggregate recorded stats into a measured reduction table ───────────
-const KIND_LABEL = { tests: 'tests (pytest/jest/…)', git: 'git (status/diff/log)', build: 'builds (npm/cargo/…)', json: 'JSON (curl/jq/api)', read: 'large file reads', log: 'logs / other output' };
+const KIND_LABEL = { tests: 'tests (pytest/jest/…)', git: 'git (status/diff/log)', build: 'builds (npm/cargo/…)', list: 'listings (ls/tree/find)', json: 'JSON (curl/jq/api)', mcp: 'MCP server responses', read: 'large file reads', log: 'logs / other output' };
 
 function aggregateStats(entries) {
   const agg = {};
@@ -506,7 +546,7 @@ function runReport(opts = {}) {
 
 module.exports = {
   DEFAULT_CONFIG, loadConfig, configPath, stripNoise,
-  compressTests, compressGit, compressBuild, compressJson, compressRead, dedupLog, looksLikeJson, classify, classifyKind, extractOutput,
+  compressTests, compressGit, compressBuild, compressList, compressJson, compressRead, dedupLog, looksLikeJson, classify, classifyKind, toolAllowed, extractOutput,
   writeSidecar, pruneSidecar, recordStats, compressPayload, runFilter, keepMatcher,
   runInstall, runUninstall, setEnabled, setState, runSelfTest, aggregateStats, runReport,
 };
