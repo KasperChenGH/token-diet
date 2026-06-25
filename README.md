@@ -225,8 +225,11 @@ token-diet/
 │                                  plan · fix · filter · readgate · route · digest · compare · burn · savings · init · setup
 ├── src/filter.js                  Lever 8 output-compression engine (PostToolUse hook)
 ├── src/digest.js                  Lever 5 read-digests: finds re-read files, scaffolds, routes (INDEX + pointer)
+├── src/readgate.js                Lever 3 read-path dedup (PreToolUse hook)
+├── src/router.js                  Lever 7 model-arbitrage rule-table router
 ├── src/*.js                       the deterministic engine (zero deps, no LLM): scan, collectors,
-│                                  review, estimate, diagnose, plan, changeset, fix, compare, history, …
+│                                  review, review-render, estimate, diagnose, plan, changeset, fix,
+│                                  compare, burn, savings, history, …
 ├── skills/
 │   ├── SKILL.md                   the 8-lever methodology (the main skill)
 │   └── shared/                    knowledge shared across subagents (inlined on install)
@@ -267,7 +270,7 @@ token-diet measures real transcript usage (not chars/4 estimates) and never trim
 
 ## Contributing
 
-Issues and PRs welcome. The repo is **zero-dependency Node** — `npm test` runs the suite (`node --test`, 186 tests) and CI runs it on Node 18/20/22. Coverage is **~85% of lines overall**, and every path that writes a file or rewrites live tool output (the filter, `fix`, atomic writes, scan, install/setup) sits at **87–100%** — the safety-critical surface is where the tests are deepest. Two house rules carry the project's own methodology: keep determinism **in the CLI** (the LLM only judges), and make every trim a **move to a reference**, never a delete. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md); notable changes are tracked in the [changelog](CHANGELOG.md).
+Issues and PRs welcome. The repo is **zero-dependency Node** — `npm test` runs the suite (`node --test`, 191 tests) and CI runs it on Node 18/20/22. Coverage is **~85% of lines overall**, and every path that writes a file or rewrites live tool output (the filter, `fix`, atomic writes, scan, install/setup) sits at **87–100%** — the safety-critical surface is where the tests are deepest. Two house rules carry the project's own methodology: keep determinism **in the CLI** (the LLM only judges), and make every trim a **move to a reference**, never a delete. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md); notable changes are tracked in the [changelog](CHANGELOG.md).
 
 ## License
 

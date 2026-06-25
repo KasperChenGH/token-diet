@@ -6,6 +6,33 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+Post-`v0.9.0` hardening from a packaging audit + a senior-engineer / product-manager review.
+No new features; correctness, structure, packaging, and docs.
+
+### Fixed
+- **`bin` path** — `"./bin/token-diet.js"` → `"bin/token-diet.js"`. npm 11 rejects the leading
+  `./` and strips the bin entry on publish, which would ship a package with no `token-diet` command.
+- **License detection** — removed a UTF-8 BOM from `LICENSE` so GitHub/licensee detect it as MIT.
+
+### Changed
+- **`scan.js` streaming fallback** — files over 64 MB stream line-by-line (bounded memory) instead
+  of buffering whole; a parity test proves byte-identical records to the buffered path.
+- **Split `review.js`** (was the largest module) — the renderer moved to `src/review-render.js`
+  (analysis vs presentation), with a one-way module edge (no circular require).
+- **Packaging metadata** — added `author`/`homepage`/`bugs`/`publishConfig`; `repository` →
+  `git+https`; dropped the misleading `main`. Added a provenance publish workflow (OIDC).
+
+### Added
+- Community-health set: `SECURITY.md` (private vuln reporting), `CONTRIBUTING.md`, issue + PR
+  templates. Tests for the `agents` useful-work ratio / 0.15 flag and the streaming path.
+- Named the `chars/4` approximation; `@typedef Record` documenting the transcript-schema contract;
+  targeted JSDoc on the public decision functions.
+
+### Docs
+- README: tightened the hero, surfaced the privacy line above the fold, added an "all numbers are
+  self-measured" disclaimer, de-duplicated the filter lifecycle and the per-lever vs measured tables,
+  and noted GitHub-only distribution. README is now ~274 lines (was 303).
+
 ## [0.9.0] - 2026-06-25
 
 Closes the remaining competitive-survey backlog: the Tier-1/2/3 optimization opportunities
