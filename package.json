@@ -40,5 +40,8 @@
     "cost",
     "optimization",
     "agent"
-  ]
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }
