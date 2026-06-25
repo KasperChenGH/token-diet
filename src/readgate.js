@@ -14,7 +14,9 @@ const path = require('path');
 const os   = require('os');
 const { writeFileAtomic } = require('./atomic');
 
-const estTok = bytes => Math.round((bytes || 0) / 4);
+// Coarse chars/token approximation (kept local; reports label these numbers "≈ bytes/4").
+const APPROX_CHARS_PER_TOKEN = 4;
+const estTok = bytes => Math.round((bytes || 0) / APPROX_CHARS_PER_TOKEN);
 
 const DEFAULT_CONFIG = {
   // enabled: master gate. mode: 'audit' = record what it'd save, deny nothing; 'active' = deny redundant reads.

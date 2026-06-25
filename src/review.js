@@ -624,8 +624,7 @@ function gradeWorseThan(grade, threshold) {
   return g >= 0 && t >= 0 && g > t;
 }
 
-// Detection/analysis surface. fmt + worstSev are exported for the renderer (review-render.js).
+// Detection/analysis surface. fmt + worstSev are exported for the renderer. review-render.js is the
+// ONE module that requires this one — a clean one-way edge, no cycle. The CLI entry point runReview
+// lives in review-render.js; callers (bin, tests) require it there.
 module.exports = { analyze, LEVER_NAMES, modelTier, gradeWorseThan, fmt, worstSev };
-// Attach the renderer AFTER exports are populated, so review-render's require('./review') sees a
-// complete surface (it reads these only at call time). Keeps the public runReview entry point.
-module.exports.runReview = require('./review-render').runReview;

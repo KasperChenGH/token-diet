@@ -3,7 +3,8 @@ const { test } = require('node:test');
 const assert   = require('node:assert/strict');
 const path     = require('path');
 const { tmpDir, writeFile, rm } = require('./helpers');
-const R = require('../src/review');
+const R  = require('../src/review');
+const RR = require('../src/review-render');   // runReview lives here (one-way edge, no cycle)
 
 const fs = require('fs');
 const H  = require('../src/history');
@@ -91,20 +92,20 @@ test('Lever 6 severity boundary: 250 lines → med, 251 → high', () => {
 test('drift nudge: --record stamps a baseline; a later regression nudges; no false positive', async () => {
   const dir = tmpDir();
   writeFile(dir, 'CLAUDE.md', 'short');                 // lean → good grade
-  await capture(() => R.runReview({ dir, record: true }));
+  await capture(() => RR.runReview({ dir, record: true }));
   const base = H.getBaseline(dir);
   assert.ok(base && /^[A-F]$/.test(base.grade), 'baseline recorded with a real grade');
 
   // regress the project hard, then a PLAIN review must nudge
   writeFile(dir, 'CLAUDE.md', bigClaude(300));
   writeFile(dir, '.claude/commands/x.md', '---\n---\nSpawn 5 subagents.\n## Step 1\n## Step 2\nrun the test suite, build, docker');
-  const out = await capture(() => R.runReview({ dir }));
+  const out = await capture(() => RR.runReview({ dir }));
   assert.match(out, /Structural drift: grade regressed/);
   assert.match(out, /Run `\/token-diet`/);
 
   // re-record at the worse grade → no further nudge
-  await capture(() => R.runReview({ dir, record: true }));
-  const out2 = await capture(() => R.runReview({ dir }));
+  await capture(() => RR.runReview({ dir, record: true }));
+  const out2 = await capture(() => RR.runReview({ dir }));
   assert.doesNotMatch(out2, /Structural drift/);
   rm(dir);
 });

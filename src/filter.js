@@ -12,7 +12,11 @@ const path = require('path');
 const os   = require('os');
 const { writeFileAtomic } = require('./atomic');
 
-const estTok = s => Math.round((s || '').length / 4);
+// Tool output has no file extension to key on, so use the coarse chars/token approximation (not
+// collectors' per-extension ratios) — kept local to keep this hot-path module self-contained.
+// Every report that surfaces these labels them "≈ chars/4, not API-billed".
+const APPROX_CHARS_PER_TOKEN = 4;
+const estTok = s => Math.round((s || '').length / APPROX_CHARS_PER_TOKEN);
 
 const DEFAULT_CONFIG = {
   // Shells (Bash + PowerShell) by default: compress incidental verbose command output, NOT

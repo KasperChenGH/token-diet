@@ -81,3 +81,28 @@ test('compare renders the before/after report across two windows (exit 0)', () =
   assert.match(out, /Verdict:/);
   rm(home);
 });
+
+test('review renders the static text report (scorecard + grade) on a fixture (exit 0)', () => {
+  const dir  = tmpDir();
+  const home = tmpDir();
+  writeFile(dir, 'CLAUDE.md', Array.from({ length: 300 }, (_, i) => `line ${i}`).join('\n')); // trips Lever 6
+  const env  = { ...process.env, HOME: home, USERPROFILE: home };
+  const out  = execFileSync('node', [BIN, 'review', '--dir', dir], { encoding: 'utf8', env });
+  assert.match(out, /=== token-diet review \(STATIC\) ===/);
+  assert.match(out, /Scorecard \(project-scope findings only\)/);
+  assert.match(out, /Overall Grade:/);
+  assert.match(out, /\[Lever 6\]/);             // the finding rendered
+  rm(dir); rm(home);
+});
+
+test('review --json emits grade + an 8-lever scorecard + overhead block (exit 0)', () => {
+  const dir  = tmpDir();
+  const home = tmpDir();
+  writeFile(dir, 'CLAUDE.md', Array.from({ length: 300 }, (_, i) => `line ${i}`).join('\n'));
+  const env  = { ...process.env, HOME: home, USERPROFILE: home };
+  const j = JSON.parse(execFileSync('node', [BIN, 'review', '--dir', dir, '--json'], { encoding: 'utf8', env }));
+  assert.match(j.grade, /^[A-F]$/);
+  assert.equal(Object.keys(j.scorecard).length, 8);
+  assert.ok(j.overhead && typeof j.overhead.per_spawn_tokens === 'number');
+  rm(dir); rm(home);
+});

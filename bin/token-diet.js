@@ -325,7 +325,8 @@ async function main() {
         console.error(`token-diet: --fail-under must be one of A B C D F (got "${opts.failUnder}")`);
         process.exit(2);
       }
-      const { runReview, gradeWorseThan } = require('../src/review');
+      const { runReview } = require('../src/review-render');
+      const { gradeWorseThan } = require('../src/review');
       const grade = await runReview(opts);
       if (opts.failUnder && gradeWorseThan(grade, opts.failUnder)) {
         console.error(`token-diet: grade ${grade} is below --fail-under ${opts.failUnder}`);

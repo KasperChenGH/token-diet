@@ -48,6 +48,9 @@ const path     = require('path');
 const os       = require('os');
 const readline = require('readline');
 
+// Coarse chars/token approximation for tool-result sizing (no file extension to key on).
+const APPROX_CHARS_PER_TOKEN = 4;
+
 // Above this size, stream the file line-by-line instead of buffering the whole thing into a
 // string. The buffered path is ~25% faster (no per-line event overhead) and fine for typical
 // transcripts, but a single multi-hundred-MB session would otherwise pin that many bytes of heap
@@ -217,7 +220,7 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
         for (const c of obj.message.content) {
           if (c && c.type === 'tool_result') {
             const text   = toolResultText(c.content);
-            const tokens = Math.round(text.length / 4);
+            const tokens = Math.round(text.length / APPROX_CHARS_PER_TOKEN);
             fileToolResults.push({
               tool_use_id:  c.tool_use_id || '',
               result_tokens: tokens,
