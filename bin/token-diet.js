@@ -15,6 +15,7 @@
  *   token-diet fix       --changeset <file> [--only 1,3] [--dry-run | --verify]
  *   token-diet filter    --install | --self-test | --enable | --disable | --uninstall
  *   token-diet readgate  --install | --self-test | --enable | --activate | --disable | --report | --uninstall
+ *   token-diet route     --classify "<task>" | --scaffold | --self-test [--json]
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
  *   token-diet digest    [--days N=7] [--project <slug>] [--min-reads N=3] [--scaffold] [--dir <path>]
  *   token-diet savings   [--dir <path>=cwd] [--share] [--dry-run] [--json]
@@ -62,6 +63,7 @@ function parseArgs(argv) {
     report:     false,
     failUnder:  null,
     scaffold:   false,
+    classify:   null,
     minReads:   null,
     share:      false,
     record:     false,
@@ -136,6 +138,10 @@ function parseArgs(argv) {
       opts.report = true;
     } else if (a === '--scaffold') {
       opts.scaffold = true;
+    } else if (a === '--classify') {
+      opts.classify = args[++i];
+    } else if (a.startsWith('--classify=')) {
+      opts.classify = a.split('=').slice(1).join('=');
     } else if (a === '--share') {
       opts.share = true;
     } else if (a === '--record') {
@@ -206,6 +212,11 @@ ACT
               disk. Off by default. Flow: --install [--global] → --self-test → --enable (AUDIT:
               records what it'd save, denies nothing) → --report → --activate (go live). Also
               --disable / --uninstall. Tune minTokens/ttlMinutes in .claude/readgate/config.json.
+  route       Lever 7 model-arbitrage router: classify a task description into a model
+              tier (haiku|sonnet|opus) via a deterministic, editable rule table. Routes DOWN
+              only when confident; high-stakes/ambiguous work always pins to opus (escalate).
+              --classify "<task>" decides one task; --scaffold writes .claude/router/rules.json;
+              --self-test runs fixtures. Measure the real split with 'token-diet agents'.
   digest      Lever 5 read-digest prototype: find files an agent re-reads from your
               transcripts, measure the re-read token cost, and (--scaffold) write a
               deterministic structure skeleton per file under .claude/digests/ for an
@@ -240,7 +251,9 @@ OPTIONS
   --global          init: install to ~/.claude/skills/ instead of project .claude/skills/
   --fail-under <g>  review: exit non-zero if the grade is worse than <g> (A-F) — for CI gates
   --min-reads N     digest: only list files read at least N times (default 3)
-  --scaffold        digest: write deterministic skeleton digests under .claude/digests/
+  --classify <task> route: task description to classify into a model tier
+  --scaffold        digest: write deterministic skeleton digests under .claude/digests/;
+                    route: write the editable rule table under .claude/router/
   --share           savings: build the aggregate-only report + pre-filled GitHub issue link (opt-in)
   --help            Show this help
 
@@ -349,6 +362,9 @@ async function main() {
       else                     filter.runFilter(opts);   // hook mode — reads stdin
       break;
     }
+    case 'route':
+      require('../src/router').runRoute(opts);
+      break;
     case 'readgate': {
       const rg = require('../src/readgate');
       if (opts.selfTest)       rg.runSelfTest();

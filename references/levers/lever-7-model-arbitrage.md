@@ -4,6 +4,23 @@
 
 ---
 
+## The artifact: a deterministic rule-table router
+
+`token-diet route` turns this lever from advice into a runnable rule table — the "scripts decide the common case, LLM judges the rest" pattern (Lever 4 ∩ Lever 7) applied to model choice:
+
+```
+token-diet route --scaffold                       # write .claude/router/rules.json (editable)
+token-diet route --classify "rename a symbol"      # → haiku  (mechanical)
+token-diet route --classify "design the migration" # → opus   (high-stakes, escalate)
+token-diet route --self-test                       # built-in fixtures
+```
+
+The table is **ordered, first-match-wins**, with a high-stakes guard rule first (architecture / security / production / migration / root-cause / synthesis) that can never be undercut by a mechanical keyword later in the same task. Routing is **asymmetric — down only when confident**: anything no rule matches defaults to opus and is flagged `escalate` (send it to the top tier, or run a cheap-LLM tiebreaker before downgrading). It is **not a learned router** — a 3-tier space does not justify RouteLLM-class training; the rule table is the product and the user edits it for their workload.
+
+Set realistic expectations: a three-tier split typically yields **~40–60%** weighted savings on the delegated share, not the cherry-picked 80% some tools advertise. Measure your **actual** split with `token-diet agents` (per-model output-token mix from real sessions) rather than quoting a headline number.
+
+---
+
 ## Inspect
 
 Read the frontmatter of every flagged command/agent `.md` file. Check for a `model:` key. If absent, the file defaults to whatever the parent session runs (typically top-tier). Then read the body to classify the work the agent actually does.
