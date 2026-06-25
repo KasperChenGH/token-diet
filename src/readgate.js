@@ -189,6 +189,51 @@ function runSelfTest() {
   } finally { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* ignore */ } }
 }
 
+// ── report: aggregate recorded stats into a measured table ─────────────────────
+function aggregateStats(entries) {
+  const agg = {}; let mode = 'audit';
+  for (const e of entries) {
+    if (e.mode === 'active') mode = 'active';
+    const f = e.file || '(unknown)';
+    (agg[f] = agg[f] || { file: f, count: 0, tok: 0 });
+    agg[f].count++; agg[f].tok += e.tok || 0;
+  }
+  const rows = Object.values(agg).sort((a, b) => b.tok - a.tok);
+  const total = rows.reduce((s, r) => ({ count: s.count + r.count, tok: s.tok + r.tok }), { count: 0, tok: 0 });
+  return { rows, total, mode };
+}
+
+function runReport(opts = {}) {
+  const root = opts.dir ? path.resolve(opts.dir) : process.cwd();
+  let entries = [];
+  try {
+    entries = fs.readFileSync(path.join(root, '.claude', 'readgate', 'stats.jsonl'), 'utf8')
+      .split('\n').filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  } catch { /* none yet */ }
+
+  if (!entries.length) {
+    console.log('\nNo readgate activity recorded yet. Run `token-diet readgate --install --self-test --enable`,\nthen use the project — the table builds from your real reads.\n');
+    return;
+  }
+  const { rows, total, mode } = aggregateStats(entries);
+  if (opts.json) { console.log(JSON.stringify({ rows, total, mode }, null, 2)); return; }
+
+  const verb = mode === 'active' ? 'saved' : 'would save';
+  const fmt = n => Math.round(n).toLocaleString('en-US');
+  const pad = (s, w) => String(s).padStart(w);
+  const shortFile = f => (f.length > 40 ? '…' + f.slice(-39) : f);
+  console.log(`\n=== token-diet readgate — redundant reads ${verb} (your real sessions) ===`);
+  console.log('  Tokens are estimates (≈ file bytes / 4), not API-billed.\n');
+  console.log('  file                                      |  reads |  avoided tok');
+  console.log('  ------------------------------------------+--------+-------------');
+  for (const r of rows)
+    console.log(`  ${shortFile(r.file).padEnd(41)} | ${pad(r.count, 6)} | ${pad(fmt(r.tok), 11)}`);
+  console.log('  ------------------------------------------+--------+-------------');
+  console.log(`  ${'TOTAL'.padEnd(41)} | ${pad(total.count, 6)} | ${pad(fmt(total.tok), 11)}`);
+  console.log(`\n  ${fmt(total.tok)} tokens ${verb} across ${total.count} redundant reads (≈ bytes/4).`);
+  console.log('  Within-session re-reads only — for the whole-project effect, use `token-diet compare`.\n');
+}
+
 // ── hook-mode entrypoint (reads stdin, writes stdout) ──────────────────────────
 function runHook(opts = {}) {
   try {
@@ -206,4 +251,5 @@ module.exports = {
   DEFAULT_CONFIG, loadConfig, estTok, rangeKey, isUnchanged, withinTtl,
   statePath, loadState, saveState, recordStats, denyJson, decide, runHook,
   runInstall, runUninstall, setState, setEnabled, runSelfTest,
+  aggregateStats, runReport,
 };

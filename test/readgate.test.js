@@ -233,3 +233,38 @@ test('runSelfTest prints detection and does not throw', () => {
   try { R.runSelfTest(); } finally { console.log = o; }
   assert.match(out, /readgate/i);
 });
+
+// ── Task 4: measured --report ──────────────────────────────────────────────────
+test('aggregateStats rolls up by file with a total (golden)', () => {
+  const { rows, total } = R.aggregateStats([
+    { file: '/a.txt', tok: 500, mode: 'audit' },
+    { file: '/a.txt', tok: 500, mode: 'audit' },
+    { file: '/b.txt', tok: 800, mode: 'audit' },
+  ]);
+  const a = rows.find(r => r.file === '/a.txt');
+  assert.equal(a.count, 2);
+  assert.equal(a.tok, 1000);
+  assert.equal(rows[0].file, '/a.txt');   // sorted by tok desc (1000 > 800)
+  assert.equal(total.count, 3);
+  assert.equal(total.tok, 1800);
+});
+
+test('runReport with no stats prints guidance and does not throw', () => {
+  const root = tmpDir();
+  let out = ''; const o = console.log; console.log = (...a) => { out += a.join(' ') + '\n'; };
+  try { R.runReport({ dir: root }); } finally { console.log = o; }
+  assert.match(out, /No readgate activity/);
+  rm(root);
+});
+
+test('runReport --json emits the aggregate', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude', 'readgate'), { recursive: true });
+  writeFile(root, '.claude/readgate/stats.jsonl',
+    JSON.stringify({ file: '/a.txt', tok: 500, mode: 'audit' }) + '\n');
+  let out = ''; const o = console.log; console.log = (...a) => { out += a.join(' ') + '\n'; };
+  try { R.runReport({ dir: root, json: true }); } finally { console.log = o; }
+  const j = JSON.parse(out);
+  assert.equal(j.total.tok, 500);
+  rm(root);
+});
