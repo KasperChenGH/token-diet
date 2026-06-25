@@ -71,18 +71,9 @@ token-diet setup --activate   # wires the filter AND turns compression on
 # → reload Claude Code — it now compresses verbose tool output automatically
 ```
 
-That's the whole thing. Turn it off anytime with `token-diet filter --disable`; the full original output is always kept in `.claude/toolout/` so nothing is ever lost.
+That's the whole thing — set-and-forget once active. The full original output is always kept in `.claude/toolout/` so nothing is ever lost, and you can `token-diet filter --disable` anytime.
 
-**Cautious — preview before you trust it** (optional 3 steps): if you'd rather *see* what it would cut before it changes anything, drop the `--activate` and add a preview:
-
-```bash
-token-diet setup              # wires the filter in WATCH-ONLY (audit) mode — changes nothing
-# → reload Claude Code, use it normally for a bit so the hook records
-token-diet filter --report    # see what it WOULD have saved on your real output
-token-diet filter --activate  # happy with it? go live
-```
-
-Either way it's set-and-forget once active. Even when live, the full original output is always saved to a sidecar file with a pointer back to it — nothing is ever lost — and you can `token-diet filter --disable` anytime. (Step 1's "watch-only" state is the filter's **audit** mode.)
+**Prefer to preview first?** Run `token-diet setup` without `--activate` — it wires the filter in **audit** (watch-only) mode, changing nothing; check `token-diet filter --report` to see what it *would* cut, then `token-diet filter --activate` when you're happy.
 
 <details>
 <summary>Bonus: <code>setup</code> also catches structural <b>drift</b> over time</summary>
@@ -258,10 +249,6 @@ Cost dashboards — **ccusage**, **Langfuse**, **Helicone** — tell you *what t
 
 23-round autonomous research loop (Claude Code, Opus + Sonnet): ~1.1M tokens/round → ~100–180k/round, subagent useful-work ratio ~9% → ~40%, two recorded LLM-judgment errors eliminated by the script kernel. The domain contributed nothing — the architecture did.
 
-## See your savings
-
-After a run (or anytime), `token-diet savings` prints a per-lever / per-section reduction table — structural levers **projected** from `estimate`, the output filter **measured** from your real sessions, each clearly labelled. The `/token-diet` agent prints it automatically at the end of Phase 5.
-
 ## Privacy & feedback
 
 **token-diet runs entirely on your machine and sends nothing by default.** It reads your local Claude Code transcripts and writes to your project — no network calls, no account, no analytics.
@@ -270,7 +257,7 @@ The one exception is **strictly opt-in**: **`token-diet savings --share`** build
 
 ## Fidelity guarantee
 
-token-diet works at the architecture layer — it measures real transcript usage (not chars/4 estimates) and never trims information irrecoverably. Every trim is a *move*, not a delete: content goes to an on-demand reference file with a pointer left behind. Think of it as a personal trainer for your agents — it weighs them, finds the flab, and cuts it without touching the muscle (information).
+token-diet measures real transcript usage (not chars/4 estimates) and never trims information irrecoverably — every trim is a *move*, not a delete: content goes to an on-demand reference file with a pointer left behind.
 
 ## Contributing
 
