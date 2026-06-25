@@ -59,6 +59,10 @@ delta. Mention they can `token-diet savings --share` to send aggregate-only numb
 Then OFFER (one approval) to run `token-diet setup` — it wires the output filter in AUDIT mode
 (records only, output unchanged) + a pre-commit drift reminder, so future regressions are caught
 automatically. The filter stays in audit until the user runs `filter --activate`; never auto-activate.
+Then, separately, OFFER (one approval) to install the **read-path gate**:
+`token-diet readgate --install` + `--enable` (AUDIT mode — records redundant within-session re-reads,
+denies nothing). It is the read-path twin of the output filter; same rules — audit-first, never
+auto-activate, `readgate --activate` only after the user has reviewed `readgate --report`.
 
 ## Hard rules
 - Never reduce information irrecoverably. Trim = move to a reference, never delete.
