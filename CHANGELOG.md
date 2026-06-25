@@ -6,6 +6,43 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-25
+
+Closes the remaining competitive-survey backlog: the Tier-1/2/3 optimization opportunities
+and the two open questions (double-counting attribution; the unserved MCP-output category).
+
+### Added
+- **`route` — Lever 7 model-arbitrage router.** Turns Lever 7 from advice into a runnable
+  artifact: a deterministic, ordered, first-match-wins rule table maps a task description to a
+  model tier (haiku|sonnet|opus). A high-stakes guard rule is first, so architecture / security /
+  production / migration / root-cause / synthesis always pin to opus and can't be undercut by a
+  mechanical keyword. Routing is asymmetric — down only when confident; anything unmatched defaults
+  to opus and is flagged `escalate`. Not a learned router; the editable `.claude/router/rules.json`
+  is the product. `--classify "<task>"` / `--scaffold` / `--self-test`.
+- **`burn` — billing-window / burn-rate view.** Buckets recent activity into epoch-aligned 5-hour
+  blocks (the usage-limit reset unit), shows raw + price-weighted tokens per block, and projects the
+  current block to its reset. Documents reconciliation with ccusage.
+- **Lever 8 listing rubric.** A `list` compressor for directory output (`ls -R`/`tree`/`find`/`du`/
+  `Get-ChildItem`): head+tail + a count, never eliding error/permission lines.
+- **MCP-output filtering (owns the unserved category).** Tool names matching `mcp__` route to a new
+  `mcp` filter kind (structural JSON crush for JSON bodies, `dedupLog` otherwise), reported as its own
+  row. The filter allowlist gains a trailing-`*` glob (`mcp__*`) so one entry gates every server.
+
+### Changed
+- **Calibrated token model.** Replaced the flat bytes/4 with per-extension chars/token ratios
+  (.md 4.2, code 3.8, .json 3.2) and added vendor policy constants `OFFLOAD_TOKENS` (20k),
+  `CONTEXT_WINDOW` (200k), `TRUNCATE_AT_PCT` (0.85). `review` now flags any always-loaded file over
+  the 20k offload threshold; `review` and `collectors` share one `estTokens` (DRY).
+- **Move-not-delete stub is a pointer + preview.** Lever 6 moves leave a path pointer plus a 5-line
+  preview of the evicted content, not a bare reference.
+- **Attribution guard (Open Q1).** Overlapping gates (filter, readgate, native context-editing)
+  reduce the same token pools; `savings` now prints a do-not-sum caveat when multiple gates have
+  measured activity, and Lever 3 documents the attribution rule.
+
+### Docs
+- Lever 2 living-doc `{intent, artifacts, next-steps}` summary schema; Lever 3 eviction vocabulary;
+  Lever 5 compression-literature evidence; README positions token-diet above observability tools.
+
 ## [0.8.0] - 2026-06-25
 
 ### Added
