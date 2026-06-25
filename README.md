@@ -106,10 +106,13 @@ token-diet digest                                  # Lever 5: files an agent re-
 
 # ACT — turn findings into work
 token-diet plan --out diet-plan.md                 # ordered checkbox plan per lever with evidence + savings
+token-diet route --classify "rename a symbol"      # Lever 7: route a task to a model tier (--scaffold the rules)
+token-diet readgate --install                      # Lever 3: PreToolUse read-dedup hook (audit-first)
 token-diet init [--global]                         # install the agent + subagents + command + skill
 
 # VERIFY — did it work?
 token-diet compare --before-days 14 --after-days 7 # per-day deltas across windows; the re-measure bookend
+token-diet burn                                    # 5-hour billing-block view + current-block burn projection
 token-diet savings                                 # per-lever/section reduction table; --share for opt-in feedback
 ```
 
@@ -266,6 +269,10 @@ token-diet/
 - **Not for** one-off single-prompt scripts where cost is a non-issue, or non–Claude-Code setups: token-diet reads Claude Code's usage transcripts and `.claude/` artifacts, so that's what it measures and optimizes.
 - **Domain-neutral.** It works at the architecture layer; it was distilled from one project but is tied to none.
 
+### token-diet sits *above* observability
+
+Cost dashboards — **ccusage**, **Langfuse**, **Helicone** — tell you *what the bill is*. token-diet tells you *which agent, session, and lever to cut to lower it*, then restructures the workflow and re-measures. It's diagnosis + treatment, not a meter. Use a dashboard to watch spend; use token-diet to reduce it. (`token-diet burn` even speaks the dashboards' language — a 5-hour billing-block view reconcilable with ccusage.) The defensible difference: every competitor optimizes exactly one axis (output filtering, or routing, or read-dedup); token-diet diagnoses the architecture and restructures across **all eight** at once.
+
 ## Measured impact (originating case)
 
 23-round autonomous research loop (Claude Code, Opus + Sonnet): ~1.1M tokens/round → ~100–180k/round, subagent useful-work ratio ~9% → ~40%, two recorded LLM-judgment errors eliminated by the script kernel. The domain contributed nothing — the architecture did.
@@ -286,7 +293,7 @@ token-diet works at the architecture layer — it measures real transcript usage
 
 ## Contributing
 
-Issues and PRs welcome. The repo is **zero-dependency Node** — `npm test` runs the suite (`node --test`, 131 tests) and CI runs it on Node 18/20/22. Coverage is **~85% of lines overall**, and every path that writes a file or rewrites live tool output (the filter, `fix`, atomic writes, scan, install/setup) sits at **87–100%** — the safety-critical surface is where the tests are deepest. Two house rules carry the project's own methodology: keep determinism **in the CLI** (the LLM only judges), and make every trim a **move to a reference**, never a delete. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md); notable changes are tracked in the [changelog](CHANGELOG.md).
+Issues and PRs welcome. The repo is **zero-dependency Node** — `npm test` runs the suite (`node --test`, 184 tests) and CI runs it on Node 18/20/22. Coverage is **~85% of lines overall**, and every path that writes a file or rewrites live tool output (the filter, `fix`, atomic writes, scan, install/setup) sits at **87–100%** — the safety-critical surface is where the tests are deepest. Two house rules carry the project's own methodology: keep determinism **in the CLI** (the LLM only judges), and make every trim a **move to a reference**, never a delete. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md); notable changes are tracked in the [changelog](CHANGELOG.md).
 
 ## License
 

@@ -25,6 +25,17 @@ test('computeSavings returns grade + projection + (optional) filter stats', () =
   rm(root);
 });
 
+test('printTable warns about double-counting when both gates have measured activity', () => {
+  const root = tmpDir(); project(root);
+  writeFile(root, '.claude/toolout/stats.jsonl', JSON.stringify({ kind: 'tests', rawTok: 100, compTok: 40 }) + '\n');
+  writeFile(root, '.claude/readgate/stats.jsonl', JSON.stringify({ file: 'a', tok: 50, mode: 'audit' }) + '\n');
+  let buf = '';
+  const o = console.log; console.log = (...a) => { buf += a.join(' ') + '\n'; };
+  try { S.runSavings({ dir: root, _home: HOME }); } finally { console.log = o; }
+  assert.match(buf, /do NOT add them/);
+  rm(root);
+});
+
 test('share payload is STRICTLY AGGREGATE — no paths, names, content, or commands', () => {
   const root = tmpDir(); project(root);
   // seed measured filter stats so the filter branch is exercised

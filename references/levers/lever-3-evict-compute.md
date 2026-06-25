@@ -67,3 +67,23 @@ report.md inline scoring → KEEP: LLM inspects partial results per round to dec
 Compute eviction also applies to the **read path**: when an agent re-reads the *same file+range, unchanged, within one session*, every re-read re-enters context and is re-sent as cache reads on every subsequent turn. The `token-diet readgate` PreToolUse hook detects these and (in active mode) denies the redundant read with a recoverable reason — the file is still on disk, so a denied read is never data loss (re-read a different range to bypass). Audit-first: it records what it would save before you activate it; `token-diet readgate --report` shows the measured per-file reduction.
 
 This is the read-path twin of the Lever 8 output filter (which compresses *command* output). Both are off by default, audit-first, and never auto-activated.
+
+---
+
+## Eviction vocabulary & thresholds (calibrated to vendor defaults)
+
+When describing what to evict and when, use the terms the platforms already use so the advice maps onto native features:
+
+- **keep N recent pairs** — retain the last N user/tool message pairs verbatim; evict older ones. (Anthropic context editing.)
+- **exclude / protect tools** — never evict the output of a named tool (e.g. the one carrying the task spec). (Anthropic context editing.)
+- **clear_at_least** — only trigger eviction once at least K tokens can be reclaimed, so you don't churn for a trivial gain. (Anthropic context editing.)
+- **offload threshold (~20k tokens)** — a single tool result or file larger than this should be written to the filesystem and pulled on demand, not held in context. (LangChain Deep Agents; wired into `review` as a Lever 6 offload finding.)
+- **truncate at ~85% of the window** — start dropping the oldest history once the conversation reaches 85% of the model's context window (200k for current Claude). (LangChain Deep Agents.)
+
+These constants live in `src/collectors.js` (`OFFLOAD_TOKENS`, `CONTEXT_WINDOW`, `TRUNCATE_AT_PCT`) as maintainer-tunable values.
+
+---
+
+## Attribution — do not double-count overlapping gates (Open Q1)
+
+readgate, the Lever 8 filter, Anthropic-native context editing, and third-party optimizers (claude-context-optimizer, RTK) all reduce the *same* token pools. Their savings **overlap** — a re-read that readgate denies was also a candidate the native editor might have evicted. **Never sum them.** When reporting, attribute savings to the gate that actually fired first on a given token, or report each gate's measured reduction *independently* and state that they are not additive. token-diet's own numbers come only from what its hooks measured firing — they already exclude tokens a different gate handled. When stacking gates, prefer enabling **one** read-path gate to keep attribution clean.

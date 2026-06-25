@@ -50,3 +50,15 @@ Example:
 precheck.md + process.md → DISPOSE-CANDIDATE: phases pass a findings file; no contamination boundary; merge into one session with state written to a plan file between phases + restructure: fold the precheck into process.md Phase 1, write findings file, continue in same session
 loop.md (round N) + loop.md (round N+1) → KEEP: each round must be a fresh session — context grows unbounded over 20+ rounds
 ```
+
+---
+
+## Living-doc summary schema
+
+When state is carried in a file between phases (the merge target above) or across `/clear` (a handover), standardize the document on three fields — the schema LangChain Deep Agents converged on for cross-session continuity:
+
+- **intent** — the goal of the work cycle and any constraints that won't be re-derivable from the code.
+- **artifacts** — what now exists: files written/moved, commits, IDs, decisions made (with the *why*).
+- **next-steps** — the ordered remaining work, each item independently actionable by a fresh session.
+
+A handover that fits this schema lets the next session reconstruct context from the file alone, which is the whole point of carrying state in files rather than conversation. Keep it terse: it is a pointer into the work, not a transcript of it.

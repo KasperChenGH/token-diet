@@ -49,3 +49,13 @@ knowledge/MASTER_KNOWLEDGE.md → MOVE: 800-line pack re-read every run + restru
 knowledge/old_experiment_log.md → DISPOSE-CANDIDATE: superseded by constraints.md; no active Source: pointer
 data/API_REFERENCE.md → KEEP: exact CLI flags — digesting risks omitting critical parameter values
 ```
+
+---
+
+## Why deterministic tiering is safe (compression literature)
+
+The research backs static, extractive tiering over learned token-pruning:
+
+- **Extractive > learned pruning** (arXiv 2407.08892): selecting which whole sections to keep beats learned per-token compression on downstream task accuracy — exactly the move-not-delete, keep-whole-files design here.
+- **Compression can raise accuracy** (LongLLMLingua): removing distractor context can *improve* answers up to a point — so a digest that drops noise is not merely cheaper, it can be better.
+- **Do NOT vendor an LLM token-pruner** (LLMLingua family): runtime model-based compression contradicts this lever's static-tiering design and adds a dependency. Cite the literature as *evidence*, not as a component. Optionally nudge digests toward task-aware selection (TACO-RL) where a digest serves one known consumer.

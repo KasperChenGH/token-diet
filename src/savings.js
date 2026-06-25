@@ -34,6 +34,13 @@ function installId(home) {
   return id;
 }
 
+// True if a gate's stats log has any recorded activity — used to warn about double-counting.
+function gateActive(root, gate) {
+  try {
+    return fs.readFileSync(path.join(root, '.claude', gate, 'stats.jsonl'), 'utf8').split('\n').some(Boolean);
+  } catch { return false; }
+}
+
 // Read the measured filter stats (if any) into an aggregate.
 function filterStats(root) {
   try {
@@ -82,7 +89,11 @@ function printTable(d) {
     console.log('\nOutput filter: no measured data yet — run `token-diet setup`, use Claude Code a bit, then `filter --report`.');
   }
   console.log('\nProjected rows are a model; the filter row is measured (token ≈ chars/4). For the');
-  console.log('whole-session before/after, run `token-diet compare`.  Share results: `--share`.\n');
+  console.log('whole-session before/after, run `token-diet compare`.  Share results: `--share`.');
+  // Attribution guard (Open Q1): overlapping gates reduce the same token pools — never sum them.
+  if (gateActive(d.root, 'toolout') && gateActive(d.root, 'readgate'))
+    console.log('\nNote: the filter and readgate both have measured activity. Their savings overlap the\nsame token pools — read each figure independently; do NOT add them (or native context-editing).');
+  console.log('');
 }
 
 // STRICTLY AGGREGATE — no paths, names, commands, or content. Auditable via --dry-run.
