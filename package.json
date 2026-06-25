@@ -1,6 +1,6 @@
 {
   "name": "token-diet",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Static project review + Token-reduction agent for Claude Code workflows: measures, diagnoses, plans, executes, verifies",
   "bin": {
     "token-diet": "./bin/token-diet.js"

@@ -19,7 +19,7 @@ the risk tier rises and the downgrade needs human sign-off.
 ## Reliability trade-off scoring
 Score each candidate: task-is-mechanical (yes/no) × has-downstream-verification (yes/no) ×
 blast-radius (low/med/high). Downgrade freely only when mechanical AND verified AND low blast.
-High-stakes sole gates (trade entries, security, architecture) stay top-tier regardless.
+High-stakes sole gates (production deploys, security, architecture) stay top-tier regardless.
 
 ## "Mechanical" that hides judgment
 Extraction with messy/edge-case inputs, or a "fixed rubric" whose edges need domain reasoning, is

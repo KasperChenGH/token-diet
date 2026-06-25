@@ -59,4 +59,4 @@ After one cycle on the new architecture, compare actuals to estimates. Then run 
 | Skipping the consistency review after restructuring | Stale contracts in untouched files are how autonomous agents go off-script |
 
 ## Real-world impact (one measured case)
-A 23-round autonomous research loop (Claude Code, Opus + Sonnet): ~1.1M tokens/round → ~100–180k/round (≈85%) while reliability *improved* — subagent useful-work ratio rose from ~9% to ~40%, and moving verdict math into a script kernel eliminated two recorded LLM-judgment errors. The same levers transfer to any recurring agent pipeline; the loop's domain (trading research) contributed nothing to the savings — the architecture did.
+A 23-round autonomous research loop (Claude Code, Opus + Sonnet): ~1.1M tokens/round → ~100–180k/round (≈85%) while reliability *improved* — subagent useful-work ratio rose from ~9% to ~40%, and moving verdict math into a script kernel eliminated two recorded LLM-judgment errors. The same levers transfer to any recurring agent pipeline; the loop's domain contributed nothing to the savings — the architecture did.

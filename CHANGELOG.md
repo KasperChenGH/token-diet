@@ -6,6 +6,8 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-25
+
 ### Added
 - **`readgate` — read-path dedup (Lever 3).** A PreToolUse hook on `Read` that detects within-session
   re-reads of an *unchanged* file+range and (in active mode) denies them with a recoverable reason —

@@ -36,7 +36,7 @@ For each flagged file without a model pin, read enough of the body to answer: is
 ## DO NOT downgrade if
 
 - The user has not explicitly agreed to trade quality on this agent — flag it as a candidate, never auto-apply.
-- The agent is the sole quality gate for a high-stakes decision (trade entries, security review, architectural choices).
+- The agent is the sole quality gate for a high-stakes decision (production deploys, security review, architectural choices).
 - The model pin would be the first pin in the project — confirm the user understands the implication before suggesting a project-wide change.
 - The work is "mechanical" but the inputs are ambiguous enough that a smaller model's lower reliability could produce silent errors (e.g., mechanical LOOKS like extraction but requires domain judgment to handle edge cases).
 
