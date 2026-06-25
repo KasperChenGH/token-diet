@@ -7,6 +7,14 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 ## [Unreleased]
 
 ### Added
+- **`readgate` — read-path dedup (Lever 3).** A PreToolUse hook on `Read` that detects within-session
+  re-reads of an *unchanged* file+range and (in active mode) denies them with a recoverable reason —
+  the full file stays on disk, so a denied read is never data loss. Off by default, audit-first, never
+  auto-activated. Lifecycle mirrors the output filter: `--install`/`--self-test`/`--enable` (audit)/
+  `--activate` (live)/`--report`/`--disable`/`--uninstall`. It is the read-path twin of the Lever 8
+  output filter (which compresses *command* output). Savings are **measured, not claimed**: the figure
+  comes from a committed deterministic replay benchmark (`test/readgate.test.js`) and from the user's
+  own `readgate --report` — no external/borrowed percentages are published.
 - **JSON output compressor (Lever 8).** A new `json` content kind: shell output that parses as
   JSON (curl/jq/`--output json`/API responses) is now shrunk *structurally* — long arrays
   truncated to head+tail+count, long string values clipped, re-serialized compact — while every

@@ -54,7 +54,7 @@ Either way, reload Claude Code, then run **`/token-diet`** (or just say *"put th
 
 ## How to use it — two modes
 
-**Start with Mode 1** — the structural review is where the real savings are. **Mode 2** (the output filter) is an automatic quick-win you can also leave running, but on its own it's the smaller pool. Most people do the review once, then keep the filter on.
+**Start with Mode 1** — the structural review is where the real savings are. **Mode 2** (the output filter) is an automatic quick-win you can also leave running, but on its own it's the smaller pool. Most people do the review once, then keep the filter on. A companion read-path gate (`token-diet readgate`) does the same for redundant *file re-reads* within a session — off by default, audit-first, measured via `readgate --report`.
 
 ### Mode 1 · Review — `/token-diet`  (full control)
 

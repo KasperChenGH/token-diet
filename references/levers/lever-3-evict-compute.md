@@ -59,3 +59,11 @@ batch command in process.md → MOVE: the batch job runs 5–20 min with no LLM 
 poll loop in loop.md → MOVE: sleep+check loop burns tokens across idle minutes + restructure: driver polls the workers; session triggers on completion file
 report.md inline scoring → KEEP: LLM inspects partial results per round to decide next config — genuinely interactive
 ```
+
+---
+
+## Read-path corollary — within-session redundant reads
+
+Compute eviction also applies to the **read path**: when an agent re-reads the *same file+range, unchanged, within one session*, every re-read re-enters context and is re-sent as cache reads on every subsequent turn. The `token-diet readgate` PreToolUse hook detects these and (in active mode) denies the redundant read with a recoverable reason — the file is still on disk, so a denied read is never data loss (re-read a different range to bypass). Audit-first: it records what it would save before you activate it; `token-diet readgate --report` shows the measured per-file reduction.
+
+This is the read-path twin of the Lever 8 output filter (which compresses *command* output). Both are off by default, audit-first, and never auto-activated.
