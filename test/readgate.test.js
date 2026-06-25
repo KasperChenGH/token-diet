@@ -133,3 +133,50 @@ test('fail-open: missing file and malformed payload → null', () => {
   assert.equal(R.decide({}, root, T0), null);                            // empty
   rm(root);
 });
+
+// ── Task 2: hook entrypoint + benchmark ────────────────────────────────────────
+test('runHook: active deny writes JSON to stdout; allow writes nothing', () => {
+  const root = tmpDir(); cfg(root, { enabled: true, mode: 'active' });
+  writeFile(root, 'big.txt', 'x'.repeat(2000));
+  const fp = path.join(root, 'big.txt');
+  const capture = (payload) => {
+    let wrote = ''; const orig = process.stdout.write; process.stdout.write = s => { wrote += s; return true; };
+    try { R.runHook({ _stdin: JSON.stringify(payload), dir: root, _nowIso: T1 }); }
+    finally { process.stdout.write = orig; }
+    return wrote;
+  };
+  // seed a first read (allow, nothing written)
+  assert.equal(capture({ session_id: 's1', tool_name: 'Read', cwd: root, tool_input: { file_path: fp } }), '');
+  // redundant re-read → deny JSON on stdout
+  const out = capture({ session_id: 's1', tool_name: 'Read', cwd: root, tool_input: { file_path: fp } });
+  assert.match(out, /"permissionDecision":"deny"/);
+  rm(root);
+});
+
+test('runHook: malformed stdin is fail-safe (no throw, no output)', () => {
+  let wrote = ''; const orig = process.stdout.write; process.stdout.write = s => { wrote += s; return true; };
+  try { R.runHook({ _stdin: 'not json', dir: tmpDir() }); } finally { process.stdout.write = orig; }
+  assert.equal(wrote, '');
+});
+
+// CANONICAL BENCHMARK — the ONLY source of any published savings number for readgate.
+// Sequence: read A(2000B≈500tok), read B, re-read A unchanged (redundant), modify A, re-read A (allowed).
+// Expected measured outcome: exactly 1 redundant read detected, 500 avoided tokens.
+test('benchmark: replay sequence yields exactly one 500-tok redundant detection', () => {
+  const root = tmpDir(); cfg(root, { enabled: true, mode: 'audit' });
+  writeFile(root, 'A.txt', 'x'.repeat(2000));
+  writeFile(root, 'B.txt', 'y'.repeat(2000));
+  const rd = (rel) => readOf(root, rel);
+  R.decide(rd('A.txt'), root, T0);            // 1. read A
+  R.decide(rd('B.txt'), root, T0);            // 2. read B
+  R.decide(rd('A.txt'), root, T1);            // 3. re-read A unchanged → REDUNDANT (recorded)
+  writeFile(root, 'A.txt', 'z'.repeat(2400)); // 4. modify A
+  R.decide(rd('A.txt'), root, T1);            // 5. re-read A changed → allowed (not recorded)
+  const stats = fs.readFileSync(path.join(root, '.claude', 'readgate', 'stats.jsonl'), 'utf8')
+    .trim().split('\n').map(l => JSON.parse(l));
+  assert.equal(stats.length, 1, 'exactly one redundant read across the sequence');
+  assert.equal(stats[0].tok, 500, 'avoided tokens == estTok(2000)');
+  const totalAvoided = stats.reduce((s, e) => s + e.tok, 0);
+  assert.equal(totalAvoided, 500);           // the published, reproducible number
+  rm(root);
+});

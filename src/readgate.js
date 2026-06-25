@@ -102,7 +102,20 @@ function decide(payload, root, nowIso) {
   } catch { return null; }                                           // fail-open
 }
 
+// ── hook-mode entrypoint (reads stdin, writes stdout) ──────────────────────────
+function runHook(opts = {}) {
+  try {
+    const raw = opts._stdin != null ? opts._stdin : fs.readFileSync(0, 'utf8');
+    const payload = JSON.parse(raw);
+    const root = payload.cwd ? path.resolve(payload.cwd)
+               : opts.dir ? path.resolve(opts.dir) : process.cwd();
+    const nowIso = opts._nowIso || new Date().toISOString();
+    const out = decide(payload, root, nowIso);
+    if (out) process.stdout.write(out);
+  } catch { /* fail-safe: emit nothing → read proceeds */ }
+}
+
 module.exports = {
   DEFAULT_CONFIG, loadConfig, estTok, rangeKey, isUnchanged, withinTtl,
-  statePath, loadState, saveState, recordStats, denyJson, decide,
+  statePath, loadState, saveState, recordStats, denyJson, decide, runHook,
 };
