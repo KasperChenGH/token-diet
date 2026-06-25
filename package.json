@@ -8,7 +8,7 @@
     "url": "https://github.com/KasperChenGH/token-diet/issues"
   },
   "bin": {
-    "token-diet": "./bin/token-diet.js"
+    "token-diet": "bin/token-diet.js"
   },
   "license": "MIT",
   "files": [
