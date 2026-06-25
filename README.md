@@ -176,36 +176,14 @@ Pooled across **twelve production codebases** (≈389 shell calls), counting onl
 | **MCP** — `mcp__*` server responses *(v0.9, opt-in)* | same structural crush as JSON for JSON bodies · dedup for prose | **−40…−95%** *(JSON engine)* |
 | **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads | **−77%/read** (−42% blend is a projection) |
 
-- Structured output compresses hardest — tests and git meet or beat a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs (they dominate the volume and have no schema to exploit).
-- The low-call rows (tests, git, JSON) are lightly sampled.
-- Only shell tools are counted — Read/Grep/Task are excluded (see Lever 5).
-- **Per-call, but compounding:** each compressed output is re-sent every later turn, so the real effect compounds through `cache_read` — your dominant cost (~99.6% of token volume). Measure the whole-session result with `token-diet compare`.
+- Structured output compresses hardest (tests/git rival a specialized Rust command-rewriter's ~−80%); the blend is held down by free-form logs, which dominate the volume and have no schema to exploit. Low-call rows (tests, git, JSON) are lightly sampled.
+- **Per-call, but compounding:** each compressed output is re-sent every later turn, so the real effect compounds through `cache_read` — your dominant cost. Measure the whole-session result with `token-diet compare`.
+- **builds / JSON** vary by output: builds land **−86…−98%** on verbose tools (quiet-by-default ones show little); JSON lands **−40%** here but **−41% (`npm view react`) to −95%** on array-heavy API output. **listings / MCP** are new in v0.9 and *demonstrated, not pooled-measured* — real numbers populate from your own `filter --report`.
+- **file reads** are a separate, opt-in, and far bigger pool: `subagent-digester` turned a real 321-line file into a **740-token digest** (**−77%/read, measured**; the −42% blend is a projection). `token-diet compare` gives your real multi-session number.
 
-- **builds** — **−98%** on a real verbose `npm install` (823 → 15 lines).
-  - Pooled codebases show none: modern build tools are quiet by default — verbose output (cargo, webpack, docker, `npm --verbose`) is where the **−86…−98%** lands.
-- **JSON** — shrinks structurally (truncate long arrays to head+tail+count, clip long strings, re-serialize compact); keeps every key and all `error`/`status`/`message` values.
-  - The −40% here is small because these codebases rarely emit JSON; on real API/devops output it lands **−41% (`npm view react`) to −95%** (array-heavy responses).
-  - Inspired by [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, zero-dependency.
-- **listings / MCP** — new in v0.9.0 and **not yet in the pooled corpus**, so their figures are *demonstrated*, not pooled-measured: the listing **−50%** is the shipped `filter --self-test` fixture (80 entries; larger trees compress far harder since head/tail stay fixed at 20 lines each), and MCP reuses the JSON compressor, so it lands wherever JSON does (−40% here to −95% on array-heavy responses). MCP is opt-in — add `"mcp__*"` to the filter's `tools`. Real percentages populate from your own `filter --report` once these fire on live sessions.
-- **file reads** — *not* in the shell total: a separate, opt-in mechanism, and by far the bigger pool (**5.4M read tokens, 93% re-reads** vs 584k on shells).
-  - Proven end-to-end: `subagent-digester` turned a real 321-line file into a **740-token digest** (**−77% per read**, one file measured); `fix` applies the digest **plus** a CLAUDE.md routing pointer so future reads prefer it.
-  - The **−77%/read is measured**; the **~−42% blended figure is a projection** (assumes some reads still need the full source) — `token-diet compare` gives your real multi-session number once you've run it a few days.
+## The output filter — config & keep-patterns
 
-`cache_read` itself is never a row — it's not a kind of output, it's the re-transmission of everything above; the filter and digest shrink the *sources* that feed it.
-
-## The output filter — safe by default
-
-The Lever 8 filter compresses verbose tool output before it re-enters context. It's built so you can **prove it's safe on your output before it changes anything** — enabling never jumps straight to live compression:
-
-```bash
-token-diet filter --install     # wire the PostToolUse hook (off)
-token-diet filter --enable      # AUDIT: records what it *would* save — output UNCHANGED
-token-diet filter --report      # the measured reduction table from your real sessions
-token-diet filter --activate    # go live (the one switch you flip yourself)
-token-diet filter --disable     # turn it back off anytime
-```
-
-In **audit** mode the filter runs on every matched call, records the would-be saving to `.claude/toolout/stats.jsonl`, but returns the original output unchanged. You review `--report`, confirm the reductions look right, then `--activate`. Even when live, the full output is always kept in `.claude/toolout/<ts>.log` with a pointer, so nothing is lost. It compresses **shell output (Bash + PowerShell) by default** (Read/Grep are opt-in, since those are better handled by Lever 5 digests; Task/Edit results are left untouched).
+The Lever 8 filter (turned on in **Mode 2** above) compresses **shell output — Bash + PowerShell — by default**; Read/Grep are opt-in (better handled by Lever 5 digests) and Task/Edit are left untouched. It is audit-first and the full original output is always kept in `.claude/toolout/<ts>.log` with a pointer, so nothing is lost.
 
 <details>
 <summary><b>keep-patterns &amp; config</b> — protect your own signals; tune thresholds (<code>.claude/toolout/filter.json</code>)</summary>
