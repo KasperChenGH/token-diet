@@ -39,10 +39,9 @@ function countLines(content) {
   return content.split('\n').length;
 }
 
-function estTokens(filePath) {
-  try { return Math.round(fs.statSync(filePath).size / 4); }
-  catch { return 0; }
-}
+// Single source of truth for token estimation + thresholds (per-extension chars/token ratio).
+const C = require('./collectors');
+const estTokens = C.estTokens;
 
 /** Glob *.md files one level deep */
 function globMdFiles(dir) {
@@ -176,6 +175,18 @@ function checkLever6(targetDir, home, findings) {
 
   const perSpawnTotal = rows.filter(r => r.scope === 'per-spawn')
                             .reduce((s, r) => s + r.tokens, 0);
+
+  // Offload threshold (Deep Agents ~20k tokens): a single always-loaded file this large
+  // should live on the filesystem and be pulled on demand, not held in every spawn's context.
+  for (const r of rows) {
+    if (r.scope === 'per-spawn' && r.tokens > C.OFFLOAD_TOKENS) {
+      findings.push(finding(
+        6, 'high', r.file,
+        `~${fmt(r.tokens)} tokens — over the ${fmt(C.OFFLOAD_TOKENS)}-token offload threshold [${r.label}]`,
+        'Offload: move the bulk to an on-demand reference file; keep only a pointer + preview in the always-loaded file'
+      ));
+    }
+  }
 
   // Flag files > 100 lines
   for (const r of rows) {

@@ -264,7 +264,7 @@ NOTE: Usage is deduplicated per API request (keyed on requestId). Claude Code
 FORMULAS
   useful-work ratio  = output / (output + fresh_in + cache_write)
   avg context/call   = cache_read / calls
-  est tokens in file = file_size_bytes / 4
+  est tokens in file = file_size_bytes / chars_per_token (per-extension: .md 4.2, code 3.8, .json 3.2)
 
 SESSION KINDS
   session   — main session file (uuid.jsonl)

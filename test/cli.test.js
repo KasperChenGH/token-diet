@@ -10,7 +10,7 @@ const BIN = path.join(__dirname, '..', 'bin', 'token-diet.js');
 test('estimate --json runs end-to-end on a fixture', () => {
   const dir  = tmpDir();
   const home = tmpDir();                 // empty home → no global ~/.claude bleeds into the bill
-  writeFile(dir, 'CLAUDE.md', 'x'.repeat(400));
+  writeFile(dir, 'CLAUDE.md', 'x'.repeat(420));  // 420 / 4.2 (.md) = 100 tok per-spawn
   const env  = { ...process.env, HOME: home, USERPROFILE: home }; // os.homedir(): HOME (POSIX) / USERPROFILE (win)
   const out  = execFileSync('node',
     [BIN, 'estimate', '--dir', dir, '--spawns', '5', '--turns', '8', '--toolout', 'med', '--json'],

@@ -9,7 +9,7 @@ const NO_HOME = p => path.join(p, 'NO_HOME');
 
 test('deriveInputs: defaults when no signals', () => {
   const dir = tmpDir();
-  writeFile(dir, 'CLAUDE.md', 'x'.repeat(400)); // 100 tok per-spawn
+  writeFile(dir, 'CLAUDE.md', 'x'.repeat(420)); // 420 / 4.2 (.md) = 100 tok per-spawn
   const inp = E.deriveInputs(dir, NO_HOME(dir), {});
   assert.equal(inp.perSpawnOverhead, 100);
   assert.equal(inp.perSessionOverhead, 0);

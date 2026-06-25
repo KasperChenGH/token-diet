@@ -12,8 +12,31 @@ const STEP_RE    = /^#+\s*Step [1-9]/gim;
 // Distinct from review.js's COMPUTE_RE, which detects in-session compute duration (Lever 3).
 const TOOLOUT_RE = /\b(build|compile|test suite|test|train|backtest|sweep|npm install|docker|webpack|log)\b/gi;
 
+// Per-extension chars/token ratios (calibrated against published values from
+// claude-context-optimizer's measurements: prose/markdown packs looser than code, JSON
+// tighter). Refines the old flat bytes/4. _default keeps the 4.0 baseline for unknown types.
+const CHARS_PER_TOKEN = {
+  '.md': 4.2, '.markdown': 4.2, '.txt': 4.2,
+  '.json': 3.2, '.yaml': 4.0, '.yml': 4.0, '.toml': 4.0,
+  '.js': 3.8, '.ts': 3.8, '.jsx': 3.8, '.tsx': 3.8, '.mjs': 3.8, '.cjs': 3.8,
+  '.py': 3.8, '.go': 3.8, '.rs': 3.8, '.java': 3.8,
+  _default: 4.0,
+};
+function charsPerToken(filePath) {
+  return CHARS_PER_TOKEN[path.extname(String(filePath)).toLowerCase()] || CHARS_PER_TOKEN._default;
+}
+
+// Vendor-calibrated policy thresholds (first-pass guesses replaced with published numbers):
+//   OFFLOAD_TOKENS   — LangChain Deep Agents offloads a tool result / file over ~20k tokens
+//                      to the filesystem instead of holding it in context.
+//   CONTEXT_WINDOW   — modeled window for the truncate gate (200k for current Claude).
+//   TRUNCATE_AT_PCT  — Deep Agents truncates conversation history at ~85% of the window.
+const OFFLOAD_TOKENS  = 20000;
+const CONTEXT_WINDOW  = 200000;
+const TRUNCATE_AT_PCT = 0.85;
+
 function estTokens(filePath) {
-  try { return Math.round(fs.statSync(filePath).size / 4); } catch { return 0; }
+  try { return Math.round(fs.statSync(filePath).size / charsPerToken(filePath)); } catch { return 0; }
 }
 function readText(p) {
   try { return fs.readFileSync(p, 'utf8'); } catch { return null; }
@@ -71,6 +94,7 @@ function collectCommandFiles(targetDir, home) {
 
 module.exports = {
   SPAWN_RE, STEP_RE, TOOLOUT_RE,
+  CHARS_PER_TOKEN, charsPerToken, OFFLOAD_TOKENS, CONTEXT_WINDOW, TRUNCATE_AT_PCT,
   estTokens, readText, globMdFiles, globSkillFiles,
   collectOverhead, collectCommandFiles,
 };
