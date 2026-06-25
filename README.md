@@ -149,8 +149,8 @@ These are **different mechanisms in different units** — don't read them as one
 | 4 · Scripts compute | halves the LLM's re-derivation (output ×0.5) — **~−3k weighted tok/run** on a representative project | model |
 | 5 · Tier knowledge (digests) | **−77% per reference read** (measured); **~−42% blended is a projection** | measured + model |
 | 6 · Trim always-loaded | reference bulk → a pointer: **−80% of the always-loaded file**, **× every spawn** (the largest compounding saver) | demonstrated |
-| 7 · Model arbitrage | **$-cost only** — routes mechanical work to a cheaper model (not raw tokens) | model |
-| 8 · Filter tool output | **−69% of shell output** across 389 calls (git −83 · tests −86 · JSON −40 · logs −62) | measured |
+| 7 · Model arbitrage | **$-cost only** — `token-diet route` classifies each task to the cheapest safe tier (not raw tokens) | model |
+| 8 · Filter tool output | **−69% of shell output** across 389 calls (git −83 · tests −86 · JSON −40 · logs −62); v0.9 also covers **listings** + **MCP responses** | measured (+ new kinds demonstrated) |
 
 - **Lever 6** — `subagent-context-trimmer` cut a representative `CLAUDE.md` from **524 → 104** always-loaded tokens (moved the reference bulk — script catalog, definitions, layout — to a pointer + companion file).
   - **−80% of what every spawn pays**, compounding to **−4,200 tok/round at 10 agents**.
@@ -172,6 +172,8 @@ Pooled across **twelve production codebases** (≈389 shell calls), counting onl
 | **logs / other** shell output | dedups repeats · head/tail-elides middles (errors/warnings always kept) | **−62%** |
 | **shell total** — Bash + PowerShell (the safe default) | the rows above, blended | **−69%** |
 | **builds** — npm / cargo / docker / tsc / eslint | errors, warnings, the final summary · per-package/layer progress | **−86…−98%** |
+| **listings** — `ls -R` / `tree` / `find` / `du` *(v0.9)* | head + tail + a count · the bulk of entries (errors/permissions always kept) | **−50%** *(fixture; scales up)* |
+| **MCP** — `mcp__*` server responses *(v0.9, opt-in)* | same structural crush as JSON for JSON bodies · dedup for prose | **−40…−95%** *(JSON engine)* |
 | **file reads** — Lever 5, via `token-diet digest` | one authored digest replaces N repeated full reads | **−77%/read** (−42% blend is a projection) |
 
 - Structured output compresses hardest — tests and git meet or beat a specialized Rust command-rewriter's ~−80% headline; the blend is held down by free-form logs (they dominate the volume and have no schema to exploit).
@@ -184,6 +186,7 @@ Pooled across **twelve production codebases** (≈389 shell calls), counting onl
 - **JSON** — shrinks structurally (truncate long arrays to head+tail+count, clip long strings, re-serialize compact); keeps every key and all `error`/`status`/`message` values.
   - The −40% here is small because these codebases rarely emit JSON; on real API/devops output it lands **−41% (`npm view react`) to −95%** (array-heavy responses).
   - Inspired by [headroom](https://github.com/chopratejas/headroom)'s SmartCrusher, zero-dependency.
+- **listings / MCP** — new in v0.9.0 and **not yet in the pooled corpus**, so their figures are *demonstrated*, not pooled-measured: the listing **−50%** is the shipped `filter --self-test` fixture (80 entries; larger trees compress far harder since head/tail stay fixed at 20 lines each), and MCP reuses the JSON compressor, so it lands wherever JSON does (−40% here to −95% on array-heavy responses). MCP is opt-in — add `"mcp__*"` to the filter's `tools`. Real percentages populate from your own `filter --report` once these fire on live sessions.
 - **file reads** — *not* in the shell total: a separate, opt-in mechanism, and by far the bigger pool (**5.4M read tokens, 93% re-reads** vs 584k on shells).
   - Proven end-to-end: `subagent-digester` turned a real 321-line file into a **740-token digest** (**−77% per read**, one file measured); `fix` applies the digest **plus** a CLAUDE.md routing pointer so future reads prefer it.
   - The **−77%/read is measured**; the **~−42% blended figure is a projection** (assumes some reads still need the full source) — `token-diet compare` gives your real multi-session number once you've run it a few days.

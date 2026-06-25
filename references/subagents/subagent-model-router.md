@@ -11,6 +11,11 @@ Uses: [[shared/audit-method]]
 - **Judgment (keep top-tier):** weighing trade-offs, resolving ambiguity, synthesis across
   sources, strategy/architecture, anything where a wrong-but-plausible answer is costly.
 
+This taxonomy is persisted as a runnable artifact: **`token-diet route --scaffold`** writes an editable
+rule table (`.claude/router/rules.json`) embodying exactly these classes, and `token-diet route
+--classify "<task>"` applies it deterministically (high-stakes work always escalates to top-tier).
+Recommend it when Lever 7 is flagged so the routing decision lives in a file, not re-derived each time.
+
 ## Silent-error risk is the real danger
 A smaller model rarely fails loudly — it produces confident, wrong output. Before downgrading, ask:
 if this step were silently wrong, would anything catch it? If the answer is "no downstream check,"
