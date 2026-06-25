@@ -42,6 +42,9 @@ and the two open questions (double-counting attribution; the unserved MCP-output
 ### Docs
 - Lever 2 living-doc `{intent, artifacts, next-steps}` summary schema; Lever 3 eviction vocabulary;
   Lever 5 compression-literature evidence; README positions token-diet above observability tools.
+- Re-measured the output-filter corpus to **~389 shell calls across twelve codebases** (the README
+  "Measured reduction" figures trace to this run; the prior 0.8.0 note cited 379 calls / eight
+  codebases). Added a `route`/`burn`/`readgate` entry to the project-layout subcommand list.
 
 ## [0.8.0] - 2026-06-25
 

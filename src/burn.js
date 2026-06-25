@@ -50,8 +50,10 @@ function bucketBlocks(records, nowMs) {
 // Project the current block to its end at the rate observed so far this block.
 function projectCurrent(row, nowMs) {
   if (!row) return null;
-  const elapsed = Math.max(1, nowMs - row.start);
-  const frac = Math.min(1, elapsed / BLOCK_MS);
+  // Clamp elapsed into (0, BLOCK_MS]: a future/clock-skewed `now` before the block start must not
+  // floor to 1ms and blow the projection up by ~5h worth of extrapolation.
+  const elapsed = Math.min(BLOCK_MS, Math.max(1, nowMs - row.start));
+  const frac = elapsed / BLOCK_MS;
   return {
     pctElapsed: Math.round(frac * 100),
     projectedRaw: Math.round(row.raw / frac),

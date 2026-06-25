@@ -215,8 +215,8 @@ The `/token-diet` agent runs in **three tiers**: the orchestrator (runs as your 
 
 ```
 token-diet/
-├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit · agents ·
-│                                  diagnose · overhead · plan · fix · filter · digest · compare · init · setup
+├── bin/token-diet.js              CLI entry — subcommands: review · estimate · audit · agents · diagnose ·
+│                                  plan · fix · filter · readgate · route · digest · compare · burn · savings · init · setup
 ├── src/filter.js                  Lever 8 output-compression engine (PostToolUse hook)
 ├── src/digest.js                  Lever 5 read-digests: finds re-read files, scaffolds, routes (INDEX + pointer)
 ├── src/*.js                       the deterministic engine (zero deps, no LLM): scan, collectors,
