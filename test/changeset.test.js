@@ -21,6 +21,28 @@ test('buildChangeset: big CLAUDE.md -> move op skeleton (L6) with est saving', (
   rm(dir);
 });
 
+test('buildChangeset: L6 move stub is a pointer + N-line preview (not a bare reference)', () => {
+  const dir = tmpDir();
+  const lines = Array.from({ length: 300 }, (_, i) => `line ${i}`);
+  lines[90] = '## Deep section heading';   // first moved line (region starts at line 91 = index 90)
+  lines[91] = 'first body line of the moved region';
+  writeFile(dir, 'CLAUDE.md', lines.join('\n'));
+  const cs = CH.buildChangeset(dir, NO_HOME(dir));
+  const move = cs.items.find(i => i.op === 'move');
+  assert.match(move.pointer, /^# Deep Reference/);                  // stable first line (idempotency)
+  assert.match(move.pointer, /Moved to `CLAUDE-reference\.md`/);    // path pointer
+  assert.match(move.pointer, /> Deep section heading/);            // preview line (heading markup stripped)
+  assert.match(move.pointer, /> first body line of the moved region/);
+  assert.match(move.pointer, /\+\d+ more lines/);                  // remainder count
+  rm(dir);
+});
+
+test('buildPointer is pointer-only when the source is unreadable (fail-safe)', () => {
+  const p = CH.buildPointer('/no/such/file.md', { fromLine: 91, toLine: 200 }, 'ref.md');
+  assert.match(p, /^# Deep Reference/);
+  assert.match(p, /Full content: `ref\.md`/);
+});
+
 test('buildChangeset: tool signals + no hook -> scaffold op skeleton (L8)', () => {
   const dir = tmpDir();
   writeFile(dir, 'CLAUDE.md', 'x'.repeat(40));

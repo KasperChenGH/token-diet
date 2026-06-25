@@ -9,12 +9,33 @@ const estimate = require('./estimate');
 function relTo(root, file) { return path.relative(root, file).split(path.sep).join('/'); }
 function lineCount(file)   { try { return fs.readFileSync(file, 'utf8').split('\n').length; } catch { return 0; } }
 
+// Build a "move-not-delete" stub that's a path POINTER + an N-line PREVIEW of the moved content
+// (Deep Agents' file-pointer-plus-preview) — so the evicted depth stays visibly retrievable, not
+// a bare "see other file". First line is stable ('# Deep Reference') for fix.js's idempotency check.
+const PREVIEW_LINES = 5;
+function buildPointer(file, region, dest) {
+  let preview = [];
+  let moreCount = 0;
+  try {
+    const all = fs.readFileSync(file, 'utf8').split('\n');
+    const from = Math.max(1, region.fromLine) - 1;
+    const slice = all.slice(from, region.toLine);
+    preview = slice.slice(0, PREVIEW_LINES).map(l => '> ' + l.replace(/^#+\s*/, '').trim()).filter(l => l !== '> ');
+    moreCount = Math.max(0, slice.length - preview.length);
+  } catch { /* unreadable — pointer-only */ }
+  const lines = [`# Deep Reference`, ``, `Moved to \`${dest}\` to keep this file lean (Lever 6). Preview:`, ``, ...preview];
+  if (moreCount > 0) lines.push(`> … (+${moreCount} more lines in \`${dest}\`)`);
+  lines.push(``, `Full content: \`${dest}\``);
+  return lines.join('\n');
+}
+
 const OP_FOR_LEVER = {
   6: (f, root) => {
     const base = path.basename(f.file).replace(/\.md$/i, '');
-    return { op: 'move', from: relTo(root, f.file),
-             region: { fromLine: 91, toLine: Math.max(91, lineCount(f.file)) },
-             to: `${base}-reference.md`, pointer: `# Deep Reference\nSee ${base}-reference.md` };
+    const region = { fromLine: 91, toLine: Math.max(91, lineCount(f.file)) };
+    const dest = `${base}-reference.md`;
+    return { op: 'move', from: relTo(root, f.file), region, to: dest,
+             pointer: buildPointer(f.file, region, dest) };
   },
   5: (f) => ({ op: 'write', to: `knowledge/digests/${path.basename(f.file)}-digest.md`, content: null }),
   8: () => ({ op: 'scaffold', template: 'toolout-filter', to: 'scripts/toolout-filter.sh', disabled: true }),
@@ -50,4 +71,4 @@ function buildChangeset(targetDir, home) {
   return { items };
 }
 
-module.exports = { buildChangeset };
+module.exports = { buildChangeset, buildPointer };
