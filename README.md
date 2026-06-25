@@ -138,10 +138,10 @@ These are **different mechanisms in different units** — don't read them as one
 | 2 · Merge sessions | one cycle's re-sent context per merge | restructure |
 | 3 · Evict compute | the idle / compute-adjacent tokens of babysat commands | restructure |
 | 4 · Scripts compute | halves the LLM's re-derivation (output ×0.5) — **~−3k weighted tok/run** on a representative project | model |
-| 5 · Tier knowledge (digests) | **−77% per reference read** (measured); **~−42% blended is a projection** | measured + model |
+| 5 · Tier knowledge (digests) | a digest replaces N repeated full reads → see *Measured reduction* | measured + model |
 | 6 · Trim always-loaded | reference bulk → a pointer: **−80% of the always-loaded file**, **× every spawn** (the largest compounding saver) | demonstrated |
 | 7 · Model arbitrage | **$-cost only** — `token-diet route` classifies each task to the cheapest safe tier (not raw tokens) | model |
-| 8 · Filter tool output | **−69% of shell output** across 389 calls (git −83 · tests −86 · JSON −40 · logs −62); v0.9 also covers **listings** + **MCP responses** | measured (+ new kinds demonstrated) |
+| 8 · Filter tool output | verbose tool output compressed at the source → see *Measured reduction* | measured |
 
 - **Lever 6** — `subagent-context-trimmer` cut a representative `CLAUDE.md` from **524 → 104** always-loaded tokens (moved the reference bulk — script catalog, definitions, layout — to a pointer + companion file).
   - **−80% of what every spawn pays**, compounding to **−4,200 tok/round at 10 agents**.
