@@ -7,9 +7,11 @@
 
 > **Token observability for your AI agents — read your real transcripts, see where the architecture wastes tokens, and restructure it.**
 
-Agentic pipelines burn tokens *structurally* — too many helper agents, the same instruction files reloaded every step, results re-computed, verbose output re-sent every turn — not because of *what* the agents say but *how they're built*. **token-diet** is a Claude Code agent + CLI + skill that measures where your tokens actually go (from real usage logs, not estimates), sorts the waste into **8 levers**, and fixes it — moving content to references, never deleting. (Its automatic output filter is the easy set-and-forget win — a measured **−69%** on shell output — but the bigger money is structural: too many agents, reloaded context, and files re-read 100×. See [Measured impact](#measured-impact-originating-case) for the originating-project numbers.)
+Agentic pipelines burn tokens *structurally* — too many helper agents, instruction files reloaded every step, results recomputed, verbose output re-sent every turn — because of *how they're built*, not *what they say*. **token-diet** is a Claude Code agent + CLI + skill that measures where your tokens actually go (from real usage logs, not estimates), sorts the waste into **8 levers**, and fixes it — moving content to references, never deleting.
 
-It eats its own dogfood — ***scripts compute, LLM judges***: a zero-dependency CLI does every measurement and applies every edit mechanically; the model is used only for the keep-or-trim judgment calls.
+**Runs entirely on your machine — reads your local transcripts, sends nothing. Zero dependencies.** The set-and-forget output filter alone cuts a [self-measured](#measured-reduction) **−69%** of shell output; the bigger win is structural.
+
+It eats its own dogfood — ***scripts compute, LLM judges***: the CLI does every measurement and applies every edit mechanically; the model is used only for keep-or-trim judgment calls.
 
 ## Try it in 30 seconds
 
