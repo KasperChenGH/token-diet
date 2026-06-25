@@ -26,6 +26,16 @@ The test suite must pass before a change is merged. New behavior needs new tests
 critical surface (anything that writes a file or rewrites live tool output) is expected to stay at
 high coverage.
 
+### One known fragility
+
+token-diet reads Claude Code's `~/.claude/projects/**/*.jsonl` transcripts, whose schema is owned by
+Claude Code, not us. `src/scan.js` is the **single coupling point** — it parses the assumed fields
+(`usage.*`, `tool_use`, `tool_result`, `requestId`/`message.id`, `timestamp`) and normalizes them
+into one `Record` shape (see the `@typedef` there) that every other module consumes. Parsing already
+degrades gracefully (a malformed or renamed line is skipped, never thrown). If a future Claude Code
+build changes the transcript format, **`src/scan.js` is the only file you should need to adapt** —
+and `test/scan.test.js` is where to pin the new behavior.
+
 ## Pull requests
 
 - Keep changes focused; one logical change per PR.

@@ -26,8 +26,13 @@ function weightedOf(r) {
 }
 function rawOf(r) { return r.input + r.cacheWrite + r.cacheRead + r.output; }
 
-// Pure: records + nowMs → blocks sorted ascending by start. Undated records are dropped (a block
-// is a time window; a record with no timestamp can't belong to one) and counted separately.
+/**
+ * Bucket records into epoch-aligned 5-hour blocks. Pure; undated records are dropped (a block is
+ * a time window) and counted separately.
+ * @param {{timestamp:?string, input:number, cacheWrite:number, cacheRead:number, output:number, file:string}[]} records
+ * @param {number} nowMs                     used to flag the current block (isCurrent)
+ * @returns {{rows: {start:number,end:number,raw:number,weighted:number,calls:number,sessions:number,isCurrent:boolean}[], undated:number}}
+ */
 function bucketBlocks(records, nowMs) {
   const blocks = new Map();
   let undated = 0;

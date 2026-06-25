@@ -55,7 +55,14 @@ function compileRules(rules) {
   });
 }
 
-// Pure: task text + rules → { tier, pin, label, escalate, matched }. No rule matched → opus, escalate.
+/**
+ * Classify a task into a model tier. Pure; first-match-wins over the ordered rule table.
+ * @param {string} text                      the task description
+ * @param {{tier:string, label:string, any:string[], escalate?:boolean}[]} [rules]
+ * @returns {{tier:string, pin:string, label:string, escalate:boolean, matched:boolean}}
+ *   tier=haiku|sonnet|opus; pin=concrete model id; escalate=true when sent to top tier as the
+ *   safe default (high-stakes match, or no rule matched); matched=false only on the no-rule path.
+ */
 function classifyTask(text, rules = DEFAULT_RULES) {
   const t = String(text == null ? '' : text);
   for (const r of compileRules(rules)) {

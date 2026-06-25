@@ -55,6 +55,23 @@ test('requestId dedup: 3 duplicate lines count ONCE (not 3×)', () => {
   rm(home);
 });
 
+// ── streaming fallback parity (huge-file path) ───────────────────────────────────
+test('streaming path yields byte-identical records to the buffered path', () => {
+  const home = tmpDir();
+  writeFile(home, '.claude/projects/proj/sess.jsonl',
+    [rec({ requestId: 'r1', output: 50 }),
+     rec({ requestId: 'r1', output: 50 }),   // duplicate → still counts once
+     rec({ requestId: 'r2', output: 99 })].join('\n') + '\n');
+  const buffered = agentsJson(home);
+  // Force the streaming branch via the threshold seam (1 byte → every file streams).
+  const env = { ...process.env, HOME: home, USERPROFILE: home, TOKEN_DIET_STREAM_THRESHOLD: '1' };
+  const streamed = JSON.parse(execFileSync('node', [BIN, 'agents', '--json'], { encoding: 'utf8', env }));
+  assert.deepEqual(streamed, buffered);      // same dedup + totals regardless of read strategy
+  assert.equal(streamed[0].calls, 2);
+  assert.equal(streamed[0].output, 149);
+  rm(home);
+});
+
 // ── time-window threshold ────────────────────────────────────────────────────────
 test('--days window excludes records older than the cutoff', () => {
   const home = tmpDir();

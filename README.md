@@ -155,6 +155,8 @@ These are **different mechanisms in different units** — don't read them as one
 
 ## Measured reduction
 
+> **All numbers on this page are self-measured.** They come from the author's own corpus and from token-diet's own committed benchmarks/`--report` — **not** from an independent third party. They use a token≈chars/4 estimate, not API-billed tokens. Treat them as honest, reproducible-on-this-corpus figures, not a vendor guarantee — and **run `token-diet compare` / `filter --report` to get your own**.
+
 Pooled across **twelve production codebases** (≈389 shell calls), counting only what the default filter actually compresses — **shell output (Bash + PowerShell)**, weighted by token volume (not a min–max over a few runs).
 
 | tool output | what it keeps · what it collapses | reduction |

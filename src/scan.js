@@ -43,9 +43,16 @@
 // methodology in SKILL.md is platform-neutral; the CLI is NOT). A non-Claude-Code adapter
 // would map its own transcripts to {requestId, usage, tool_use, tool_result} and feed scanAll.
 // Decision: own the Claude Code niche; keep this the single coupling point.
-const fs   = require('fs');
-const path = require('path');
-const os   = require('os');
+const fs       = require('fs');
+const path     = require('path');
+const os       = require('os');
+const readline = require('readline');
+
+// Above this size, stream the file line-by-line instead of buffering the whole thing into a
+// string. The buffered path is ~25% faster (no per-line event overhead) and fine for typical
+// transcripts, but a single multi-hundred-MB session would otherwise pin that many bytes of heap
+// per concurrent read. Streaming keeps memory bounded on pathological inputs; same per-line logic.
+const STREAM_THRESHOLD_BYTES = 64 * 1024 * 1024;
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -160,14 +167,32 @@ function toolResultText(content) {
  * diagnose.js reads them from a separate per-file accumulator to avoid coupling
  * to individual record ordering; scan exposes them via onFileDone callback.
  */
+/**
+ * Assumed Claude Code transcript schema — the single fragile coupling point (see the file-top
+ * note). A line is parsed only if it contains `"usage"` or `tool_result`; any missing/renamed
+ * field degrades gracefully (the line is skipped, never throws). If a future Claude Code build
+ * renames these fields, THIS module is where to adapt — every other module consumes the
+ * normalized Record below, not the raw JSONL.
+ *
+ * @typedef {Object} Record
+ * @property {string}  file         transcript path (also the per-session aggregation key)
+ * @property {string}  sessionId    obj.sessionId, else the filename stem
+ * @property {string}  sessionKind  'session' | 'subagent' (agent-*.jsonl → subagent)
+ * @property {string}  model        message.model ('' if absent)
+ * @property {string}  modelFamily  opus | sonnet | haiku | other
+ * @property {?string} timestamp    ISO string or null
+ * @property {number}  input        usage.input_tokens
+ * @property {number}  cacheWrite   usage.cache_creation_input_tokens
+ * @property {number}  cacheRead    usage.cache_read_input_tokens
+ * @property {number}  output       usage.output_tokens
+ * @property {{name:string, filePath:?string}[]} toolCalls  in-window tool_use blocks
+ *
+ * @param {string} filePath
+ * @param {number} cutoffMs                 records older than this are excluded (0 = no filter)
+ * @param {(r: Record) => void} onRecord    called once per deduped in-window call
+ * @param {(m: {file:string, toolResults:Array, toolCallsById:Map, totalCalls:number}) => void} [onFileDone]
+ */
 async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
-  // Bulk async read (keeps I/O overlap under the bounded pool) + a manual line split.
-  // This avoids readline's per-line event overhead — ~25% faster on a 97 MB session — while
-  // the line-processing body below is byte-for-byte the same logic as before.
-  let data;
-  try { data = await fs.promises.readFile(filePath, 'utf8'); }
-  catch { return; } // unreadable — skip
-
   // Per-file dedup state.
   const pendingRecords = new Map();  // id → record (built up as we scan; flushed at end)
   const seenRequestIds = new Set();  // distinct in-window assistant callIds (calls_before / totalCalls)
@@ -271,17 +296,40 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
     }
   };
 
-  // Manual line iteration over the whole file. \r is trimmed so CRLF transcripts behave
-  // exactly as readline (crlfDelay) did; empty lines are skipped.
-  let i = 0;
-  const len = data.length;
-  while (i < len) {
-    let j = data.indexOf('\n', i);
-    if (j < 0) j = len;
-    let end = j;
-    if (end > i && data.charCodeAt(end - 1) === 13) end--;   // strip trailing \r (CRLF)
-    if (end > i) processLine(data.slice(i, end));
-    i = j + 1;
+  // Pick the read strategy by file size: buffer typical files (fast), stream huge ones (bounded
+  // memory). Both feed the SAME processLine, so the per-line result is identical either way.
+  let size = -1;
+  try { size = (await fs.promises.stat(filePath)).size; } catch { return; }   // unreadable — skip
+
+  // Env override (also the seam tests use to exercise the streaming branch without a 64 MB file).
+  const threshold = Number(process.env.TOKEN_DIET_STREAM_THRESHOLD) || STREAM_THRESHOLD_BYTES;
+  if (size <= threshold) {
+    // Buffered path: one bulk read + manual line split (avoids readline's per-line event overhead
+    // — ~25% faster on a 97 MB session). \r is trimmed so CRLF behaves exactly as readline did.
+    let data;
+    try { data = await fs.promises.readFile(filePath, 'utf8'); }
+    catch { return; }
+    let i = 0;
+    const len = data.length;
+    while (i < len) {
+      let j = data.indexOf('\n', i);
+      if (j < 0) j = len;
+      let end = j;
+      if (end > i && data.charCodeAt(end - 1) === 13) end--;   // strip trailing \r (CRLF)
+      if (end > i) processLine(data.slice(i, end));
+      i = j + 1;
+    }
+  } else {
+    // Streaming path for very large files — bounded memory. crlfDelay:Infinity coalesces \r\n so
+    // each line arrives without a trailing \r, matching the buffered path's hand-rolled strip.
+    await new Promise((resolve) => {
+      let rl;
+      try { rl = readline.createInterface({ input: fs.createReadStream(filePath, 'utf8'), crlfDelay: Infinity }); }
+      catch { resolve(); return; }
+      rl.on('line', (line) => { if (line) processLine(line); });
+      rl.on('close', resolve);
+      rl.on('error', () => { try { rl.close(); } catch { /* ignore */ } resolve(); });  // mid-stream error → flush what we have
+    });
   }
 
   // Flush all deduped records in insertion order (null = time-filtered → skip).
