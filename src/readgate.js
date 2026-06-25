@@ -102,6 +102,93 @@ function decide(payload, root, nowIso) {
   } catch { return null; }                                           // fail-open
 }
 
+// ── install / enable / uninstall / self-test ──────────────────────────────────
+function resolveBase(opts) {
+  const root = opts.global ? os.homedir() : (opts.dir ? path.resolve(opts.dir) : process.cwd());
+  return path.join(root, '.claude');
+}
+const HOOK_CMD = 'token-diet readgate';
+const MATCHER  = 'Read';
+
+function runInstall(opts = {}) {
+  const base = resolveBase(opts);
+  fs.mkdirSync(path.join(base, 'readgate'), { recursive: true });
+  const cfgP = path.join(base, 'readgate', 'config.json');
+  if (!fs.existsSync(cfgP)) writeFileAtomic(cfgP, JSON.stringify(DEFAULT_CONFIG, null, 2) + '\n');
+
+  const setP = path.join(base, 'settings.json');
+  let settings = {};
+  try { settings = JSON.parse(fs.readFileSync(setP, 'utf8')); }
+  catch (e) {
+    if (e.code !== 'ENOENT')
+      throw new Error(`${setP} exists but is not valid JSON — refusing to overwrite it. Fix or remove it, then re-run.`);
+  }
+  settings.hooks = settings.hooks || {};
+  settings.hooks.PreToolUse = settings.hooks.PreToolUse || [];
+  settings.hooks.PreToolUse = settings.hooks.PreToolUse
+    .map(h => ({ ...h, hooks: (h.hooks || []).filter(x => x.command !== HOOK_CMD) }))
+    .filter(h => (h.hooks || []).length > 0);
+  settings.hooks.PreToolUse.push({ matcher: MATCHER, hooks: [{ type: 'command', command: HOOK_CMD }] });
+  writeFileAtomic(setP, JSON.stringify(settings, null, 2) + '\n');
+
+  console.log(`\ntoken-diet readgate installed (DISABLED) at ${base}`);
+  console.log(`  hook   : PreToolUse [${MATCHER}] → ${HOOK_CMD}`);
+  console.log(`  config : ${cfgP}`);
+  console.log(`\nNext: --self-test → --enable (AUDIT: records what it'd save, denies nothing) → --report → --activate`);
+  console.log(`Tune in config.json: "minTokens", "ttlMinutes".\n`);
+}
+
+function runUninstall(opts = {}) {
+  const setP = path.join(resolveBase(opts), 'settings.json');
+  try {
+    const settings = JSON.parse(fs.readFileSync(setP, 'utf8'));
+    if (settings.hooks && Array.isArray(settings.hooks.PreToolUse)) {
+      settings.hooks.PreToolUse = settings.hooks.PreToolUse
+        .map(h => ({ ...h, hooks: (h.hooks || []).filter(x => x.command !== HOOK_CMD) }))
+        .filter(h => (h.hooks || []).length > 0);
+      if (settings.hooks.PreToolUse.length === 0) delete settings.hooks.PreToolUse;
+      if (Object.keys(settings.hooks).length === 0) delete settings.hooks;
+      writeFileAtomic(setP, JSON.stringify(settings, null, 2) + '\n');
+    }
+    console.log(`token-diet readgate hook removed from ${setP}`);
+  } catch { console.log('No settings.json hook to remove.'); }
+}
+
+function setState(opts, enabled, mode) {
+  const cfgP = path.join(resolveBase(opts), 'readgate', 'config.json');
+  let cfg = { ...DEFAULT_CONFIG };
+  try { cfg = { ...cfg, ...JSON.parse(fs.readFileSync(cfgP, 'utf8')) }; } catch { /* default */ }
+  cfg.enabled = enabled;
+  if (mode) cfg.mode = mode;
+  fs.mkdirSync(path.dirname(cfgP), { recursive: true });
+  writeFileAtomic(cfgP, JSON.stringify(cfg, null, 2) + '\n');
+  const state = !enabled ? 'disabled'
+    : cfg.mode === 'active' ? 'ACTIVE — denying redundant re-reads'
+    : 'AUDIT — recording redundant reads; nothing denied. Review with --report, then --activate';
+  console.log(`\ntoken-diet readgate: ${state}\n  ${cfgP}\n`);
+}
+function setEnabled(opts, enabled) { return setState(opts, enabled, enabled ? 'audit' : undefined); }
+
+function runSelfTest() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'rg-selftest-'));
+  try {
+    fs.mkdirSync(path.join(root, '.claude', 'readgate'), { recursive: true });
+    writeFileAtomic(path.join(root, '.claude', 'readgate', 'config.json'),
+      JSON.stringify({ ...DEFAULT_CONFIG, enabled: true, mode: 'active' }));
+    const fp = path.join(root, 'sample.txt');
+    fs.writeFileSync(fp, 'x'.repeat(2000));
+    const mk = () => ({ session_id: 'selftest', tool_name: 'Read', cwd: root, tool_input: { file_path: fp } });
+    const nowIso = new Date().toISOString();
+    const first = decide(mk(), root, nowIso);
+    const second = decide(mk(), root, nowIso);
+    console.log('\n=== token-diet readgate --self-test (fixture) ===\n');
+    console.log(`▶ first read of a 2000-byte file : ${first === null ? 'ALLOWED' : 'denied'} (expected ALLOWED)`);
+    console.log(`▶ identical unchanged re-read    : ${second ? 'DENIED' : 'allowed'} (expected DENIED in active mode)`);
+    if (second) console.log('    reason: ' + JSON.parse(second).hookSpecificOutput.permissionDecisionReason);
+    console.log('\nFixture only. Enable on real sessions with: token-diet readgate --enable\n');
+  } finally { try { fs.rmSync(root, { recursive: true, force: true }); } catch { /* ignore */ } }
+}
+
 // ── hook-mode entrypoint (reads stdin, writes stdout) ──────────────────────────
 function runHook(opts = {}) {
   try {
@@ -118,4 +205,5 @@ function runHook(opts = {}) {
 module.exports = {
   DEFAULT_CONFIG, loadConfig, estTok, rangeKey, isUnchanged, withinTtl,
   statePath, loadState, saveState, recordStats, denyJson, decide, runHook,
+  runInstall, runUninstall, setState, setEnabled, runSelfTest,
 };

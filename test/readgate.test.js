@@ -180,3 +180,56 @@ test('benchmark: replay sequence yields exactly one 500-tok redundant detection'
   assert.equal(totalAvoided, 500);           // the published, reproducible number
   rm(root);
 });
+
+// ── Task 3: install / uninstall / setState / self-test ─────────────────────────
+const silence = fn => { const o = console.log; console.log = () => {}; try { return fn(); } finally { console.log = o; } };
+
+test('install writes disabled config + a PreToolUse Read hook; setState flips the gate', () => {
+  const root = tmpDir();
+  silence(() => R.runInstall({ dir: root }));
+  const conf = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'readgate', 'config.json'), 'utf8'));
+  assert.equal(conf.enabled, false);
+  const set = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
+  const entry = set.hooks.PreToolUse.find(h => h.hooks.some(x => x.command === 'token-diet readgate'));
+  assert.equal(entry.matcher, 'Read');
+  silence(() => R.setState({ dir: root }, true, 'active'));
+  assert.equal(JSON.parse(fs.readFileSync(path.join(root, '.claude', 'readgate', 'config.json'), 'utf8')).mode, 'active');
+  rm(root);
+});
+
+test('install preserves OTHER PreToolUse hooks and is idempotent', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude'), { recursive: true });
+  writeFile(root, '.claude/settings.json', JSON.stringify({ hooks: { PreToolUse: [
+    { matcher: 'Bash', hooks: [{ type: 'command', command: 'guard' }] } ] } }));
+  silence(() => R.runInstall({ dir: root }));
+  silence(() => R.runInstall({ dir: root }));   // twice → idempotent
+  const set = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
+  assert.ok(set.hooks.PreToolUse.some(h => h.hooks.some(x => x.command === 'guard')), 'foreign hook preserved');
+  assert.equal(set.hooks.PreToolUse.filter(h => h.hooks.some(x => x.command === 'token-diet readgate')).length, 1);
+  rm(root);
+});
+
+test('install refuses to overwrite a present-but-corrupt settings.json', () => {
+  const root = tmpDir();
+  fs.mkdirSync(path.join(root, '.claude'), { recursive: true });
+  writeFile(root, '.claude/settings.json', '{ not json');
+  assert.throws(() => silence(() => R.runInstall({ dir: root })), /not valid JSON/);
+  assert.equal(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'), '{ not json');
+  rm(root);
+});
+
+test('uninstall removes the readgate hook and leaves no empty husks', () => {
+  const root = tmpDir();
+  silence(() => R.runInstall({ dir: root }));
+  silence(() => R.runUninstall({ dir: root }));
+  const set = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
+  assert.ok(!set.hooks || !set.hooks.PreToolUse, 'no empty PreToolUse array left behind');
+  rm(root);
+});
+
+test('runSelfTest prints detection and does not throw', () => {
+  let out = ''; const o = console.log; console.log = (...a) => { out += a.join(' ') + '\n'; };
+  try { R.runSelfTest(); } finally { console.log = o; }
+  assert.match(out, /readgate/i);
+});
