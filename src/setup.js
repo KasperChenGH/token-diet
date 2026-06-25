@@ -107,6 +107,12 @@ async function runSetup(opts = {}) {
     console.log('  • go live (1 switch): token-diet filter --activate   (or re-run: token-diet setup --activate)');
     console.log('  • full audit anytime: /token-diet\n');
   }
+  // setup keeps a deliberately small, low-blast-radius default (filter audit + drift gate). The other
+  // opt-in gates are pointed to here so both modes stay aware of them without silently adding a
+  // per-read hook (readgate) or writing a router config the user hasn't asked for.
+  console.log('Optional next gates (separate opt-in — not wired by setup):');
+  console.log('  • read-path dedup : token-diet readgate --install && token-diet readgate --enable  (audit-first)');
+  console.log('  • model routing   : token-diet route --scaffold   (Lever 7 rule table; classify with route --classify)\n');
 }
 
 module.exports = { runSetup, installPreCommit, HOOK_MARK };

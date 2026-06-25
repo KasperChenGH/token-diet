@@ -293,7 +293,7 @@ token-diet works at the architecture layer — it measures real transcript usage
 
 ## Contributing
 
-Issues and PRs welcome. The repo is **zero-dependency Node** — `npm test` runs the suite (`node --test`, 184 tests) and CI runs it on Node 18/20/22. Coverage is **~85% of lines overall**, and every path that writes a file or rewrites live tool output (the filter, `fix`, atomic writes, scan, install/setup) sits at **87–100%** — the safety-critical surface is where the tests are deepest. Two house rules carry the project's own methodology: keep determinism **in the CLI** (the LLM only judges), and make every trim a **move to a reference**, never a delete. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md); notable changes are tracked in the [changelog](CHANGELOG.md).
+Issues and PRs welcome. The repo is **zero-dependency Node** — `npm test` runs the suite (`node --test`, 186 tests) and CI runs it on Node 18/20/22. Coverage is **~85% of lines overall**, and every path that writes a file or rewrites live tool output (the filter, `fix`, atomic writes, scan, install/setup) sits at **87–100%** — the safety-critical surface is where the tests are deepest. Two house rules carry the project's own methodology: keep determinism **in the CLI** (the LLM only judges), and make every trim a **move to a reference**, never a delete. By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md); notable changes are tracked in the [changelog](CHANGELOG.md).
 
 ## License
 

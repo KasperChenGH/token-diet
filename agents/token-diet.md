@@ -54,8 +54,15 @@ structure regresses), then
 **`token-diet savings --dir .`** to show the user the per-lever / per-section reduction table
 (structural levers projected, filter measured — clearly labelled). Tell the user to run normally for
 a few days, then `token-diet compare --before-days 14 --after-days 7` for the measured whole-session
-delta. Mention they can `token-diet savings --share` to send aggregate-only numbers as feedback
-(opt-in; nothing is sent otherwise — `--dry-run` previews the exact payload).
+delta — or `token-diet burn` any time for an at-a-glance 5-hour billing-block view (the usage-limit
+reset unit) with a current-block projection. Mention they can `token-diet savings --share` to send
+aggregate-only numbers as feedback (opt-in; nothing is sent otherwise — `--dry-run` previews the
+exact payload).
+If **Lever 7 (model arbitrage)** is flagged, also OFFER (one approval) `token-diet route --scaffold`
+to drop the editable model-routing rule table (`.claude/router/rules.json`); the user then classifies
+tasks with `token-diet route --classify "<task>"` and pins the suggested model in the agent/command
+frontmatter. If the project calls **MCP servers**, note that adding `"mcp__*"` to the filter's `tools`
+allowlist extends Lever 8 compression to MCP responses (the largest unfiltered tool-output pool).
 Then OFFER (one approval) to run `token-diet setup` — it wires the output filter in AUDIT mode
 (records only, output unchanged) + a pre-commit drift reminder, so future regressions are caught
 automatically. The filter stays in audit until the user runs `filter --activate`; never auto-activate.
