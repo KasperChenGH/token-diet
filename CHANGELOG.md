@@ -6,6 +6,8 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-06-25
+
 Post-`v0.9.0` hardening from a packaging audit + a senior-engineer / product-manager review.
 No new features; correctness, structure, packaging, and docs.
 

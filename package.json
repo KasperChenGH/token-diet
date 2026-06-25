@@ -1,6 +1,6 @@
 {
   "name": "token-diet",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "Static project review + Token-reduction agent for Claude Code workflows: measures, diagnoses, plans, executes, verifies",
   "author": "KasperChenGH",
   "homepage": "https://github.com/KasperChenGH/token-diet#readme",
