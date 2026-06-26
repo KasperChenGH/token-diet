@@ -24,5 +24,6 @@ mkdir -p docs
 vhs demo/token-diet.tape      # → docs/demo.gif
 ```
 
-The demo arc (~30s): **review** (scorecard + grade) → **estimate** (projected savings) →
-**filter --report** (a measured reduction table — sample output compressed by the Lever 8 filter).
+The demo arc (~30s), leading with the result: **filter --report** (a measured reduction table —
+sample output compressed by the Lever 8 filter) → **review** (scorecard + grade) → **estimate**
+(projected savings).

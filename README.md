@@ -7,7 +7,7 @@
 
 > **Token observability for your AI agents — read your real transcripts, see where the architecture wastes tokens, and restructure it.**
 
-![token-diet demo — grade a wasteful project against the 8 levers, project the savings, and watch the output filter compress real tool output](docs/demo.gif)
+![token-diet demo — the Lever 8 filter cutting tool output ~96%, then grading a wasteful project against the 8 levers and projecting the savings](docs/demo.gif)
 
 Agentic pipelines burn tokens *structurally* — too many helper agents, instruction files reloaded every step, results recomputed, verbose output re-sent every turn — because of *how they're built*, not *what they say*. **token-diet** is a Claude Code agent + CLI + skill that measures where your tokens actually go (from real usage logs, not estimates), sorts the waste into **8 levers**, and fixes it — moving content to references, never deleting.
 
