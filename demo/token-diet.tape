@@ -2,9 +2,9 @@
 # To render locally instead:  (from the repo root)  mkdir -p docs && vhs demo/token-diet.tape
 #
 # Story (≈30s): a deliberately wasteful sample project →
-#   1. review     — scorecard across the 8 levers + a letter grade
-#   2. estimate   — the projected savings if you fix the flagged levers
-#   3. filter --self-test — the output filter compressing real tool output
+#   1. review        — scorecard across the 8 levers + a letter grade
+#   2. estimate      — the projected savings if you fix the flagged levers
+#   3. filter --report — a measured reduction TABLE (sample output run through the Lever 8 filter)
 
 Output docs/demo.gif
 
@@ -24,6 +24,8 @@ Enter
 Type 'BIN="$PWD/bin/token-diet.js"; token-diet(){ node "$BIN" "$@"; }'
 Enter
 Type "node demo/make-fixture.js >/dev/null"
+Enter
+Type "node demo/seed-report.js >/dev/null"
 Enter
 Type "cd demo"
 Enter
@@ -46,13 +48,13 @@ Sleep 600ms
 Enter
 Sleep 5s
 
-# ── Beat 3: the output filter compressing real tool output (failures-only, structural JSON) ──
+# ── Beat 3: the measured reduction TABLE — sample tool output run through the Lever 8 filter ──
 Type "clear"
 Enter
 Sleep 300ms
-Type "token-diet filter --self-test"
+Type "token-diet filter --report --dir ./sample-project"
 Sleep 600ms
 Enter
-Sleep 5s
+Sleep 6s
 
 Sleep 1500ms

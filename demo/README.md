@@ -5,6 +5,9 @@ and renders the GIF headlessly.
 
 - `make-fixture.js` — generates a deliberately token-wasteful `sample-project/` (gitignored) so the
   demo shows a real grade + findings. (token-diet's own repo grades A → dull demo.)
+- `seed-report.js` — runs representative verbose output through the real Lever 8 filter so the demo's
+  `filter --report` shows a populated reduction table (genuine compressions of the sample payloads —
+  not fabricated, and not the README's measured-corpus figures).
 - `token-diet.tape` — the [vhs](https://github.com/charmbracelet/vhs) script. Renders `docs/demo.gif`.
 
 ## How it's produced
@@ -22,4 +25,4 @@ vhs demo/token-diet.tape      # → docs/demo.gif
 ```
 
 The demo arc (~30s): **review** (scorecard + grade) → **estimate** (projected savings) →
-**filter --self-test** (live tool-output compression).
+**filter --report** (a measured reduction table — sample output compressed by the Lever 8 filter).
