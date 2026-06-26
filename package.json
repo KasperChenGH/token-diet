@@ -1,5 +1,5 @@
 {
-  "name": "token-diet",
+  "name": "token-diet-cli",
   "version": "0.9.1",
   "description": "Static project review + Token-reduction agent for Claude Code workflows: measures, diagnoses, plans, executes, verifies",
   "author": "KasperChenGH",
