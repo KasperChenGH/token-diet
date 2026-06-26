@@ -20,6 +20,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Pre-install ffmpeg   # vhs-action's own ffmpeg download is flaky; install via apt so it skips it
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
       - name: Build the wasteful fixture
         run: node demo/make-fixture.js
       - run: mkdir -p docs   # vhs needs the output dir to exist
