@@ -1,0 +1,40 @@
+name: Demo GIF
+
+# Renders the README demo GIF in CI (no local tooling needed) and commits docs/demo.gif.
+# Runs on demand, or when the demo kit changes. Commit message carries [skip ci] so it can't loop.
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'demo/**'
+      - '.github/workflows/demo.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Build the wasteful fixture
+        run: node demo/make-fixture.js
+      - run: mkdir -p docs   # vhs needs the output dir to exist
+      - name: Render the demo GIF
+        uses: charmbracelet/vhs-action@v2
+        with:
+          path: demo/token-diet.tape
+      - name: Commit docs/demo.gif if it changed
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/demo.gif
+          if git diff --staged --quiet; then
+            echo "No change in docs/demo.gif"
+          else
+            git commit -m "chore(demo): re-render docs/demo.gif [skip ci]"
+            git push
+          fi
