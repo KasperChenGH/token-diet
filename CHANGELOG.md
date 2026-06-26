@@ -11,6 +11,10 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 Post-`v0.9.0` hardening from a packaging audit + a senior-engineer / product-manager review.
 No new features; correctness, structure, packaging, and docs.
 
+**First npm release** — published as **`token-diet-cli`** (npm's name guard blocks the bare
+`token-diet`, which is too similar to an existing package). The installed CLI command is still
+`token-diet`. Install: `npm i -g token-diet-cli`.
+
 ### Fixed
 - **`bin` path** — `"./bin/token-diet.js"` → `"bin/token-diet.js"`. npm 11 rejects the leading
   `./` and strips the bin entry on publish, which would ship a package with no `token-diet` command.

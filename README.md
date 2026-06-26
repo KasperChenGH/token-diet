@@ -1,6 +1,7 @@
 # token-diet
 
 [![CI](https://github.com/KasperChenGH/token-diet/actions/workflows/ci.yml/badge.svg)](https://github.com/KasperChenGH/token-diet/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/token-diet-cli.svg)](https://www.npmjs.com/package/token-diet-cli)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%E2%89%A5%2018-brightgreen.svg)](package.json)
 [![Dependencies](https://img.shields.io/badge/dependencies-0-brightgreen.svg)](package.json)
@@ -20,7 +21,7 @@ It eats its own dogfood — ***scripts compute, LLM judges***: the CLI does ever
 No agent install and no usage history needed — grade any project's Claude Code design against all 8 levers:
 
 ```bash
-npm install -g github:KasperChenGH/token-diet
+npm install -g token-diet-cli
 token-diet review --dir .
 ```
 ```
@@ -34,22 +35,22 @@ Grade: F
 
 ## Install the agent — global or project-scoped (your choice)
 
-> **Distribution:** token-diet is installed straight from GitHub (it's not on the npm registry) — the `github:KasperChenGH/token-diet` form below is intentional, not a typo. Pin a release with `#v0.9.0`.
+> **Install:** the npm package is **`token-diet-cli`** (npm's name guard blocked the bare `token-diet`) — but the command it installs is just **`token-diet`**. GitHub install also works (`npm i -g github:KasperChenGH/token-diet#v0.9.1`) for pinning a release or the bleeding edge.
 
 The CLI is the engine; the `/token-diet` agent drives it. Pick the scope that fits — they're fully separate, and **project-scoped needs no global install at all**:
 
 **A) Global** — one install serves every project on the machine (best for polyglot setups):
 
 ```bash
-npm install -g github:KasperChenGH/token-diet   # the CLI, on your PATH
-token-diet init --global                        # agent + subagents + command + skill → ~/.claude/
+npm install -g token-diet-cli   # the CLI, on your PATH (command: token-diet)
+token-diet init --global        # agent + subagents + command + skill → ~/.claude/
 ```
 
 **B) Project-scoped — fully self-contained, no global anything** (works in any project, including non-Node like Python):
 
 ```bash
-npx github:KasperChenGH/token-diet init   # one-shot: vendors a zero-dep CLI copy into ./.claude/token-diet/
-                                          #           + installs the agent into ./.claude/
+npx token-diet-cli init   # one-shot: vendors a zero-dep CLI copy into ./.claude/token-diet/
+                          #           + installs the agent into ./.claude/
 ```
 
 In project mode, `init` **vendors the whole (zero-dependency) CLI into `.claude/token-diet/`**, so the agent and the pre-commit drift gate run it via `node .claude/token-diet/bin/token-diet.js` — no global binary, no `npx` per call, no PATH. The pre-commit hook auto-resolves whichever you have: **vendored project copy → global → `node_modules` → `npx`**.

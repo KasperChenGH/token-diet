@@ -37,4 +37,4 @@ Report: avg output/day, avg calls/day, per-spawn overhead tokens (from the revie
 
 ## Note on first run
 
-If `token-diet` is not installed, the agent will ask before running `npm install -g github:KasperChenGH/token-diet`. Approve that step to proceed.
+If `token-diet` is not installed, the agent will ask before running `npm install -g token-diet-cli` (the CLI command is `token-diet`). Approve that step to proceed.

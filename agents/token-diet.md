@@ -16,8 +16,8 @@ below is shorthand for whichever resolved.)
 
 ## Phase 0 — Toolbox check (main)
 Resolve the CLI (above), then run `token-diet --help`. If neither the vendored copy nor a global
-binary is found, ask to either `npm install -g github:KasperChenGH/token-diet` (global) **or** run
-`token-diet init` in the repo to vendor a project-scoped copy. Wait for approval.
+binary is found, ask to either `npm install -g token-diet-cli` (global; the CLI command is
+`token-diet`) **or** run `token-diet init` in the repo to vendor a project-scoped copy. Wait for approval.
 
 ## Phase 1 — CLI triage (main, read-only)
 Run `token-diet review --dir .` then `token-diet estimate --dir . --json`. These are zero-LLM and
