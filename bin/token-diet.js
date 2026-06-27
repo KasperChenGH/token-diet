@@ -139,6 +139,10 @@ function parseArgs(argv) {
       opts.report = true;
     } else if (a === '--scaffold') {
       opts.scaffold = true;
+    } else if (a === '--session') {
+      opts.session = args[++i];
+    } else if (a.startsWith('--session=')) {
+      opts.session = a.split('=')[1];
     } else if (a === '--classify') {
       opts.classify = args[++i];
     } else if (a.startsWith('--classify=')) {
@@ -223,6 +227,9 @@ ACT
               only when confident; high-stakes/ambiguous work always pins to opus (escalate).
               --classify "<task>" decides one task; --scaffold writes .claude/router/rules.json;
               --self-test runs fixtures. Measure the real split with 'token-diet agents'.
+  compact     Lever 2 (executable): a deterministic {intent, artifacts, next-steps} handover from a
+              real session, so the next session resumes from a compact state doc instead of
+              re-establishing context. --session <id> (default: most recent) [--out file]
   digest      Lever 5 read-digest prototype: find files an agent re-reads from your
               transcripts, measure the re-read token cost, and (--scaffold) write a
               deterministic structure skeleton per file under .claude/digests/ for an
@@ -382,6 +389,9 @@ async function main() {
     }
     case 'route':
       require('../src/router').runRoute(opts);
+      break;
+    case 'compact':
+      await require('../src/compact').runCompact(opts);
       break;
     case 'readgate': {
       const rg = require('../src/readgate');

@@ -201,6 +201,7 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
   const seenRequestIds = new Set();  // distinct in-window assistant callIds (calls_before / totalCalls)
   const toolCallsById  = new Map();  // tool_use_id → { name, input } for the Lever 8 join
   const fileToolResults = [];        // { tool_use_id, result_tokens, calls_before } (Lever 8)
+  let firstUserText = null;          // the session's opening prompt (intent), for `compact`
 
   const processLine = (line) => {
     // Cheap substring pre-filter before the (expensive) JSON.parse: only assistant lines
@@ -216,6 +217,11 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
 
     // ── Handle user-type lines (tool_result blocks) ─────────────────────
     if (obj.type === 'user') {
+      const uc = obj.message && obj.message.content;
+      if (firstUserText == null && uc) {   // capture the opening prompt (intent) for `compact`
+        if (typeof uc === 'string') firstUserText = uc;
+        else if (Array.isArray(uc)) { const t = uc.find(c => c && c.type === 'text' && c.text); if (t) firstUserText = t.text; }
+      }
       if (obj.message && Array.isArray(obj.message.content)) {
         for (const c of obj.message.content) {
           if (c && c.type === 'tool_result') {
@@ -349,6 +355,7 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
       toolResults:  fileToolResults,
       toolCallsById,
       totalCalls:   seenRequestIds.size,
+      firstUserText,
     });
   }
 }
