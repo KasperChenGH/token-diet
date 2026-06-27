@@ -579,6 +579,33 @@ function checkVerbose(allCommandFiles, findings) {
   }
 }
 
+// ── Knowledge duplication (Lever 5): the same block in 2+ always-loaded files ──
+// Static counterpart to trace's behavioral diagnosis — duplicated knowledge is loaded once PER file,
+// every spawn. Paragraph-shingle the always-loaded files; flag blocks present in 2+ distinct files.
+function checkDuplication(allCommandFiles, findings) {
+  const MIN_CHARS = 120;   // ~30 tokens; below this, matches are trivial (headers, `---`, common lines)
+  const blocks = new Map();
+  for (const { file, content } of allCommandFiles) {
+    if (!content) continue;
+    for (const para of content.split(/\n\s*\n/)) {
+      const flat = para.replace(/\s+/g, ' ').trim();
+      const norm = flat.toLowerCase();
+      if (flat.length < MIN_CHARS) continue;
+      let b = blocks.get(norm);
+      if (!b) { b = { chars: flat.length, files: new Set(), sample: flat.slice(0, 55) }; blocks.set(norm, b); }
+      b.files.add(file);
+    }
+  }
+  const dupes = [...blocks.values()].filter(b => b.files.size >= 2).sort((a, b) => b.chars - a.chars).slice(0, 6);
+  for (const d of dupes) {
+    const tok = Math.round(d.chars / 4);
+    const names = [...d.files].map(f => path.basename(f)).join(', ');
+    findings.push(finding(5, tok > 200 ? 'med' : 'low', [...d.files][0],
+      `~${fmt(tok)}-token block duplicated across ${d.files.size} always-loaded files (${names}): "${d.sample}…"`,
+      'Dedupe: move the shared block to one reference file and link it with a pointer — loaded once, not per-file × every spawn'));
+  }
+}
+
 /**
  * analyze — collect files, run every lever check, return findings + grade.
  * Shared with estimate (review-driven flagged levers). No printing.
@@ -609,6 +636,7 @@ function analyze(targetDir, home) {
   checkLever7(allCommandFiles, findings);
   checkLever8(targetDir, home, allCommandFiles, findings);
   checkVerbose(allCommandFiles, findings);
+  checkDuplication(allCommandFiles, findings);
 
   const projectFindings = findings.filter(f => f.scope === 'project');
   const hasProjectArtifacts = fs.existsSync(projClaude) || fs.existsSync(path.join(targetDir, '.claude'));

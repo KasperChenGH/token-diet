@@ -112,7 +112,8 @@ async function runSetup(opts = {}) {
   // per-read hook (readgate) or writing a router config the user hasn't asked for.
   console.log('Optional next gates (separate opt-in — not wired by setup):');
   console.log('  • read-path dedup : token-diet readgate --install && token-diet readgate --enable  (audit-first)');
-  console.log('  • model routing   : token-diet route --scaffold   (Lever 7 rule table; classify with route --classify)\n');
+  console.log('  • model routing   : token-diet route --scaffold   (Lever 7 rule table; classify with route --classify)');
+  console.log('  • behavioral waste: token-diet trace   (loops/retries + delegation-fit from real sessions; also surfaced in `savings`)\n');
 }
 
 module.exports = { runSetup, installPreCommit, HOOK_MARK };

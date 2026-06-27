@@ -209,24 +209,41 @@ const path = require('path');
 const fmt = n => Math.round(n).toLocaleString('en-US');
 const shortLabel = f => path.basename(String(f), '.jsonl').slice(0, 18);
 
-async function runTrace(opts = {}) {
+// Scan + analyze every session in the window (shared by runTrace and traceSummary — DRY).
+async function collectSessions(opts = {}) {
   const days = opts.days != null ? +opts.days : 7;
   const { records, fileMeta } = await scanAll({ days, project: opts.project || null });
-  if (!records.length) {
-    console.log('\nNo session activity in the window. Use Claude Code, then re-run `token-diet trace`.\n');
-    return;
-  }
   const byFile = new Map();
   for (const r of records) { if (!byFile.has(r.file)) byFile.set(r.file, []); byFile.get(r.file).push(r); }
-
-  const sessions = [];
+  const all = [];
   for (const [file, recs] of byFile) {
-    const meta = (fileMeta && fileMeta.get) ? fileMeta.get(file) : null;
-    const a = analyzeSession(recs, meta || {});
-    if (a.items.length || a.delegation.under.length || a.delegation.over.length)
-      sessions.push({ file, kind: recs[0].sessionKind || 'session', ...a });
+    const meta = (fileMeta && fileMeta.get) ? (fileMeta.get(file) || {}) : {};
+    all.push({ file, kind: recs[0].sessionKind || 'session', ...analyzeSession(recs, meta) });
   }
-  sessions.sort((x, y) => y.wasteEffective - x.wasteEffective);
+  return { days, all };
+}
+
+// Compact aggregates for the auto-mode / savings surface (no printing).
+async function traceSummary(opts = {}) {
+  const { days, all } = await collectSessions(opts);
+  let measuredEff = 0, projectedDelegation = 0, overCount = 0, flagged = 0;
+  for (const s of all) {
+    if (s.items.length || s.delegation.under.length || s.delegation.over.length) flagged++;
+    measuredEff += s.wasteEffective;
+    projectedDelegation += s.delegation.underProjected;
+    overCount += s.delegation.over.length;
+  }
+  return { days, sessions: flagged, measuredEff, projectedDelegation, overCount };
+}
+
+async function runTrace(opts = {}) {
+  const { days, all } = await collectSessions(opts);
+  if (!all.length) {
+    console.log('\nNo session activity in the window. Use Claude Code, then re-run trace.\n');
+    return;
+  }
+  const sessions = all.filter(s => s.items.length || s.delegation.under.length || s.delegation.over.length)
+                      .sort((x, y) => y.wasteEffective - x.wasteEffective);
   const measured = sessions.filter(s => s.items.length);
 
   const total = sessions.reduce((s, x) => ({ raw: s.raw + x.wasteRaw, eff: s.eff + x.wasteEffective }), { raw: 0, eff: 0 });
@@ -282,5 +299,6 @@ module.exports = {
   LOOP_MIN, RETRY_MIN, RESULT_NEAR_PCT, COMPACT_DROP_PCT, MUTATING_TOOLS,
   DELEGATABLE_TOOLS, EXPLORE_MIN, EXPLORE_TOKENS_MIN, SUMMARY_RATIO, OVER_DELEGATE_CALLS,
   normalize, argSignature, buildEvents, detectLoops, detectRetries, detectCompactions,
-  detectDelegation, resendTurns, computeWaste, analyzeSession, runTrace,
+  detectDelegation, resendTurns, computeWaste, analyzeSession,
+  collectSessions, traceSummary, runTrace,
 };

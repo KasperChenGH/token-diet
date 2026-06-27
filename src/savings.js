@@ -138,10 +138,29 @@ function postTelemetry(url, payload) {
   });
 }
 
+// BEHAVIORAL waste surface (the auto-mode integration): runs trace on recent sessions and prints a
+// one-line summary + a nudge past a threshold. Best-effort — never breaks the savings report.
+// NOTE: the nudge threshold is a placeholder; calibrate once real trace numbers accrue ("measure, don't cite").
+const BEHAVIORAL_NUDGE = 100000;   // ~projected delegation tokens recoverable before we nudge
+async function printBehavioral(opts) {
+  try {
+    const t = await require('./trace').traceSummary({ days: opts.days != null ? +opts.days : 7, project: opts.project });
+    if (!t.sessions) return;
+    console.log('\nBehavioral waste — from real sessions (`token-diet trace`):');
+    console.log(`  loops/retries ~${fmt(t.measuredEff)} compounded tok (Lever 3) · delegation ~${fmt(t.projectedDelegation)} recoverable (Lever 1) · ${t.sessions} session(s) flagged${t.overCount ? `, ${t.overCount} over-delegated subagent(s)` : ''}`);
+    if (t.projectedDelegation > BEHAVIORAL_NUDGE || t.measuredEff > BEHAVIORAL_NUDGE)
+      console.log('  ⚠  Significant behavioral waste — run `token-diet trace` for the per-session breakdown.');
+  } catch { /* trace is best-effort here */ }
+}
+
 async function runSavings(opts = {}) {
   const d = computeSavings(opts);
   if (opts.json && !opts.share) { console.log(JSON.stringify({ grade: d.grade, projectedPct: d.est.pct, filter: d.stats && d.stats.total }, null, 2)); return; }
-  if (!opts.share) { printTable(d); return; }
+  if (!opts.share) {
+    printTable(d);
+    await printBehavioral(opts);   // auto-mode surface: behavioral waste from real sessions (trace)
+    return;
+  }
 
   // ── share flow (opt-in; the user runs --share explicitly) ──
   const payload = sharePayload(d);

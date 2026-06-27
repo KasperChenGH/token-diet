@@ -49,6 +49,19 @@ test('checkVerbose: large low-heading file is flagged likely-verbose', () => {
   rm(dir);
 });
 
+test('checkDuplication: a block repeated across 2 always-loaded files → a Lever 5 finding', () => {
+  const dir = tmpDir();
+  const block = 'Always validate inputs before processing, never trust external data, and log every error ' +
+                'with full context so the next session can reconstruct what happened without re-reading.';  // >120 chars
+  writeFile(dir, 'CLAUDE.md', '# Project\n\n' + block + '\n\nother project notes here.');
+  writeFile(dir, '.claude/commands/run.md', '---\n---\n# Run\n\n' + block + '\n\nrun the thing.');
+  const a = R.analyze(dir, NO_HOME(dir));
+  const dup = a.findings.find(f => f.lever === 5 && /duplicated across/.test(f.evidence));
+  assert.ok(dup, 'expected a Lever 5 duplication finding');
+  assert.match(dup.evidence, /2 always-loaded files/);
+  rm(dir);
+});
+
 const O = require('../src/overhead');
 test('overhead prints a deprecation note and the per-spawn total', () => {
   const dir = tmpDir();
