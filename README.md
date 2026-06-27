@@ -106,6 +106,7 @@ token-diet digest                                  # Lever 5: files an agent re-
 
 # ACT — turn findings into work
 token-diet plan --out diet-plan.md                 # ordered checkbox plan per lever with evidence + savings
+token-diet compact [--session id] [--out h.md]     # Lever 2: deterministic {intent,artifacts,next-steps} handover
 token-diet route --classify "rename a symbol"      # Lever 7: route a task to a model tier (--scaffold the rules)
 token-diet readgate --install                      # Lever 3: PreToolUse read-dedup hook (audit-first)
 token-diet init [--global]                         # install the agent + subagents + command + skill

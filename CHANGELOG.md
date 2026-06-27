@@ -6,6 +6,38 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-28
+
+Fill the **always-loaded-context** gaps a professionally-designed agentic workflow still leaves open
+(from the context-engineering + harness research). Unlike `trace`'s behavioral diagnosis, every item
+here attacks context that **re-sends every turn** — the 97.7% baseline the measurement isolated — so
+the savings are structural, not behavioral.
+
+### Added
+- **`token-diet compact` — Lever 2 made executable.** A deterministic `{intent, artifacts, next-steps}`
+  handover from a real session, so the next session resumes from a compact state doc instead of
+  re-establishing context (the session-start re-exploration the harness research names). Intent = the
+  captured opening prompt; artifacts = files Edited/Written + git commits; next-steps = the last
+  TodoWrite's open items — all extracted deterministically (scripts compute), the model only refines
+  wording. `--session <id>` (default: most recent), `--out <file>`.
+- **`review` — three new static checks** against patterns the size-based review missed:
+  - **Tool-surface bloat (Lever 8):** counts MCP servers / exposed tools (`.mcp.json`, settings) and
+    flags agents with over-broad `tools:` frontmatter (`*` or ≥10) — each enabled tool's schema is
+    per-turn context.
+  - **Prompt quality / altitude (Lever 6):** flags always-loaded files that encode control flow in
+    prose — many `if/else` directives, long edge-case bullet runs, or redundant example blocks.
+  - **Knowledge duplication (Lever 5):** paragraph-shingle match across always-loaded files; flags
+    blocks repeated in 2+ files (each copy re-sends every turn).
+- **`trace` — context-pressure detector (Lever 3):** flags sessions that held a near-full context for
+  most of the run (peak cache_read + sustained near-full share), reported separately from MEASURED /
+  PROJECTED, never summed.
+
+### Notes
+- JIT/eager-loading and verification/rework gaps were assessed and found **already covered** —
+  `checkLever5` (no-digest reference dirs + "read all" bulk-loads) and `detectRetries` (repeated
+  failures) respectively. Building separate detectors would re-flag the same files / fire on normal
+  iteration, so they were deliberately **not** duplicated (token-diet's own "don't duplicate" rule).
+
 ## [0.10.0] - 2026-06-28
 
 A new **behavioral** diagnosis pillar — the dynamic counterpart to the static `review`. (Honest
