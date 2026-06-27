@@ -194,6 +194,9 @@ MEASURE
               Files with ratio < 0.15 are flagged "READING NOT THINKING"
 
 DIAGNOSE
+  trace       BEHAVIORAL waste from real transcripts (Lever 3): action loops + retry streaks,
+              measured and compounded through cache_read until the next compaction boundary.
+              The dynamic counterpart to the static review. --days N --project s [--json]
   diagnose    Six waste heuristics with lever labels and addressable share estimates
   overhead    [DEPRECATED — folded into review] Static always-loaded burden (Lever 6).
               Prints a deprecation notice; use 'token-diet review' for the overhead snapshot.
@@ -302,6 +305,10 @@ async function main() {
       break;
     case 'diagnose':
       await require('../src/diagnose').runDiagnose(opts);
+      break;
+    case 'trace':
+      if (opts.days == null) opts.days = 7;
+      await require('../src/trace').runTrace(opts);
       break;
     case 'overhead':
       await require('../src/overhead').runOverhead(opts);

@@ -225,6 +225,7 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
               tool_use_id:  c.tool_use_id || '',
               result_tokens: tokens,
               calls_before:  seenRequestIds.size,
+              is_error:     c.is_error === true,   // for trace's retry-streak detection (Lever 3 behavioral)
             });
           }
         }
@@ -293,7 +294,9 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
       for (const c of obj.message.content) {
         if (c && c.type === 'tool_use') {
           const fp = c.input && (c.input.file_path || c.input.path || null);
-          record.toolCalls.push({ name: c.name || '', filePath: fp || null });
+          // `id` lets trace join the ordered call to its result (status/tokens via toolCallsById +
+          // fileToolResults) for loop/retry detection; full args stay in toolCallsById (not duplicated here).
+          record.toolCalls.push({ name: c.name || '', filePath: fp || null, id: c.id || '' });
         }
       }
     }
