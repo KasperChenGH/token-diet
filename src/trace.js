@@ -23,6 +23,9 @@ const RETRY_MIN         = 2;     // ≥2 consecutive error results = a retry str
 const RESULT_NEAR_PCT   = 0.10;  // loop gate: results within ±10% tokens count as "same result" (else it's progress)
 const COMPACT_DROP_PCT  = 0.40;  // cache_read dropping >40% vs the prior call = a compaction boundary
 const COMPACT_FLOOR     = 2000;  // ignore drops when the prior cache_read was tiny (noise)
+// Calibrated against real Claude Code sessions: actual compaction drops are sharp (>50% of cache_read),
+// so 40% catches them with margin while ignoring normal turn-to-turn cache jitter. eff is thereby
+// bounded by real compaction boundaries (~every 80–90 calls), not run to session end.
 
 // ── fuzzy arg signature ─────────────────────────────────────────────────────────
 // Aggressive normalization = the "fuzzy" match: whitespace/case/standalone-digit differences collapse,
@@ -70,7 +73,8 @@ const nearSame = (a, b) => Math.abs(a - b) <= Math.max(1, Math.max(a, b)) * RESU
 // not redundancy (and they return a same-size confirmation regardless of what changed, so the
 // result-gate can't tell progress from a loop). Loops only count idempotent/retrieval actions —
 // repeating a Read/Grep with the same result is genuine waste. (Retry-streak detection still covers all tools.)
-const MUTATING_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Update', 'Create']);
+const MUTATING_TOOLS = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Update', 'Create',
+  'TaskUpdate', 'TaskCreate', 'TodoWrite', 'TaskStop']);   // task/todo tools mutate state — repetition is progress
 
 // ── detectors (pure) ────────────────────────────────────────────────────────────
 // Loop: ≥LOOP_MIN consecutive same-sig calls whose results are near-identical (so genuine progress,
@@ -200,10 +204,11 @@ async function runTrace(opts = {}) {
     console.log('  No loops or retry streaks detected — these sessions are behaviorally lean.\n');
     return;
   }
-  console.log('  session            | kind     | calls |    raw |     eff | ratio');
-  console.log('  -------------------+----------+-------+--------+---------+------');
+  console.log('  session            | kind     | calls |    raw |     eff | re-send');
+  console.log('  -------------------+----------+-------+--------+---------+--------');
   for (const s of sessions) {
-    console.log(`  ${shortLabel(s.file).padEnd(18)} | ${s.kind.slice(0, 8).padEnd(8)} | ${String(s.calls).padStart(5)} | ${fmt(s.wasteRaw).padStart(6)} | ${fmt(s.wasteEffective).padStart(7)} | ${((s.wasteRatio * 100).toFixed(1) + '%').padStart(5)}`);
+    const mult = s.wasteRaw > 0 ? '×' + Math.round(s.wasteEffective / s.wasteRaw) : '-';
+    console.log(`  ${shortLabel(s.file).padEnd(18)} | ${s.kind.slice(0, 8).padEnd(8)} | ${String(s.calls).padStart(5)} | ${fmt(s.wasteRaw).padStart(6)} | ${fmt(s.wasteEffective).padStart(7)} | ${mult.padStart(7)}`);
   }
   console.log(`\n  ${fmt(total.eff)} tokens of compounded waste across ${sessions.length} session(s) (raw ${fmt(total.raw)}).`);
 
