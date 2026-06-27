@@ -606,6 +606,61 @@ function checkDuplication(allCommandFiles, findings) {
   }
 }
 
+// ── Prompt quality / altitude (Lever 6): waste PATTERNS in always-loaded prose, not just size ──
+// (Anthropic context-engineering: avoid hardcoded if/else logic, edge-case laundry lists, and
+// exhaustive examples — all of it re-sends every turn.)
+function checkPromptQuality(allCommandFiles, findings) {
+  for (const { file, content } of allCommandFiles) {
+    if (!content) continue;
+    const lines = content.split('\n');
+    const ifElse = lines.filter(l => /\bif\b[^.\n]*\b(then|else|otherwise)\b/i.test(l) ||
+                                     /^\s*[-*]?\s*(if|when|unless|except|only if)\b/i.test(l)).length;
+    const edge   = lines.filter(l => /^\s*[-*]\s+(if|when|unless|except|only|do not|don['’]t|never|always)\b/i.test(l)).length;
+    const examples = Math.floor((content.match(/^```/gm) || []).length / 2);
+    if (ifElse >= 12)
+      findings.push(finding(6, ifElse >= 25 ? 'med' : 'low', file,
+        `${ifElse} conditional/if-else directives — prose encoding control flow (always-loaded, re-sent every turn)`,
+        'Raise the altitude: move branching into a script/tool; keep the prompt to heuristics'));
+    if (edge >= 18)
+      findings.push(finding(6, 'low', file,
+        `${edge} edge-case bullets — a "laundry list" of exceptions bloats always-loaded context`,
+        'Curate to a few canonical rules and let the model generalize, rather than enumerating every case'));
+    if (examples >= 9)
+      findings.push(finding(6, 'low', file,
+        `${examples} example/code blocks — exhaustive examples re-send every turn`,
+        'Keep 2–3 diverse, canonical examples; a removed example that does not change behavior was redundant'));
+  }
+}
+
+// ── Tool-surface bloat (Lever 8): tool/MCP definitions re-send every turn ──
+// (We filter tool OUTPUT already; this flags the tool DEFINITIONS — the other always-loaded half.)
+function checkToolSurface(targetDir, home, allCommandFiles, findings) {
+  const serverNames = [];
+  for (const p of [path.join(targetDir, '.mcp.json'), path.join(targetDir, '.claude', 'settings.json'),
+                   path.join(home, '.claude', 'settings.json')]) {
+    try {
+      const j = JSON.parse(readText(p) || '{}');
+      const servers = j.mcpServers || (j.mcp && j.mcp.servers) || {};
+      for (const name of Object.keys(servers)) if (!serverNames.includes(name)) serverNames.push(name);
+    } catch { /* absent/invalid */ }
+  }
+  if (serverNames.length >= 4)
+    findings.push(finding(8, serverNames.length >= 8 ? 'med' : 'low', path.join(targetDir, '.mcp.json'),
+      `${serverNames.length} MCP servers configured (${serverNames.slice(0, 6).join(', ')}${serverNames.length > 6 ? ', …' : ''}) — every enabled tool's schema re-sends each turn`,
+      'Disable MCP servers you are not actively using; each adds always-loaded tool definitions to every turn'));
+  for (const { file, content } of allCommandFiles) {
+    if (!content) continue;
+    const m = content.match(/^tools:\s*(.+)$/mi);
+    if (!m) continue;
+    const list = m[1].trim();
+    const n = list === '*' ? 99 : list.split(',').filter(Boolean).length;
+    if (list === '*' || n >= 10)
+      findings.push(finding(8, 'low', file,
+        `grants ${list === '*' ? 'ALL tools (*)' : n + ' tools'} — every granted tool's definition loads into this agent's context`,
+        'Grant only the tools this agent needs; a broad tool surface is always-loaded per spawn'));
+  }
+}
+
 /**
  * analyze — collect files, run every lever check, return findings + grade.
  * Shared with estimate (review-driven flagged levers). No printing.
@@ -637,6 +692,8 @@ function analyze(targetDir, home) {
   checkLever8(targetDir, home, allCommandFiles, findings);
   checkVerbose(allCommandFiles, findings);
   checkDuplication(allCommandFiles, findings);
+  checkPromptQuality(allCommandFiles, findings);
+  checkToolSurface(targetDir, home, allCommandFiles, findings);
 
   const projectFindings = findings.filter(f => f.scope === 'project');
   const hasProjectArtifacts = fs.existsSync(projClaude) || fs.existsSync(path.join(targetDir, '.claude'));

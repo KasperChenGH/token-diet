@@ -62,6 +62,38 @@ test('checkDuplication: a block repeated across 2 always-loaded files → a Leve
   rm(dir);
 });
 
+test('checkPromptQuality: flags hardcoded if/else, edge-case lists, exhaustive examples (Lever 6)', () => {
+  const dir = tmpDir();
+  const ifs = Array.from({ length: 14 }, (_, i) => `If condition ${i} then do A else do B.`).join('\n');
+  const edges = Array.from({ length: 20 }, (_, i) => `- unless case ${i} applies`).join('\n');
+  const ex = Array.from({ length: 9 }, (_, i) => '```\nexample ' + i + '\n```').join('\n');
+  writeFile(dir, 'CLAUDE.md', '# Project\n\n' + ifs + '\n\n' + edges + '\n\n' + ex);
+  const a = R.analyze(dir, NO_HOME(dir));
+  assert.ok(a.findings.some(f => f.lever === 6 && /if-else directives/.test(f.evidence)));
+  assert.ok(a.findings.some(f => f.lever === 6 && /edge-case bullets/.test(f.evidence)));
+  assert.ok(a.findings.some(f => f.lever === 6 && /example\/code blocks/.test(f.evidence)));
+  rm(dir);
+});
+
+test('checkPromptQuality: a clean small CLAUDE.md is NOT flagged (no false positive)', () => {
+  const dir = tmpDir();
+  writeFile(dir, 'CLAUDE.md', '# Project\n\nKeep it lean. Move logic to scripts. Trust the model.');
+  const a = R.analyze(dir, NO_HOME(dir));
+  assert.ok(!a.findings.some(f => f.lever === 6 && /(if-else|edge-case|example)/.test(f.evidence)));
+  rm(dir);
+});
+
+test('checkToolSurface: flags many MCP servers + an over-broad tools: grant (Lever 8)', () => {
+  const dir = tmpDir();
+  const servers = {}; for (let i = 0; i < 5; i++) servers['srv' + i] = { command: 'x' };
+  writeFile(dir, '.mcp.json', JSON.stringify({ mcpServers: servers }));
+  writeFile(dir, '.claude/agents/broad.md', '---\nname: broad\ntools: *\n---\nbody');
+  const a = R.analyze(dir, NO_HOME(dir));
+  assert.ok(a.findings.some(f => f.lever === 8 && /MCP servers configured/.test(f.evidence)));
+  assert.ok(a.findings.some(f => f.lever === 8 && /ALL tools/.test(f.evidence)));
+  rm(dir);
+});
+
 const O = require('../src/overhead');
 test('overhead prints a deprecation note and the per-spawn total', () => {
   const dir = tmpDir();
