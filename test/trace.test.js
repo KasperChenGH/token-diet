@@ -90,6 +90,13 @@ test('detectDelegation flags a tiny subagent as over-delegation (Lever 1)', () =
   assert.equal(T.detectDelegation(big, big.map(() => ({ cacheRead: 0 })), 'subagent').over.length, 0);
 });
 
+test('detectContextPressure flags a session that held a near-full context most of the run', () => {
+  const heavy = Array.from({ length: 10 }, () => ({ cacheRead: 150000 }));
+  assert.equal(T.detectContextPressure(heavy).heavy, true);
+  const light = Array.from({ length: 10 }, () => ({ cacheRead: 5000 }));
+  assert.equal(T.detectContextPressure(light).heavy, false);
+});
+
 // integration: records + scan-style meta → analyzeSession with compounding waste math
 test('analyzeSession measures a Read loop with compounding (resend) waste', () => {
   const mk = (id, fp) => ({ toolCalls: [{ name: 'Read', id, filePath: fp }], input: 0, cacheWrite: 0, cacheRead: 10000, output: 0 });

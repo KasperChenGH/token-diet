@@ -121,6 +121,18 @@ function detectCompactions(records) {
   return idx;
 }
 
+// Context pressure (Lever 3 / cadence): a session that ran with cache_read near its max for most of
+// the run held a near-full context the whole time — the re-sending baseline at its most expensive.
+const PRESSURE_FLOOR = 100000;   // max cache_read must exceed this to count as "large context"
+function detectContextPressure(records) {
+  const cr = records.map(r => r.cacheRead || 0);
+  const maxCR = cr.length ? Math.max(...cr) : 0;
+  const nearFull = cr.filter(x => x > maxCR * 0.8).length;
+  const compactions = detectCompactions(records).length;
+  const heavy = maxCR > PRESSURE_FLOOR && nearFull > records.length * 0.5;
+  return { maxCR, nearFull, compactions, calls: records.length, heavy };
+}
+
 // turns a waste event's tokens persist (re-sent as cache_read) before the next compaction or session end.
 function resendTurns(recIdx, totalRecords, compactions) {
   const next = compactions.find(c => c > recIdx);
@@ -201,7 +213,8 @@ function analyzeSession(records, meta) {
   const retries = detectRetries(events);
   const kind = records.length ? (records[0].sessionKind || 'session') : 'session';
   const delegation = detectDelegation(events, records, kind);
-  return { ...computeWaste(events, records, loops, retries), delegation, calls: events.length };
+  const pressure = detectContextPressure(records);
+  return { ...computeWaste(events, records, loops, retries), delegation, pressure, calls: events.length };
 }
 
 // ── CLI: scan real sessions → per-session behavioral-waste report ───────────────
@@ -242,7 +255,7 @@ async function runTrace(opts = {}) {
     console.log('\nNo session activity in the window. Use Claude Code, then re-run trace.\n');
     return;
   }
-  const sessions = all.filter(s => s.items.length || s.delegation.under.length || s.delegation.over.length)
+  const sessions = all.filter(s => s.items.length || s.delegation.under.length || s.delegation.over.length || s.pressure.heavy)
                       .sort((x, y) => y.wasteEffective - x.wasteEffective);
   const measured = sessions.filter(s => s.items.length);
 
@@ -292,6 +305,15 @@ async function runTrace(opts = {}) {
     if (underTotal) console.log(`   → ~${fmt(underTotal)} projected tokens recoverable by isolating verbose exploration in subagents.`);
   }
 
+  // ── CONTEXT PRESSURE (cadence) ──
+  const pressured = sessions.filter(s => s.pressure.heavy);
+  if (pressured.length) {
+    console.log('\n  CONTEXT PRESSURE — sessions that held a near-full context most of the run (the re-sending baseline at its worst):');
+    for (const s of pressured.slice(0, 5))
+      console.log(`   ${shortLabel(s.file)}: ${s.pressure.calls} calls, cache_read peaked ~${fmt(s.pressure.maxCR)}, near-full for ${Math.round(100 * s.pressure.nearFull / s.pressure.calls)}% of the run, ${s.pressure.compactions} compaction(s)`);
+    console.log('   → the fix is structural (Levers 5/6/8: shrink the always-loaded baseline), not behavioral.');
+  }
+
   console.log('\n  Measured (Lever 3) and projected (Lever 1) are reported separately — never summed (attribution rule).\n');
 }
 
@@ -299,6 +321,6 @@ module.exports = {
   LOOP_MIN, RETRY_MIN, RESULT_NEAR_PCT, COMPACT_DROP_PCT, MUTATING_TOOLS,
   DELEGATABLE_TOOLS, EXPLORE_MIN, EXPLORE_TOKENS_MIN, SUMMARY_RATIO, OVER_DELEGATE_CALLS,
   normalize, argSignature, buildEvents, detectLoops, detectRetries, detectCompactions,
-  detectDelegation, resendTurns, computeWaste, analyzeSession,
+  detectDelegation, detectContextPressure, resendTurns, computeWaste, analyzeSession,
   collectSessions, traceSummary, runTrace,
 };
