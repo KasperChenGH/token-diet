@@ -127,6 +127,45 @@ function resendTurns(recIdx, totalRecords, compactions) {
   return (next != null ? next : totalRecords) - recIdx - 1;   // # of later calls that re-send it
 }
 
+// ── Detector 2: delegation-fit (Lever 1, bidirectional) ─────────────────────────
+// Verbose output from these in the MAIN session is the canonical "should be a subagent" case —
+// the subagent isolates the verbose I/O and returns only a summary (Anthropic's own guidance).
+const DELEGATABLE_TOOLS = new Set(['Read', 'Grep', 'Glob', 'Bash', 'PowerShell', 'WebFetch', 'WebSearch']);
+const EXPLORE_MIN          = 3;      // ≥3 consecutive delegatable calls = an exploration cluster (not a single needed read)
+const EXPLORE_TOKENS_MIN   = 4000;   // a cluster must dump at least this much output to be worth isolating
+const SUMMARY_RATIO        = 0.15;   // PROJECTED: a subagent returns ~15% of the raw cluster output as a summary
+const OVER_DELEGATE_CALLS  = 3;      // a subagent doing ≤ this many calls likely didn't earn its spawn tax
+const ESTABLISH_TAX        = 20000;  // ~per-subagent context establishment cost (Anthropic / Claude Code)
+
+// Returns { under:[{calls:[a,b],count,tokens,saved}], over:[{calls,outputTokens}], underProjected, overTax }.
+// under = an EXPLORATION CLUSTER in MAIN (≥3 consecutive retrieval calls dumping >4k tokens) that a
+// subagent should have isolated — a single needed read is NOT flagged. saved = the DIRECT main-context
+// reduction (cluster output minus the ~15% summary); it also re-sends every turn (compounding), noted
+// separately rather than multiplied into a misleading headline. over = a tiny subagent (~20k tax unrecovered).
+function detectDelegation(events, records, kind) {
+  if (kind === 'subagent') {
+    const out = events.reduce((s, e) => s + e.resultTokens, 0);
+    if (events.length <= OVER_DELEGATE_CALLS && out < EXPLORE_TOKENS_MIN)
+      return { under: [], over: [{ calls: events.length, outputTokens: out }], underProjected: 0, overTax: ESTABLISH_TAX };
+    return { under: [], over: [], underProjected: 0, overTax: 0 };
+  }
+  const under = []; let projected = 0;
+  let i = 0;
+  while (i < events.length) {
+    if (!DELEGATABLE_TOOLS.has(events[i].tool)) { i++; continue; }
+    let j = i, tokens = 0;
+    while (j < events.length && DELEGATABLE_TOOLS.has(events[j].tool)) { tokens += events[j].resultTokens; j++; }
+    const count = j - i;
+    if (count >= EXPLORE_MIN && tokens > EXPLORE_TOKENS_MIN) {
+      const saved = Math.round(tokens * (1 - SUMMARY_RATIO));   // direct: this much wouldn't have entered main
+      projected += saved;
+      under.push({ calls: [events[i].recIdx, events[j - 1].recIdx], count, tokens, saved });
+    }
+    i = j > i ? j : i + 1;
+  }
+  return { under, over: [], underProjected: projected, overTax: 0 };
+}
+
 // ── waste computation (compounding-aware) ───────────────────────────────────────
 function computeWaste(events, records, loops, retries) {
   const compactions = detectCompactions(records);
@@ -160,7 +199,9 @@ function analyzeSession(records, meta) {
   const events = buildEvents(records, meta);
   const loops = detectLoops(events);
   const retries = detectRetries(events);
-  return { ...computeWaste(events, records, loops, retries), calls: events.length };
+  const kind = records.length ? (records[0].sessionKind || 'session') : 'session';
+  const delegation = detectDelegation(events, records, kind);
+  return { ...computeWaste(events, records, loops, retries), delegation, calls: events.length };
 }
 
 // ── CLI: scan real sessions → per-session behavioral-waste report ───────────────
@@ -182,48 +223,64 @@ async function runTrace(opts = {}) {
   for (const [file, recs] of byFile) {
     const meta = (fileMeta && fileMeta.get) ? fileMeta.get(file) : null;
     const a = analyzeSession(recs, meta || {});
-    if (a.items.length) sessions.push({ file, kind: recs[0].sessionKind || 'session', ...a });
+    if (a.items.length || a.delegation.under.length || a.delegation.over.length)
+      sessions.push({ file, kind: recs[0].sessionKind || 'session', ...a });
   }
   sessions.sort((x, y) => y.wasteEffective - x.wasteEffective);
+  const measured = sessions.filter(s => s.items.length);
 
   const total = sessions.reduce((s, x) => ({ raw: s.raw + x.wasteRaw, eff: s.eff + x.wasteEffective }), { raw: 0, eff: 0 });
 
   if (opts.json) {
     console.log(JSON.stringify({
       sessions: sessions.map(s => ({ session: shortLabel(s.file), kind: s.kind, calls: s.calls,
-        wasteRaw: s.wasteRaw, wasteEffective: s.wasteEffective, wasteRatio: +s.wasteRatio.toFixed(4), items: s.items })),
+        measured: { wasteRaw: s.wasteRaw, wasteEffective: s.wasteEffective, items: s.items },
+        projected: { delegationUnder: s.delegation.underProjected, under: s.delegation.under, over: s.delegation.over } })),
       total,
     }, null, 2));
     return;
   }
 
   console.log(`\n=== token-diet trace — behavioral waste (last ${days}d) ===`);
-  console.log('  MEASURED: action loops + retry streaks, re-sent through cache_read until compaction.');
-  console.log('  raw = tokens introduced once · eff = compounded re-send cost (the real bill).\n');
-  if (!sessions.length) {
-    console.log('  No loops or retry streaks detected — these sessions are behaviorally lean.\n');
-    return;
-  }
-  console.log('  session            | kind     | calls |    raw |     eff | re-send');
-  console.log('  -------------------+----------+-------+--------+---------+--------');
-  for (const s of sessions) {
-    const mult = s.wasteRaw > 0 ? '×' + Math.round(s.wasteEffective / s.wasteRaw) : '-';
-    console.log(`  ${shortLabel(s.file).padEnd(18)} | ${s.kind.slice(0, 8).padEnd(8)} | ${String(s.calls).padStart(5)} | ${fmt(s.wasteRaw).padStart(6)} | ${fmt(s.wasteEffective).padStart(7)} | ${mult.padStart(7)}`);
-  }
-  console.log(`\n  ${fmt(total.eff)} tokens of compounded waste across ${sessions.length} session(s) (raw ${fmt(total.raw)}).`);
 
-  // top offending events
-  const allItems = sessions.flatMap(s => s.items.map(it => ({ ...it, sess: shortLabel(s.file) }))).sort((a, b) => b.effective - a.effective).slice(0, 8);
-  console.log('\n  Top waste events:');
-  for (const it of allItems) {
-    const what = it.kind === 'loop' ? `loop ${it.tool} ×${it.count}` : `retry ${it.tool} ×${it.count}`;
-    console.log(`   [${it.kind}] ${it.sess}: ${what} (calls ${it.turns[0]}–${it.turns[1]}) — ${fmt(it.raw)} raw / ${fmt(it.effective)} eff tok`);
+  // ── MEASURED: loops + retries (Lever 3) ──
+  if (measured.length) {
+    console.log('  MEASURED — loops + retries (Lever 3), re-sent through cache_read until compaction.');
+    console.log('  raw = introduced once · eff = compounded re-send cost · re-send = the eff/raw multiplier.\n');
+    console.log('  session            | kind     | calls |    raw |     eff | re-send');
+    console.log('  -------------------+----------+-------+--------+---------+--------');
+    for (const s of measured) {
+      const mult = s.wasteRaw > 0 ? '×' + Math.round(s.wasteEffective / s.wasteRaw) : '-';
+      console.log(`  ${shortLabel(s.file).padEnd(18)} | ${s.kind.slice(0, 8).padEnd(8)} | ${String(s.calls).padStart(5)} | ${fmt(s.wasteRaw).padStart(6)} | ${fmt(s.wasteEffective).padStart(7)} | ${mult.padStart(7)}`);
+    }
+    const top = measured.flatMap(s => s.items.map(it => ({ ...it, sess: shortLabel(s.file) }))).sort((a, b) => b.effective - a.effective).slice(0, 6);
+    console.log('  top:');
+    for (const it of top)
+      console.log(`   [${it.kind}] ${it.sess}: ${it.tool} ×${it.count} (calls ${it.turns[0]}–${it.turns[1]}) — ${fmt(it.raw)} raw / ${fmt(it.effective)} eff`);
+  } else {
+    console.log('  MEASURED — loops + retries (Lever 3): none. Behaviorally lean on the measured axis.');
   }
-  console.log('\n  Loops/retries → Lever 3 (evict redundant compute). For projected savings + design fixes, run `token-diet plan`.\n');
+
+  // ── PROJECTED: delegation-fit (Lever 1, bidirectional) ──
+  const underRuns  = sessions.flatMap(s => s.delegation.under.map(u => ({ ...u, sess: shortLabel(s.file) }))).sort((a, b) => b.saved - a.saved);
+  const overSess   = sessions.filter(s => s.delegation.over.length);
+  const underTotal = sessions.reduce((s, x) => s + (x.delegation.underProjected || 0), 0);
+  if (underRuns.length || overSess.length) {
+    console.log('\n  PROJECTED — delegation-fit (Lever 1). saved = direct main-context reduction (a subagent');
+    console.log('  returns ~15% of the cluster); it ALSO re-sends every turn, so the compounded cost is larger.');
+    for (const u of underRuns.slice(0, 6))
+      console.log(`   [under] ${u.sess}: exploration cluster (calls ${u.calls[0]}–${u.calls[1]}, ${u.count} retrieval calls, ${fmt(u.tokens)} tok) → delegate, save ~${fmt(u.saved)}`);
+    for (const s of overSess.slice(0, 4))
+      console.log(`   [over]  ${shortLabel(s.file)}: subagent did ${s.delegation.over[0].calls} call(s) — ~20k spawn tax likely unrecovered`);
+    if (underTotal) console.log(`   → ~${fmt(underTotal)} projected tokens recoverable by isolating verbose exploration in subagents.`);
+  }
+
+  console.log('\n  Measured (Lever 3) and projected (Lever 1) are reported separately — never summed (attribution rule).\n');
 }
 
 module.exports = {
   LOOP_MIN, RETRY_MIN, RESULT_NEAR_PCT, COMPACT_DROP_PCT, MUTATING_TOOLS,
+  DELEGATABLE_TOOLS, EXPLORE_MIN, EXPLORE_TOKENS_MIN, SUMMARY_RATIO, OVER_DELEGATE_CALLS,
   normalize, argSignature, buildEvents, detectLoops, detectRetries, detectCompactions,
-  resendTurns, computeWaste, analyzeSession, runTrace,
+  detectDelegation, resendTurns, computeWaste, analyzeSession, runTrace,
 };

@@ -194,9 +194,11 @@ MEASURE
               Files with ratio < 0.15 are flagged "READING NOT THINKING"
 
 DIAGNOSE
-  trace       BEHAVIORAL waste from real transcripts (Lever 3): action loops + retry streaks,
-              measured and compounded through cache_read until the next compaction boundary.
-              The dynamic counterpart to the static review. --days N --project s [--json]
+  trace       BEHAVIORAL waste from real transcripts. MEASURED: action loops + retry streaks
+              (Lever 3), compounded through cache_read until the next compaction. PROJECTED:
+              delegation-fit (Lever 1) — exploration clusters in main that a subagent should
+              isolate, + over-delegated tiny subagents. The dynamic counterpart to static review.
+              --days N --project s [--json]
   diagnose    Six waste heuristics with lever labels and addressable share estimates
   overhead    [DEPRECATED — folded into review] Static always-loaded burden (Lever 6).
               Prints a deprecation notice; use 'token-diet review' for the overhead snapshot.

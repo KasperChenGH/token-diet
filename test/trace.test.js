@@ -59,6 +59,37 @@ test('resendTurns counts later calls until the next compaction (else session end
   assert.equal(T.resendTurns(1, 5, [3]), 1);     // compaction at 3 → only call 2 re-sends it
 });
 
+test('detectDelegation flags an EXPLORATION CLUSTER in MAIN, not a single needed read', () => {
+  const recs = Array.from({ length: 6 }, () => ({ cacheRead: 9000 }));
+  // a single verbose read (you needed that file) is NOT under-delegation
+  const single = [{ recIdx: 0, tool: 'Read', resultTokens: 9000, isError: false },
+                  { recIdx: 1, tool: 'Edit', resultTokens: 30, isError: false }];
+  assert.equal(T.detectDelegation(single, recs, 'session').under.length, 0);
+  // a cluster of ≥3 consecutive retrieval calls dumping >4k tokens IS flagged
+  const cluster = [
+    { recIdx: 0, tool: 'Grep', resultTokens: 3000, isError: false },
+    { recIdx: 1, tool: 'Read', resultTokens: 3000, isError: false },
+    { recIdx: 2, tool: 'Read', resultTokens: 3000, isError: false },
+    { recIdx: 3, tool: 'Edit', resultTokens: 30, isError: false },     // breaks the run
+  ];
+  const d = T.detectDelegation(cluster, recs, 'session');
+  assert.equal(d.under.length, 1);
+  assert.equal(d.under[0].count, 3);
+  assert.equal(d.under[0].tokens, 9000);
+  assert.equal(d.under[0].saved, Math.round(9000 * 0.85));   // direct reduction (no resend multiplier in the headline)
+});
+
+test('detectDelegation flags a tiny subagent as over-delegation (Lever 1)', () => {
+  const events = [{ recIdx: 0, tool: 'Read', resultTokens: 200, isError: false }];
+  const d = T.detectDelegation(events, [{ cacheRead: 0 }], 'subagent');
+  assert.equal(d.over.length, 1);
+  assert.equal(d.over[0].calls, 1);
+  assert.equal(d.overTax, 20000);
+  // a substantial subagent is NOT flagged
+  const big = Array.from({ length: 10 }, (_, k) => ({ recIdx: k, tool: 'Read', resultTokens: 3000, isError: false }));
+  assert.equal(T.detectDelegation(big, big.map(() => ({ cacheRead: 0 })), 'subagent').over.length, 0);
+});
+
 // integration: records + scan-style meta → analyzeSession with compounding waste math
 test('analyzeSession measures a Read loop with compounding (resend) waste', () => {
   const mk = (id, fp) => ({ toolCalls: [{ name: 'Read', id, filePath: fp }], input: 0, cacheWrite: 0, cacheRead: 10000, output: 0 });
