@@ -6,6 +6,29 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-28
+
+A new **behavioral** diagnosis pillar — the dynamic counterpart to the static `review`. (Honest
+framing: this is a *diagnostic*, not a savings feature — see the note below.)
+
+### Added
+- **`token-diet trace` — behavioral waste from real transcripts.** MEASURED (Lever 3): action loops
+  (≥3 consecutive fuzzy-identical retrieval calls, results-gated; mutating/task tools excluded) +
+  retry streaks, compounded through cache_read until the next compaction boundary (detected as a
+  cache_read drop). PROJECTED (Lever 1, bidirectional): delegation-fit — exploration clusters in the
+  main session that a subagent should isolate, + over-delegated tiny subagents. Token-diet-native
+  waste model (real tokens × compounding re-send), not the academic coefficient WCR.
+- **Cross-file knowledge-duplication finding (Lever 5)** in `review` — the same block in 2+
+  always-loaded files (loaded once per-file × every spawn).
+- **Auto-mode surface:** `savings` now reports behavioral waste with a nudge; `setup` points to `trace`.
+- `scan` exposes tool_use `id` + tool_result `is_error` (the single coupling point gains what trace needs).
+
+### Note (measure, don't cite)
+Measured on ~1.5B real tokens, behavioral waste is **< 0.03% of volume** — **97.7% is legitimate
+cache_read** (context re-sending every turn). `trace` is a diagnostic that tells you where waste is
+*and isn't*; the headline savings still come from the static levers that shrink the re-sending
+baseline (Levers 5/6/8).
+
 ## [0.9.1] - 2026-06-25
 
 Post-`v0.9.0` hardening from a packaging audit + a senior-engineer / product-manager review.

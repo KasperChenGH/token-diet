@@ -100,6 +100,8 @@ token-diet agents                                  # useful-work ratio per agent
 
 # DIAGNOSE — what structural waste exists?
 token-diet diagnose                                # red flags mapped to levers
+token-diet trace                                   # BEHAVIORAL waste from real transcripts: loops,
+                                                   #   retries (measured) + delegation-fit (projected)
 token-diet digest                                  # Lever 5: files an agent re-reads, with their token cost
 
 # ACT — turn findings into work
