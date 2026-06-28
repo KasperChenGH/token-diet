@@ -58,7 +58,7 @@ test('checkDuplication: a block repeated across 2 always-loaded files → a Leve
   const a = R.analyze(dir, NO_HOME(dir));
   const dup = a.findings.find(f => f.lever === 5 && /duplicated across/.test(f.evidence));
   assert.ok(dup, 'expected a Lever 5 duplication finding');
-  assert.match(dup.evidence, /2 always-loaded files/);
+  assert.match(dup.evidence, /duplicated across 2 files/);
   rm(dir);
 });
 
@@ -92,6 +92,18 @@ test('checkToolSurface: flags many MCP servers + an over-broad tools: grant (Lev
   assert.ok(a.findings.some(f => f.lever === 8 && /MCP servers configured/.test(f.evidence)));
   assert.ok(a.findings.some(f => f.lever === 8 && /ALL tools/.test(f.evidence)));
   rm(dir);
+});
+
+test('checkToolSurface: scans ~/.claude.json — the canonical store `claude mcp add` writes to', () => {
+  const dir = tmpDir(), home = tmpDir();
+  writeFile(home, '.claude.json', JSON.stringify({
+    mcpServers: { a: {}, b: {} },                                  // user-scope
+    projects: { [dir]: { mcpServers: { c: {}, d: {} } } },         // project-local scope for this dir
+  }));
+  const a = R.analyze(dir, home);                                   // 2 + 2 = 4 servers → fires at the ≥4 threshold
+  assert.ok(a.findings.some(f => f.lever === 8 && /4 MCP servers configured/.test(f.evidence)),
+    'should aggregate user-scope + project-local servers from ~/.claude.json');
+  rm(dir); rm(home);
 });
 
 const O = require('../src/overhead');

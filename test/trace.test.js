@@ -95,6 +95,15 @@ test('detectContextPressure flags a session that held a near-full context most o
   assert.equal(T.detectContextPressure(heavy).heavy, true);
   const light = Array.from({ length: 10 }, () => ({ cacheRead: 5000 }));
   assert.equal(T.detectContextPressure(light).heavy, false);
+  // short sessions are not "pressure" however large — it's a sustained-run property
+  assert.equal(T.detectContextPressure([{ cacheRead: 500000 }, { cacheRead: 500000 }]).heavy, false);
+});
+
+test('detectContextPressure flags a SAWTOOTH session (compacts periodically but stays >100k) — the regression the peak-relative logic missed', () => {
+  // grows to ~420k, compaction drops it to ~140k, regrows — every call still carries >100k context
+  const sawtooth = [420000, 140000, 280000, 410000, 150000, 300000, 415000, 145000, 290000, 400000].map(c => ({ cacheRead: c }));
+  assert.equal(T.detectContextPressure(sawtooth).heavy, true);
+  // (the old "> 80% of the session peak" rule would have counted only the 4 near-420k calls → 40% → not flagged)
 });
 
 // integration: records + scan-style meta → analyzeSession with compounding waste math

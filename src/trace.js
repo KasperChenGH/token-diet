@@ -121,15 +121,19 @@ function detectCompactions(records) {
   return idx;
 }
 
-// Context pressure (Lever 3 / cadence): a session that ran with cache_read near its max for most of
-// the run held a near-full context the whole time — the re-sending baseline at its most expensive.
-const PRESSURE_FLOOR = 100000;   // max cache_read must exceed this to count as "large context"
+// Context pressure (Lever 3 / cadence): a session that carried a large context for most of the run —
+// the re-sending baseline at its most expensive. Measured as the share of calls whose cache_read
+// exceeds a large-context floor, NOT proximity to the session's own peak: real heavy sessions compact
+// periodically, so cache_read sawtooths and few calls sit near the absolute max even when the running
+// baseline is high the whole time. Counting calls over an absolute floor is compaction-agnostic.
+const PRESSURE_FLOOR     = 100000;   // a call carrying > this much cache_read is a "heavy" call (~half a 200k window)
+const PRESSURE_MIN_CALLS = 10;       // ignore short sessions — pressure is a sustained-run property
 function detectContextPressure(records) {
   const cr = records.map(r => r.cacheRead || 0);
   const maxCR = cr.length ? Math.max(...cr) : 0;
-  const nearFull = cr.filter(x => x > maxCR * 0.8).length;
+  const nearFull = cr.filter(x => x > PRESSURE_FLOOR).length;       // calls that carried a large context
   const compactions = detectCompactions(records).length;
-  const heavy = maxCR > PRESSURE_FLOOR && nearFull > records.length * 0.5;
+  const heavy = records.length >= PRESSURE_MIN_CALLS && nearFull > records.length * 0.5;
   return { maxCR, nearFull, compactions, calls: records.length, heavy };
 }
 
@@ -308,9 +312,9 @@ async function runTrace(opts = {}) {
   // ── CONTEXT PRESSURE (cadence) ──
   const pressured = sessions.filter(s => s.pressure.heavy);
   if (pressured.length) {
-    console.log('\n  CONTEXT PRESSURE — sessions that held a near-full context most of the run (the re-sending baseline at its worst):');
+    console.log('\n  CONTEXT PRESSURE — sessions that carried a large context most of the run (the re-sending baseline at its worst):');
     for (const s of pressured.slice(0, 5))
-      console.log(`   ${shortLabel(s.file)}: ${s.pressure.calls} calls, cache_read peaked ~${fmt(s.pressure.maxCR)}, near-full for ${Math.round(100 * s.pressure.nearFull / s.pressure.calls)}% of the run, ${s.pressure.compactions} compaction(s)`);
+      console.log(`   ${shortLabel(s.file)}: ${s.pressure.calls} calls, cache_read peaked ~${fmt(s.pressure.maxCR)}, carried >100k for ${Math.round(100 * s.pressure.nearFull / s.pressure.calls)}% of the run, ${s.pressure.compactions} compaction(s)`);
     console.log('   → the fix is structural (Levers 5/6/8: shrink the always-loaded baseline), not behavioral.');
   }
 

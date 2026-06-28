@@ -601,7 +601,7 @@ function checkDuplication(allCommandFiles, findings) {
     const tok = Math.round(d.chars / 4);
     const names = [...d.files].map(f => path.basename(f)).join(', ');
     findings.push(finding(5, tok > 200 ? 'med' : 'low', [...d.files][0],
-      `~${fmt(tok)}-token block duplicated across ${d.files.size} always-loaded files (${names}): "${d.sample}…"`,
+      `~${fmt(tok)}-token block duplicated across ${d.files.size} files (${names}): "${d.sample}…"`,
       'Dedupe: move the shared block to one reference file and link it with a pointer — loaded once, not per-file × every spawn'));
   }
 }
@@ -636,14 +636,22 @@ function checkPromptQuality(allCommandFiles, findings) {
 // (We filter tool OUTPUT already; this flags the tool DEFINITIONS — the other always-loaded half.)
 function checkToolSurface(targetDir, home, allCommandFiles, findings) {
   const serverNames = [];
+  const addServers = (servers) => { for (const name of Object.keys(servers || {})) if (!serverNames.includes(name)) serverNames.push(name); };
   for (const p of [path.join(targetDir, '.mcp.json'), path.join(targetDir, '.claude', 'settings.json'),
                    path.join(home, '.claude', 'settings.json')]) {
     try {
       const j = JSON.parse(readText(p) || '{}');
-      const servers = j.mcpServers || (j.mcp && j.mcp.servers) || {};
-      for (const name of Object.keys(servers)) if (!serverNames.includes(name)) serverNames.push(name);
+      addServers(j.mcpServers || (j.mcp && j.mcp.servers));
     } catch { /* absent/invalid */ }
   }
+  // ~/.claude.json is the canonical store `claude mcp add` writes to: top-level mcpServers (user scope)
+  // + projects[<cwd>].mcpServers (project-local scope). The settings/.mcp.json paths above miss both.
+  try {
+    const root = JSON.parse(readText(path.join(home, '.claude.json')) || '{}');
+    addServers(root.mcpServers);
+    const proj = root.projects && root.projects[targetDir];
+    if (proj) addServers(proj.mcpServers);
+  } catch { /* absent/invalid */ }
   if (serverNames.length >= 4)
     findings.push(finding(8, serverNames.length >= 8 ? 'med' : 'low', path.join(targetDir, '.mcp.json'),
       `${serverNames.length} MCP servers configured (${serverNames.slice(0, 6).join(', ')}${serverNames.length > 6 ? ', …' : ''}) — every enabled tool's schema re-sends each turn`,
