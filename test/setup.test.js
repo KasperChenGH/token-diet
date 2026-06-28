@@ -40,16 +40,20 @@ test('installPreCommit: appends to an existing pre-commit hook (preserves it)', 
   rm(root);
 });
 
-test('runSetup wires the filter in AUDIT mode + the pre-commit hook', async () => {
+test('runSetup wires BOTH hooks (filter + readgate) in AUDIT + the pre-commit hook', async () => {
   const root = tmpDir();
   fs.mkdirSync(path.join(root, '.git'), { recursive: true });
   await silent(() => S.runSetup({ dir: root }));
   const cfg = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'filter.json'), 'utf8'));
   assert.equal(cfg.enabled, true);
   assert.equal(cfg.mode, 'audit');           // recording, output unchanged — not auto-live
+  const gate = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'readgate', 'config.json'), 'utf8'));
+  assert.equal(gate.enabled, true);
+  assert.equal(gate.mode, 'audit');          // readgate moves in lockstep with the filter
   assert.ok(fs.existsSync(path.join(root, '.git', 'hooks', 'pre-commit')));
   const set = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'settings.json'), 'utf8'));
   assert.ok(set.hooks.PostToolUse.some(h => h.hooks.some(x => x.command === 'token-diet filter')));
+  assert.ok(set.hooks.PreToolUse.some(h => h.hooks.some(x => x.command === 'token-diet readgate')));
   rm(root);
 });
 
@@ -70,13 +74,14 @@ test('installPreCommit upgrades a stale single-line hook to the smart resolver (
   rm(root);
 });
 
-test('runSetup --activate wires the filter LIVE in one command (mode: active)', async () => {
+test('runSetup --activate brings the WHOLE stack LIVE in one command (filter + readgate active)', async () => {
   const root = tmpDir();
   fs.mkdirSync(path.join(root, '.git'), { recursive: true });
   await silent(() => S.runSetup({ dir: root, activate: true }));
-  const cfg = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'filter.json'), 'utf8'));
-  assert.equal(cfg.enabled, true);
-  assert.equal(cfg.mode, 'active');          // --activate goes straight live
+  const cfg  = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'toolout', 'filter.json'), 'utf8'));
+  const gate = JSON.parse(fs.readFileSync(path.join(root, '.claude', 'readgate', 'config.json'), 'utf8'));
+  assert.equal(cfg.mode, 'active');          // --activate goes straight live...
+  assert.equal(gate.mode, 'active');         // ...for both hooks — hands-off, one command
   rm(root);
 });
 

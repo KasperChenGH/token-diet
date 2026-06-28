@@ -69,18 +69,18 @@ Run the agent. It **measures** your real token usage, **finds** the structural w
 
 ### Mode 2 · Auto — `token-diet setup`  (set-and-forget)
 
-**The problem it fixes:** noisy command output — a test run, a `git diff`, a build log — gets re-sent to the model on *every* later turn, quietly inflating your bill. Auto mode runs a filter that compresses that output the moment it appears, so the bloat never piles up. Nothing to review — it just works in the background.
+**The problem it fixes:** the same context gets re-sent to the model on *every* later turn — noisy command output (a test run, a `git diff`, a build log) and files an agent re-reads even though they haven't changed. Both quietly inflate your bill. Auto mode runs two background hooks — the **output filter** (compresses verbose tool output the moment it appears) and the **read-path gate** (skips redundant in-session re-reads of unchanged files) — so the bloat never piles up. Nothing to review, nothing to activate piece by piece — one command does the whole stack.
 
 **Fastest — one command, then reload:**
 
 ```bash
-token-diet setup --activate   # wires the filter AND turns compression on
-# → reload Claude Code — it now compresses verbose tool output automatically
+token-diet setup --activate   # wires the filter + readgate AND turns them both live
+# → reload Claude Code — verbose output is compressed and redundant re-reads are skipped automatically
 ```
 
-That's the whole thing — set-and-forget once active. The full original output is always kept in `.claude/toolout/` so nothing is ever lost, and you can `token-diet filter --disable` anytime.
+That's the whole thing — set-and-forget. Both are fully recoverable: the full original tool output is kept in `.claude/toolout/`, the gated file stays on disk, and you can `token-diet filter --disable` / `token-diet readgate --disable` anytime.
 
-**Prefer to preview first?** Run `token-diet setup` without `--activate` — it wires the filter in **audit** (watch-only) mode, changing nothing; check `token-diet filter --report` to see what it *would* cut, then `token-diet filter --activate` when you're happy.
+**Prefer to preview first?** Run `token-diet setup` without `--activate` — it wires *both* hooks in **audit** (watch-only) mode, changing nothing; check `token-diet filter --report` and `token-diet readgate --report` to see what they *would* cut, then `token-diet setup --activate` when you're happy.
 
 <details>
 <summary>Bonus: <code>setup</code> also catches structural <b>drift</b> over time</summary>

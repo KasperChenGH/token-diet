@@ -6,6 +6,16 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+### Changed
+- **Auto-mode is now one decision, not a checklist.** `token-diet setup` wires the *whole* background
+  stack — the output filter (Lever 8) **and** the read-path gate (Lever 3) — in lockstep: plain `setup`
+  puts both in AUDIT (records what they'd save, sessions unchanged); `setup --activate` brings both
+  LIVE in one command. Previously `setup` wired only the filter and printed "now hand-install the
+  readgate yourself" — which contradicted the point of a hands-off mode. The two hooks never go
+  half-wired now. Both remain fully recoverable (full output kept on disk; gated files stay on disk),
+  and `filter --disable` / `readgate --disable` turn either off. `route` and `trace` stay pointers —
+  they are not background hooks, so there is nothing to "activate."
+
 ## [0.11.0] - 2026-06-28
 
 Fill the **always-loaded-context** gaps a professionally-designed agentic workflow still leaves open

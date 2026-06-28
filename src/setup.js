@@ -1,17 +1,20 @@
 'use strict';
 /**
- * setup.js — one command that wires token-diet's ongoing protection. Deterministic + idempotent.
- *   1. installs the output filter in AUDIT mode (records savings, changes NOTHING)
- *   2. drops a git pre-commit hook that runs `token-diet review` as a drift reminder
- * The only thing left for the user is one switch — `filter --activate` — once they've
- * eyeballed `filter --report`. High-blast-radius things are never silently enabled.
+ * setup.js — one command that wires token-diet's whole hands-off stack. Deterministic + idempotent.
+ *   1. installs the output filter (Lever 8) — compresses verbose tool output
+ *   2. installs the read-path gate (Lever 3) — denies redundant in-session re-reads
+ *   3. drops a git pre-commit hook that runs `token-diet review` as a drift reminder
+ * Auto-mode is a SINGLE decision, not a checklist: plain `setup` wires the whole stack in AUDIT
+ * (records what it'd save, changes nothing); `setup --activate` brings the whole stack LIVE in one
+ * command. The two hooks always move together — never half-wired, never silently crossed.
  */
-const fs      = require('fs');
-const path    = require('path');
-const os      = require('os');
-const filter  = require('./filter');
-const review  = require('./review');
-const history = require('./history');
+const fs       = require('fs');
+const path     = require('path');
+const os       = require('os');
+const filter   = require('./filter');
+const readgate = require('./readgate');
+const review   = require('./review');
+const history  = require('./history');
 
 const HOOK_MARK = '# token-diet review (drift reminder)';
 // Resolve token-diet however it was installed — works global OR project-scoped, no global
@@ -71,18 +74,19 @@ async function runSetup(opts = {}) {
   const root = opts.dir ? path.resolve(opts.dir) : process.cwd();
   console.log('\n=== token-diet setup — wiring ongoing protection ===');
 
-  // Don't downgrade a filter the user already activated; otherwise start in safe AUDIT.
-  // Probe the SAME location the install will write to (honor --global), not always the cwd.
+  // Don't downgrade a hook the user already activated; otherwise start in safe AUDIT. Probe the
+  // SAME location each install writes to (honor --global), not always the cwd. `--activate` is the
+  // one-command hands-off path: it brings the WHOLE stack live at once. Default stays AUDIT (records
+  // only) so the gate is never crossed silently — but the two hooks always move together.
   const base = opts.global ? os.homedir() : root;
-  let mode = 'audit';
-  try {
-    if (JSON.parse(fs.readFileSync(path.join(base, '.claude', 'toolout', 'filter.json'), 'utf8')).mode === 'active') mode = 'active';
-  } catch { /* no config yet → audit */ }
-  // `--activate` is the opt-in one-command path: wire + go live immediately (skip the audit
-  // preview). Default stays AUDIT (records only) so the gate is never crossed silently.
-  if (opts.activate) mode = 'active';
-  filter.runInstall(opts);             // install the hook (disabled)
-  filter.setState(opts, true, mode);   // AUDIT by default, or ACTIVE with --activate / if already live
+  const probeActive = (p) => { try { return JSON.parse(fs.readFileSync(p, 'utf8')).mode === 'active'; } catch { return false; } };
+  const live = !!opts.activate;
+  const filterMode = live || probeActive(path.join(base, '.claude', 'toolout', 'filter.json'))  ? 'active' : 'audit';
+  const gateMode   = live || probeActive(path.join(base, '.claude', 'readgate', 'config.json')) ? 'active' : 'audit';
+  filter.runInstall(opts);                  // output filter (Lever 8) — compresses verbose tool output
+  filter.setState(opts, true, filterMode);
+  readgate.runInstall(opts);                // read-path gate (Lever 3) — denies redundant in-session re-reads
+  readgate.setState(opts, true, gateMode);
 
   const pc = installPreCommit(root);
   console.log(`  pre-commit drift reminder: ${pc.ok ? pc.status : 'skipped — ' + pc.reason}`);
@@ -97,21 +101,20 @@ async function runSetup(opts = {}) {
     }
   } catch { /* best-effort */ }
 
-  if (mode === 'active') {
-    console.log('\nWired + LIVE. The filter will COMPRESS verbose tool output automatically.');
-    console.log('  • reload Claude Code to start  •  measured savings: token-diet filter --report');
-    console.log('  • turn off anytime: token-diet filter --disable  •  full output kept in .claude/toolout/\n');
+  if (filterMode === 'active' && gateMode === 'active') {
+    console.log('\nWired + LIVE (hands-off). The filter COMPRESSES verbose tool output and the readgate');
+    console.log('DENIES redundant in-session re-reads — both fully recoverable (full content kept on disk).');
+    console.log('  • reload Claude Code to start  •  savings: token-diet filter --report  /  readgate --report');
+    console.log('  • turn off anytime: token-diet filter --disable  /  token-diet readgate --disable\n');
   } else {
-    console.log('\nWired. The filter is RECORDING in audit mode — your output is unchanged.');
-    console.log('  • preview savings  : token-diet filter --report');
-    console.log('  • go live (1 switch): token-diet filter --activate   (or re-run: token-diet setup --activate)');
+    console.log('\nWired in AUDIT — the filter and readgate RECORD what they would save; your sessions are unchanged.');
+    console.log('  • preview savings  : token-diet filter --report   and   token-diet readgate --report');
+    console.log('  • go live, one cmd : token-diet setup --activate   (brings the filter + readgate live together)');
     console.log('  • full audit anytime: /token-diet\n');
   }
-  // setup keeps a deliberately small, low-blast-radius default (filter audit + drift gate). The other
-  // opt-in gates are pointed to here so both modes stay aware of them without silently adding a
-  // per-read hook (readgate) or writing a router config the user hasn't asked for.
-  console.log('Optional next gates (separate opt-in — not wired by setup):');
-  console.log('  • read-path dedup : token-diet readgate --install && token-diet readgate --enable  (audit-first)');
+  // The remaining tools are NOT background hooks — there is nothing to "activate". route writes a rule
+  // table you edit + invoke per task; trace is a read-only diagnostic. So they stay pointers, not wiring.
+  console.log('Also available (not background hooks — nothing to activate):');
   console.log('  • model routing   : token-diet route --scaffold   (Lever 7 rule table; classify with route --classify)');
   console.log('  • behavioral waste: token-diet trace   (loops/retries + delegation-fit from real sessions; also surfaced in `savings`)\n');
 }

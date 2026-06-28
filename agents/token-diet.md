@@ -63,13 +63,13 @@ to drop the editable model-routing rule table (`.claude/router/rules.json`); the
 tasks with `token-diet route --classify "<task>"` and pins the suggested model in the agent/command
 frontmatter. If the project calls **MCP servers**, note that adding `"mcp__*"` to the filter's `tools`
 allowlist extends Lever 8 compression to MCP responses (the largest unfiltered tool-output pool).
-Then OFFER (one approval) to run `token-diet setup` — it wires the output filter in AUDIT mode
-(records only, output unchanged) + a pre-commit drift reminder, so future regressions are caught
-automatically. The filter stays in audit until the user runs `filter --activate`; never auto-activate.
-Then, separately, OFFER (one approval) to install the **read-path gate**:
-`token-diet readgate --install` + `--enable` (AUDIT mode — records redundant within-session re-reads,
-denies nothing). It is the read-path twin of the output filter; same rules — audit-first, never
-auto-activate, `readgate --activate` only after the user has reviewed `readgate --report`.
+Then OFFER (one approval) to run `token-diet setup` — one command that wires the whole background
+stack: the output filter (Lever 8) **and** the read-path gate (Lever 3), plus a pre-commit drift
+reminder. Plain `setup` wires both in AUDIT (records what they'd save, sessions unchanged); the user
+goes live with one switch, `token-diet setup --activate` (filter + readgate together). In the
+interactive agent, default to the AUDIT offer and let the user opt into `--activate`; never silently
+cross to live yourself. (Users who run the standalone `token-diet setup` CLI in auto-mode pass
+`--activate` to skip the audit preview and go hands-off in one command.)
 
 ## Hard rules
 - Never reduce information irrecoverably. Trim = move to a reference, never delete.
