@@ -8,7 +8,7 @@
 
 > **Token observability for your AI agents — read your real transcripts, see where the architecture wastes tokens, and restructure it.**
 
-![token-diet demo — the Lever 8 filter cutting tool output ~96%, then grading a wasteful project against the 8 levers and projecting the savings](docs/demo.gif)
+![token-diet demo — the Lever 8 filter cutting tool output ~96%, then grading a wasteful project against the 8 levers and projecting the savings](https://raw.githubusercontent.com/KasperChenGH/token-diet/master/docs/demo.gif)
 
 Agentic pipelines burn tokens *structurally* — too many helper agents, instruction files reloaded every step, results recomputed, verbose output re-sent every turn — because of *how they're built*, not *what they say*. **token-diet** is a Claude Code agent + CLI + skill that measures where your tokens actually go (from real usage logs, not estimates), sorts the waste into **8 levers**, and fixes it — moving content to references, never deleting.
 
@@ -35,7 +35,7 @@ Grade: F
 
 ## Install the agent — global or project-scoped (your choice)
 
-> **Install:** the npm package is **`token-diet-cli`** (npm's name guard blocked the bare `token-diet`) — but the command it installs is just **`token-diet`**. GitHub install also works (`npm i -g github:KasperChenGH/token-diet#v0.9.1`) for pinning a release or the bleeding edge.
+> **Install:** the npm package is **`token-diet-cli`** (npm's name guard blocked the bare `token-diet`) — but the command it installs is just **`token-diet`**. GitHub install also works (`npm i -g github:KasperChenGH/token-diet#v0.11.0`) for pinning a release or the bleeding edge.
 
 The CLI is the engine; the `/token-diet` agent drives it. Pick the scope that fits — they're fully separate, and **project-scoped needs no global install at all**:
 
@@ -96,7 +96,7 @@ The fix itself stays manual by design: re-optimizing means an LLM editing your f
 ```bash
 # MEASURE — where do tokens actually go?
 token-diet audit   [--days 7] [--project myapp]   # usage by session-kind × model + heaviest sessions
-token-diet agents                                  # useful-work ratio per agent; flags READING NOT THINKING
+token-diet agents                                  # useful-work ratio per agent file; flags READING NOT THINKING
 
 # DIAGNOSE — what structural waste exists?
 token-diet diagnose                                # red flags mapped to levers

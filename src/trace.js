@@ -188,7 +188,7 @@ function computeWaste(events, records, loops, retries) {
   const totalRecords = records.length;
   let wasteRaw = 0, wasteEffective = 0;
   const items = [];
-  const addEvent = (kind, e, label) => {
+  const addEvent = (e) => {
     const introduced = e.resultTokens;
     const resend = 1 + resendTurns(e.recIdx, totalRecords, compactions);
     const effective = introduced * resend;
@@ -197,12 +197,12 @@ function computeWaste(events, records, loops, retries) {
   };
   for (const lp of loops) {
     let raw = 0, eff = 0;
-    for (let k = lp.start + 1; k <= lp.end; k++) { const w = addEvent('loop', events[k]); raw += w.introduced; eff += w.effective; }   // keep the first call; reps 2..N are waste
+    for (let k = lp.start + 1; k <= lp.end; k++) { const w = addEvent(events[k]); raw += w.introduced; eff += w.effective; }   // keep the first call; reps 2..N are waste
     items.push({ kind: 'loop', tool: lp.tool, count: lp.count, turns: [events[lp.start].recIdx, events[lp.end].recIdx], raw, effective: eff });
   }
   for (const rt of retries) {
     let raw = 0, eff = 0;
-    for (let k = rt.start + 1; k <= rt.end; k++) { const w = addEvent('retry', events[k]); raw += w.introduced; eff += w.effective; }  // first failure is a legit attempt; re-failures are waste
+    for (let k = rt.start + 1; k <= rt.end; k++) { const w = addEvent(events[k]); raw += w.introduced; eff += w.effective; }  // first failure is a legit attempt; re-failures are waste
     items.push({ kind: 'retry', tool: rt.tool, count: rt.count, turns: [events[rt.start].recIdx, events[rt.end].recIdx], raw, effective: eff });
   }
   const sessionTotal = records.reduce((s, r) => s + (r.input || 0) + (r.cacheWrite || 0) + (r.cacheRead || 0) + (r.output || 0), 0);

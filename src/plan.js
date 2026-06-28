@@ -16,6 +16,7 @@ const fs   = require('fs');
 const path = require('path');
 const os   = require('os');
 const { scanAll }     = require('./scan');
+const { charsPerToken } = require('./collectors');   // per-extension token math — keep in sync with review/estimate
 const { buildChangeset } = require('./changeset');
 const { appendRun }      = require('./history');
 const { writeFileAtomic } = require('./atomic');
@@ -132,7 +133,7 @@ function computeOverheadItems(dir) {
       try {
         const content = fs.readFileSync(filePath, 'utf8');
         lines = content.split('\n').length;
-        tokens = Math.round(fs.statSync(filePath).size / 4);
+        tokens = Math.round(fs.statSync(filePath).size / charsPerToken(filePath));
       } catch { /* skip */ }
       items.push({ file: filePath, scope, label, lines, tokens });
     }
@@ -174,7 +175,7 @@ function computeOverheadItems(dir) {
 // ── token-per-file size helper ────────────────────────────────────────────────
 
 function fileTokens(filePath) {
-  try { return Math.round(fs.statSync(filePath).size / 4); }
+  try { return Math.round(fs.statSync(filePath).size / charsPerToken(filePath)); }
   catch { return 0; }
 }
 

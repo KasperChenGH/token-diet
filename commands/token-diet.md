@@ -26,11 +26,11 @@ Relay the agent's enriched plan back to the user for approval. Do not execute Ph
 
 ## /token-diet status — read-only audit
 
-If the user types `/token-diet status`, do not spawn the full agent. Instead run these two commands directly and summarize the output in under 20 lines:
+If the user types `/token-diet status`, do not spawn the full agent. Instead run these two commands directly and summarize the output in under 20 lines. Resolve the CLI the same way the agent's Phase 0 does — prefer a vendored project copy (`node .claude/token-diet/bin/token-diet.js …`) before the global `token-diet`, since a project-scoped install has no global binary:
 
 ```
-token-diet audit --days 7
-token-diet review --dir .
+token-diet audit --days 7      # or: node .claude/token-diet/bin/token-diet.js audit --days 7
+token-diet review --dir .      # or: node .claude/token-diet/bin/token-diet.js review --dir .
 ```
 
 Report: avg output/day, avg calls/day, per-spawn overhead tokens (from the review's overhead snapshot), top 3 flagged levers (if any). No plan, no edits.

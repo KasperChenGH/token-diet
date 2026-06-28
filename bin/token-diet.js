@@ -65,6 +65,7 @@ function parseArgs(argv) {
     failUnder:  null,
     scaffold:   false,
     classify:   null,
+    session:    null,   // compact: which session to summarise (id prefix; default = most recent)
     minReads:   null,
     share:      false,
     record:     false,
@@ -203,7 +204,7 @@ DIAGNOSE
               delegation-fit (Lever 1) — exploration clusters in main that a subagent should
               isolate, + over-delegated tiny subagents. The dynamic counterpart to static review.
               --days N --project s [--json]
-  diagnose    Six waste heuristics with lever labels and addressable share estimates
+  diagnose    Seven waste heuristics with lever labels and addressable share estimates
   overhead    [DEPRECATED — folded into review] Static always-loaded burden (Lever 6).
               Prints a deprecation notice; use 'token-diet review' for the overhead snapshot.
 
@@ -261,7 +262,8 @@ OPTIONS
   --spawns N        estimate: assumed subagent spawns per run (default: derived)
   --turns N         estimate: assumed turns per agent (default: derived)
   --toolout W       estimate: tool-output weight low|med|high (default: derived)
-  --out <file>      Output file for plan (default: diet-plan.md)
+  --out <file>      Output file for plan / compact (default: stdout, or diet-plan.md for plan)
+  --session <id>    compact: which session to summarise (id prefix; default = most recent)
   --before-days A   Compare: start of "before" window (days ago)
   --after-days B    Compare: boundary between before/after (days ago); "after" = last B days
   --global          init: install to ~/.claude/skills/ instead of project .claude/skills/

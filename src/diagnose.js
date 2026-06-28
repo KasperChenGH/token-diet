@@ -18,6 +18,7 @@
 const path     = require('path');
 const fs       = require('fs');
 const { scanAll } = require('./scan');
+const { charsPerToken } = require('./collectors');   // per-extension token math — keep in sync with review/estimate
 
 function fmt(n) { return Math.round(n).toLocaleString('en-US'); }
 function padL(s, w) { return String(s).padEnd(w); }
@@ -44,11 +45,11 @@ function resendProjection(amplified, cacheRead) {
 function deriveSourceKey(toolCall) {
   if (!toolCall) return 'unmatched';
   const { name, input } = toolCall;
-  if (name === 'Bash' || name === 'bash') {
+  if (name === 'Bash' || name === 'bash' || name === 'PowerShell') {
     const cmd = (input && input.command) || '';
     const firstToken = cmd.trimStart().split(/\s+/)[0];
     if (!firstToken) return 'bash:other';
-    // strip path separators so "/usr/bin/python" → "python"
+    // strip path separators so "/usr/bin/python" → "python" (mirror the filter/trace shells-alike rule)
     const prog = firstToken.replace(/.*[/\\]/, '');
     return prog || 'bash:other';
   }
@@ -266,7 +267,7 @@ async function runDiagnose(opts = {}) {
       let estTok = '?';
       try {
         const stat = fs.statSync(fp);
-        estTok = fmt(Math.round(stat.size / 4));
+        estTok = fmt(Math.round(stat.size / charsPerToken(fp)));
       } catch { /* file missing or no access */ }
       const shortPath = fp.length > 58 ? '...' + fp.slice(-55) : fp;
       const cols = [shortPath, String(cnt), estTok];

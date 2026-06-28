@@ -20,7 +20,7 @@ function deriveSpawns(cmdFiles) {
     if (!content) continue;
     for (const m of content.matchAll(/\b(\d+)\s+(?:sub)?agents?\b/gi)) {
       const n = parseInt(m[1], 10);
-      if (n > max) max = n;
+      if (n > max) max = Math.min(n, 20);   // sanity ceiling: "spawn 500 agents" is prose, not a per-run rate
     }
     const sig = (content.match(new RegExp(C.SPAWN_RE.source, 'gi')) || []).length;
     if (sig > max) max = Math.min(sig, 10);

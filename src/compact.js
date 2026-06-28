@@ -24,7 +24,7 @@ function pickSession(records, opts = {}) {
   }
   let best = null, bestTs = -1;
   for (const [file, recs] of byFile) {
-    const ts = recs.reduce((m, r) => { const t = Date.parse(r.timestamp || 0); return isNaN(t) ? m : Math.max(m, t); }, 0);
+    const ts = recs.reduce((m, r) => { const t = r.timestamp ? Date.parse(r.timestamp) : NaN; return isNaN(t) ? m : Math.max(m, t); }, 0);
     if (ts > bestTs) { bestTs = ts; best = { file, recs }; }
   }
   return best;
