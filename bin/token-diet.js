@@ -13,7 +13,7 @@
  *   token-diet overhead  [--dir <path>=cwd] [--json]
  *   token-diet plan      [--days N=7] [--project <slug>] [--out diet-plan.md]
  *   token-diet fix       --changeset <file> [--only 1,3] [--dry-run | --verify]
- *   token-diet filter    --install | --self-test | --enable | --disable | --uninstall
+ *   token-diet filter    --install | --self-test | --enable | --activate | --disable | --report | --uninstall
  *   token-diet readgate  --install | --self-test | --enable | --activate | --disable | --report | --uninstall
  *   token-diet route     --classify "<task>" | --scaffold | --self-test [--json]
  *   token-diet compare   --before-days A --after-days B [--project <slug>] [--json]
@@ -21,7 +21,7 @@
  *   token-diet digest    [--days N=7] [--project <slug>] [--min-reads N=3] [--scaffold] [--dir <path>]
  *   token-diet savings   [--dir <path>=cwd] [--share] [--dry-run] [--json]
  *   token-diet init      [--global] [--dir <path>]
- *   token-diet setup     wire the filter (audit) + a pre-commit drift gate in one command
+ *   token-diet setup     wire the filter + readgate (audit) + a pre-commit drift gate in one command
  *
  * Data source: ~/.claude/projects/<project-slug>/*.jsonl
  *              (agent-*.jsonl files are classified as "subagent" sessions)
@@ -238,9 +238,9 @@ ACT
               Default (project): <cwd>/.claude/ — also VENDORS the zero-dep CLI into
               .claude/token-diet/ so the project runs with NO global install (any project type).
               --global: ~/.claude/ (no vendoring; relies on the global token-diet binary)
-  setup       Wire ongoing protection in one shot: output filter (AUDIT mode — records only,
-              no changes) + a pre-commit drift reminder. Then 'filter --activate' when ready —
-              or 'setup --activate' to wire AND go live immediately (skip the audit preview).
+  setup       Wire the whole background stack in one shot: output filter (Lever 8) + read-path gate
+              (Lever 3), both in AUDIT (records only, no changes) + a pre-commit drift reminder.
+              Then 'setup --activate' to bring BOTH hooks live together (skip the audit preview).
 
 VERIFY
   compare     Before vs after: per-day averages, delta %, verdict line

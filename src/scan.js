@@ -202,6 +202,7 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
   const toolCallsById  = new Map();  // tool_use_id → { name, input } for the Lever 8 join
   const fileToolResults = [];        // { tool_use_id, result_tokens, calls_before } (Lever 8)
   let firstUserText = null;          // the session's opening prompt (intent), for `compact`
+  let userTextScans = 0;             // bounds the pre-filter relaxation used to find that prompt
 
   const processLine = (line) => {
     // Cheap substring pre-filter before the (expensive) JSON.parse: only assistant lines
@@ -210,7 +211,13 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
     // large CPU win (~58% of lines in a real 97 MB session). No false skips (a real assistant
     // line always has "usage", a tool_result line "tool_result"); a false KEEP is harmless,
     // discarded by the type checks below.
-    if (line.indexOf('"usage"') < 0 && line.indexOf('tool_result') < 0) return;
+    if (line.indexOf('"usage"') < 0 && line.indexOf('tool_result') < 0) {
+      // The opening user prompt (for `compact`'s intent) is a plain text line — it carries neither
+      // marker, so it would be skipped here. Let early user-type lines through until we've captured it,
+      // bounded by MAX_USER_TEXT_SCANS so a command-only session can't defeat the fast pre-filter.
+      if (firstUserText != null || userTextScans >= 40 || line.indexOf('"type":"user"') < 0) return;
+      userTextScans++;
+    }
     let obj;
     try { obj = JSON.parse(line); }
     catch { return; }
@@ -219,8 +226,11 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
     if (obj.type === 'user') {
       const uc = obj.message && obj.message.content;
       if (firstUserText == null && uc) {   // capture the opening prompt (intent) for `compact`
-        if (typeof uc === 'string') firstUserText = uc;
-        else if (Array.isArray(uc)) { const t = uc.find(c => c && c.type === 'text' && c.text); if (t) firstUserText = t.text; }
+        // Skip tag-wrapped meta (<local-command-caveat>, <command-name>, <system-reminder>, …) and
+        // caveats — keep scanning for the first REAL typed prompt; a command-only session stays null.
+        const pick = (s) => { const t = (s || '').trim(); if (t && t[0] !== '<' && !/^caveat:/i.test(t)) firstUserText = t; };
+        if (typeof uc === 'string') pick(uc);
+        else if (Array.isArray(uc)) { const t = uc.find(c => c && c.type === 'text' && c.text); if (t) pick(t.text); }
       }
       if (obj.message && Array.isArray(obj.message.content)) {
         for (const c of obj.message.content) {
@@ -364,7 +374,7 @@ async function streamFile(filePath, cutoffMs, onRecord, onFileDone) {
  * Main entry: scan all matching project dirs for records in the last N days.
  * Returns Promise<{ records, fileMeta }>
  *   records  — array of per-call records (existing shape, unchanged)
- *   fileMeta — Map<filePath, { toolResults, toolCallsById, totalCalls }>
+ *   fileMeta — Map<filePath, { toolResults, toolCallsById, totalCalls, firstUserText }>
  *              (Lever 8 data; only populated for files that had at least one line)
  */
 // Margin (ms) subtracted from the cutoff before window-skipping a file by mtime:
@@ -425,6 +435,7 @@ async function scanAll(opts = {}) {
           toolResults:   meta.toolResults,
           toolCallsById: meta.toolCallsById,
           totalCalls:    meta.totalCalls,
+          firstUserText: meta.firstUserText,   // opening prompt (intent) for `compact` — must survive to fileMeta
         }; },
       );
     }

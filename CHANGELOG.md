@@ -36,7 +36,7 @@ the savings are structural, not behavioral.
     per-turn context.
   - **Prompt quality / altitude (Lever 6):** flags always-loaded files that encode control flow in
     prose — many `if/else` directives, long edge-case bullet runs, or redundant example blocks.
-  - **Knowledge duplication (Lever 5):** paragraph-shingle match across always-loaded files; flags
+  - **Knowledge duplication (Lever 5):** exact normalized-paragraph match across always-loaded files; flags
     blocks repeated in 2+ files (each copy re-sends every turn).
 - **`trace` — context-pressure detector (Lever 3):** flags sessions that held a near-full context for
   most of the run (peak cache_read + sustained near-full share), reported separately from MEASURED /

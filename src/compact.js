@@ -9,7 +9,10 @@ const { scanAll } = require('./scan');
 const fs   = require('fs');
 const path = require('path');
 
-const MUTATING = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
+// File-writing tools only — these produce the "files changed" artifacts. Deliberately NARROWER than
+// trace.js's MUTATING_TOOLS (which also excludes Task*/Todo* tools from loop detection): a TodoWrite
+// is not a file artifact, so it must not land in the handover's file list.
+const FILE_MUTATING = new Set(['Edit', 'Write', 'MultiEdit', 'NotebookEdit']);
 
 // Pick the target session: --session <id-prefix>, else the most recently active.
 function pickSession(records, opts = {}) {
@@ -30,7 +33,7 @@ function pickSession(records, opts = {}) {
 // Deterministically extract artifacts (files edited/written, git commits) + next-steps (open TODOs).
 function extractArtifacts(recs, meta = {}) {
   const files = new Set();
-  for (const r of recs) for (const tc of (r.toolCalls || [])) if (MUTATING.has(tc.name) && tc.filePath) files.add(tc.filePath);
+  for (const r of recs) for (const tc of (r.toolCalls || [])) if (FILE_MUTATING.has(tc.name) && tc.filePath) files.add(tc.filePath);
   const byId = meta.toolCallsById instanceof Map ? meta.toolCallsById : new Map(Object.entries(meta.toolCallsById || {}));
   const commits = []; let lastTodos = null;
   for (const [, v] of byId) {
@@ -41,7 +44,7 @@ function extractArtifacts(recs, meta = {}) {
     if (v.name === 'TodoWrite' && v.input && Array.isArray(v.input.todos)) lastTodos = v.input.todos;
   }
   const nextSteps = lastTodos
-    ? lastTodos.filter(t => t && t.status !== 'completed').map(t => (t.content || t.activeForm || String(t)))
+    ? lastTodos.filter(t => t && t.status !== 'completed').map(t => (t.content || t.activeForm || '')).filter(Boolean)
     : [];
   return { files: [...files], commits, nextSteps };
 }

@@ -1,7 +1,12 @@
 'use strict';
 const { test } = require('node:test');
 const assert   = require('node:assert/strict');
+const { execFileSync } = require('node:child_process');
+const path     = require('path');
+const { tmpDir, writeFile, rm } = require('./helpers');
 const C = require('../src/compact');
+
+const BIN = path.join(__dirname, '..', 'bin', 'token-diet.js');
 
 test('pickSession: --session prefix-matches; else most recent by timestamp', () => {
   const recs = [
@@ -40,4 +45,27 @@ test('renderHandover emits the three sections', () => {
   assert.match(md, /## artifacts/);
   assert.match(md, /commit: feat: y/);
   assert.match(md, /## next-steps\n- \[ \] next/);
+});
+
+// Integration (regression): the opening prompt must survive scan's fast pre-filter AND the
+// scanAll→fileMeta hand-off into compact's intent. This path silently broke once (firstUserText
+// dropped between streamFile and scanAll), so it is locked end-to-end through the real binary.
+test('compact extracts the real opening prompt as intent — skipping command/meta wrappers', () => {
+  const home = tmpDir();
+  const now  = new Date().toISOString();
+  const lines = [
+    JSON.stringify({ type: 'user', message: { content: '<local-command-caveat>Caveat: ran a local command' } }), // meta → skipped
+    JSON.stringify({ type: 'user', message: { content: 'build the JSONL parser' } }),                             // the real intent
+    JSON.stringify({ type: 'assistant', requestId: 'r1', timestamp: now, message: { model: 'claude-opus-4',
+      usage: { input_tokens: 0, cache_creation_input_tokens: 0, cache_read_input_tokens: 0, output_tokens: 10 },
+      content: [{ type: 'tool_use', id: 't1', name: 'Edit', input: { file_path: 'src/parser.js' } }] } }),
+    JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok' }] } }),
+  ].join('\n') + '\n';
+  writeFile(home, '.claude/projects/proj/sess.jsonl', lines);
+  const env = { ...process.env, HOME: home, USERPROFILE: home };
+  const out = execFileSync('node', [BIN, 'compact', '--session', 'sess', '--days', '3650'], { encoding: 'utf8', env });
+  assert.match(out, /## intent\nbuild the JSONL parser/);   // captured the real prompt...
+  assert.doesNotMatch(out, /local-command-caveat/);         // ...not the meta wrapper
+  assert.match(out, /src[\/]parser\.js/);                  // artifact joined from the tool_use
+  rm(home);
 });

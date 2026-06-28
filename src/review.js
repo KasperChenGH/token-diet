@@ -581,7 +581,9 @@ function checkVerbose(allCommandFiles, findings) {
 
 // ── Knowledge duplication (Lever 5): the same block in 2+ always-loaded files ──
 // Static counterpart to trace's behavioral diagnosis — duplicated knowledge is loaded once PER file,
-// every spawn. Paragraph-shingle the always-loaded files; flag blocks present in 2+ distinct files.
+// every spawn. Match whole paragraphs (normalized: whitespace collapsed, lower-cased) across the
+// files; flag a block present in 2+ distinct files. Exact-paragraph match — a one-word edit defeats
+// it, so this catches copy-paste blocks, not paraphrases (deliberately: zero false positives).
 function checkDuplication(allCommandFiles, findings) {
   const MIN_CHARS = 120;   // ~30 tokens; below this, matches are trivial (headers, `---`, common lines)
   const blocks = new Map();
