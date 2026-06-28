@@ -6,6 +6,32 @@ and the project aims to follow [Semantic Versioning](https://semver.org/spec/v2.
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-06-28
+
+Refinements to the 0.11 line: one auto-mode behavior change plus a batch of fixes from two
+self-review passes (a critical `compact` bug, cross-command number alignment, and doc accuracy).
+
+### Fixed
+- **`compact`'s intent was always empty (the feature was half-broken).** Two stacked bugs: `scanAll`
+  dropped `firstUserText` when assembling `fileMeta`, and scan's fast pre-filter discarded the opening
+  user prompt (a plain text line with no `usage`/`tool_result` marker). Relaxed the pre-filter to let
+  early user-type lines through (bounded) and skip tag-wrapped command/meta. Intent now resolves for
+  138/146 real sessions (was 0); locked with an end-to-end test through the binary.
+- **Cross-command token math disagreed.** `plan` and `diagnose` estimated tokens with a flat `size/4`
+  while `review`/`estimate` use per-extension ratios — the same file reported different counts across
+  commands. All routes now use `collectors.charsPerToken` (uniform everywhere).
+- **`diagnose` mis-bucketed PowerShell output** as a single row (only `Bash` was special-cased); now
+  per-program, matching how `trace`/`filter`/`compact` treat the two shells.
+- **`trace`'s context-pressure detector never fired** on real data — it measured proximity to a
+  session's own peak, but heavy sessions sawtooth (compact → regrow). Redefined as the share of calls
+  carrying a large context (compaction-agnostic); now flags real sessions correctly.
+- **`review/checkToolSurface` ignored `~/.claude.json`** — the canonical store `claude mcp add` writes
+  to; local MCP servers were silently missed. Added the scan.
+- **Doc accuracy:** help said "Six" waste heuristics (it's seven); stale `#v0.9.1` README install pin
+  → `#v0.11.0`; npm-page demo image pointed at a non-shipped path → absolute raw URL; `/token-diet
+  status` now resolves a vendored CLI (was bare `token-diet`, which fails in project-scoped installs).
+- **`estimate`** clamped an explicit "spawn N agents" count (a prose "500" no longer inflates the bill).
+
 ### Changed
 - **Auto-mode is now one decision, not a checklist.** `token-diet setup` wires the *whole* background
   stack — the output filter (Lever 8) **and** the read-path gate (Lever 3) — in lockstep: plain `setup`
@@ -282,7 +308,8 @@ shipped:
   fix · filter · digest · compare · init · setup`, reading real Claude Code transcripts with
   per-`requestId` dedup.
 
-[Unreleased]: https://github.com/KasperChenGH/token-diet/compare/v0.11.0...HEAD
+[Unreleased]: https://github.com/KasperChenGH/token-diet/compare/v0.11.1...HEAD
+[0.11.1]: https://github.com/KasperChenGH/token-diet/compare/v0.11.0...v0.11.1
 [0.11.0]: https://github.com/KasperChenGH/token-diet/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/KasperChenGH/token-diet/compare/v0.9.1...v0.10.0
 [0.9.1]: https://github.com/KasperChenGH/token-diet/compare/v0.9.0...v0.9.1
