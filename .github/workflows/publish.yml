@@ -1,14 +1,16 @@
 name: Publish to npm
 
-# Publishes token-diet to the npm registry WITH provenance, via OIDC trusted publishing
+# Publishes token-diet-cli to the npm registry WITH provenance, via OIDC trusted publishing
 # (no NPM_TOKEN secret needed).
 #
 # ONE-TIME SETUP on npmjs.com before the first run:
-#   1. Sign in to npmjs.com as the package owner.
-#   2. Reserve / create the `token-diet` package (or, for an existing one, open its Settings).
+#   1. Sign in to npmjs.com as the package owner (kasperchen_npm).
+#   2. Open the `token-diet-cli` package Settings (NOTE: the npm package is `token-diet-cli` —
+#      the bare `token-diet` name is blocked by npm's name guard; do NOT configure `token-diet`).
 #   3. Under "Trusted Publisher", add a GitHub Actions publisher pointing at:
 #         repository: KasperChenGH/token-diet   workflow: publish.yml
 #   The repository.url in package.json already matches this repo (required for provenance).
+#   Until this is done, the publish step fails with: 404 PUT .../token-diet-cli (not authorized).
 #
 # After that, run this workflow manually: Actions tab -> "Publish to npm" -> "Run workflow".
 on:
