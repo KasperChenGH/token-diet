@@ -34,11 +34,20 @@
   },
   "keywords": [
     "claude",
+    "claude-code",
     "tokens",
-    "audit",
+    "token-optimization",
+    "token-reduction",
     "llm",
     "cost",
+    "cost-optimization",
+    "agentic",
+    "ai-agents",
+    "context-engineering",
+    "cache",
+    "audit",
     "optimization",
+    "cli",
     "agent"
   ],
   "publishConfig": {
